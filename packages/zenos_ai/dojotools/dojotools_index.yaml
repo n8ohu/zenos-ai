@@ -772,6 +772,7 @@ script:
         sequence:
         - variables:
             expanded_entities: '{{ entities_base }}'
+            response: '{}'
         alias: Expand = false
       alias: 'Prepare [ Expand ] Result Set '
     - variables:
