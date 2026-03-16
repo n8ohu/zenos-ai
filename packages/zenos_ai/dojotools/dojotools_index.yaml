@@ -394,7 +394,7 @@ script:
               = ns.out | combine({'last_changed': last_changed, 'last_updated': last_updated})
               %}\n{% endif %}\n{% if _show_device and device_block is not none and device_block
               is mapping %}\n  {% set ns.out = ns.out | combine({'device': device_block})
-              %}\n{% endif %}\n{% if _show_volume %}\n  {% set ns.out = ns.out | combine({'volume':
+              %}\n{% endif %}\n{% if _show_volume and is_cabinet_sensor %}\n  {% set ns.out = ns.out | combine({'volume':
               volume_result}) %}\n{% endif %}\n{% if _show_attributes %}\n  {% set ns.out
               = ns.out | combine({'attributes': safe_attributes}) %}\n{% endif %}\n{% if
               _show_statistics %}\n  {% set ns.out = ns.out | combine({'statistics': statistics_result})
@@ -420,10 +420,10 @@ script:
         - variables:
             _fc_raw: "{{ _fc_label_response.result | default('{}') }}"
             drawer_blurbs: "{{ ((_fc_raw | from_json) if _fc_raw is string else _fc_raw
-              | default({})).get('drawers', {}) }}"
+              | default({})).get('drawers', {}) | tojson }}"
       default:
       - variables:
-          drawer_blurbs: '{}'
+          drawer_blurbs: '{{ {} | tojson }}'
     - variables:
         inspect_result:
           results: '{{ results }}'
@@ -776,7 +776,8 @@ script:
         alias: Expand = false
       alias: 'Prepare [ Expand ] Result Set '
     - variables:
-        matched_drawers: '{{ response.drawers | default({}) }}'
+        matched_drawers: "{{ (response.drawers | from_json) if response.drawers is
+          string else response.drawers | default({}) }}"
     - variables:
         adjacent_labels: "{%- set ns = namespace(labels=[]) -%} {%- for e in entities_base
           -%}\n  {%- set ns.labels = ns.labels + (labels(e) | list) -%}\n{%- endfor
