@@ -245,8 +245,7 @@ script:
         label_targets_input: "{% set _lt = label_targets | default([]) %}\n{% if _lt
           is iterable and _lt is not string %}\n  {{ _lt | map('trim') | map('lower')
           | reject('equalto', '') | list }}\n{% elif _lt is string and _lt | trim |
-          length > 0 %}\n  {{ _lt | trim | lower | replace(' ', '') | split(',') |
-          list }}\n{% else %}\n  []\n{% endif %}"
+          length > 0 %}\n  {{ _lt | trim | lower | replace(' ', '') | regex_findall('[^,]+') }}\n{% else %}\n  []\n{% endif %}"
         drawer_key_input: "{% set _dk = drawer_key | default('') %}{% if _dk is iterable
           and _dk is not string %}\n  {{ _dk | map('trim') | map('lower') | reject('equalto',
           '') | list }}\n{% elif _dk is string and _dk | trim | length > 0 %}\n  {{
