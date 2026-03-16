@@ -253,8 +253,8 @@ script:
           [_dk | trim | lower] }}\n{% else %}\n  []\n{% endif %}"
         output_fields_input: "{% set _of = output_fields | default([]) %}\n{% if _of
           is string and _of | trim | length > 0 %}\n  {{ _of | trim | lower | replace('
-          ', '') | split(',') | list }}\n{% elif _of is iterable and _of is not string
-          %}\n  {{ _of | map('lower') | map('trim') | list }}\n{% else %}\n  []\n{%
+          ', '') | regex_findall('[^,]+') }}\n{% elif _of is iterable and _of is not
+          string %}\n  {{ _of | map('lower') | map('trim') | list }}\n{% else %}\n  []\n{%
           endif %}"
         _show_timestamps: "{{ '-timestamps' not in output_fields_input }}"
         _show_device: "{{ '-device' not in output_fields_input }}"
@@ -327,16 +327,16 @@ script:
               state_class for statistics.\n{% endif %}"
             statistics_result: "{{ {\n  \"eligible\": stats_eligible,\n  \"reason\":
               stats_reason\n} }}"
-            device_block: "{% set dev_id = state_attr(current_entity, 'device_id')
-              %}\n{% if dev_id is not none %}\n  {% set idents = device_attr(dev_id,
+            device_block: "{% set dev_id = device_id(current_entity) %}\n{% if dev_id
+              is not none %}\n  {% set idents = device_attr(dev_id,
               'identifiers') or [] %}\n  {% set integ = idents[0][0] if (idents | length
               > 0 and idents[0] | length > 0) else none %}\n  {{ {\n    'device_id':
               dev_id,\n    'name': device_attr(dev_id, 'name'),\n    'manufacturer':
               device_attr(dev_id, 'manufacturer'),\n    'model': device_attr(dev_id,
               'model'),\n    'area_id': device_attr(dev_id, 'area_id'),\n    'integration':
               integ\n  } }}\n{% else %}\n  none\n{% endif %}"
-            device_tree: "{% if extended_mode %}\n  {% set dev_id = state_attr(current_entity,
-              'device_id') %}\n  {% if dev_id is not none %}\n    {% set via = device_attr(dev_id,
+            device_tree: "{% if extended_mode %}\n  {% set dev_id = device_id(current_entity)
+              %}\n  {% if dev_id is not none %}\n    {% set via = device_attr(dev_id,
               'via_device_id') %}\n    {% set siblings = device_entities(dev_id) |
               reject('equalto', current_entity) | list %}\n    {% set config_entries
               = device_attr(dev_id, 'config_entries') or [] %}\n    {{ {\n      'via_device_id':
