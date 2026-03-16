@@ -339,7 +339,7 @@ script:
               %}\n  {% if dev_id is not none %}\n    {% set via = device_attr(dev_id,
               'via_device_id') %}\n    {% set siblings = device_entities(dev_id) |
               reject('equalto', current_entity) | list %}\n    {% set config_entries
-              = device_attr(dev_id, 'config_entries') or [] %}\n    {{ {\n      'via_device_id':
+              = (device_attr(dev_id, 'config_entries') or []) | list %}\n    {{ {\n      'via_device_id':
               via,\n      'parent_name': device_attr(via, 'name') if via is not none
               else none,\n      'siblings': siblings,\n      'config_entries': config_entries\n
               \   } }}\n  {% else %}\n    none\n  {% endif %}\n{% else %}\n  none\n{%
