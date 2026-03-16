@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Index Cluster
-# Version: 4.0.0 RC2
+# Version: 4.2.1
 #
 # Scripts:
 #   zen_dojotools_query   — ZQ-1 entity filter/query engine
@@ -24,7 +24,7 @@ script:
 
   zen_dojotools_query:
     alias: Zen DojoTools Query
-    description: "Zen DojoTools Query “ZQ-1” (4.0.0 RC2)\nQuery is a deterministic entity
+    description: "Zen DojoTools Query “ZQ-1” (4.2.1)\nQuery is a deterministic entity
       selector. It takes a starting list of entity_ids (or an empty/null list) and runs
       them through a series of filters—domain, labels, areas, device_id, device_class,
       states, numeric ranges, regex, and semantic shortcuts. Each filter narrows the
@@ -90,7 +90,7 @@ script:
         sequence:
         - variables:
             help_json: "{{\n  {\n    \"tool\": \"Zen DojoTools Query (ZQ-1)\",\n    \"version\":
-              \"4.0.0 RC2\",\n    \"overview\":\n      \"ZQ-1 is a deterministic, multi-stage
+              \"4.2.1\",\n    \"overview\":\n      \"ZQ-1 is a deterministic, multi-stage
               entity filtering engine designed for Home Assistant. It consumes flexible
               JSON filter definitions and produces a fully evaluated list of entity_ids.
               Every filter acts conjunctively (logical AND), meaning each stage narrows
@@ -437,7 +437,7 @@ script:
       response_variable: inspect_result
     alias: Zen DojoTOOLS Inspect
     mode: parallel
-    description: Inspect (4.0.0 RC2). Deep dive on one or more entities. Attributes
+    description: Inspect (4.2.1). Deep dive on one or more entities. Attributes
       are key-scanned for safety. Cabinet sensors expose header metadata only; use cabinet
       tools for full volume access.
     fields:
@@ -507,7 +507,7 @@ script:
         - variables:
             query_help: '{{ zen_query_help | default({}) | tojson }}'
             help_json: "{{\n  {\n    \"tool\": \"Zen DojoTools Index\",\n    \"version\":
-              \"4.0.0 RC2\",\n    \"intent\": \"High-resolution reasoning. Convert
+              \"4.2.1\",\n    \"intent\": \"High-resolution reasoning. Convert
               arbitrary entity + label sets into a unified hypergraph suitable for fusion,
               summarization, planning, and contextual inference.\",\n    \"you_should_use_this_tool_when\":
               [\n      \"You need to combine labels, entities, or both into a logical
@@ -807,7 +807,7 @@ script:
     - stop: Zen DojoTools Index Complete
       response_variable: label_entity_logic_result
     alias: Zen DojoTools Index
-    description: 'Zen DojoTools (Hyper)Index (4.0.0 RC2). Universal HyperGraph Index
+    description: 'Zen DojoTools (Hyper)Index (4.2.1). Universal HyperGraph Index
       for entity and label reasoning.
   
       Merges labels, entities, drawers, and metadata into a unified, deterministic result
@@ -936,7 +936,7 @@ automation:
 
   - id: '1749771199185'
     alias: DojoTools Zen Index Event Handler
-    description: 'Event Listener (4.0.0 RC2) to recurse index calls.  REQUIRES DojoTOOLS
+    description: 'Event Listener (4.2.1) to recurse index calls.  REQUIRES DojoTOOLS
       Zen Index (2.0.0 or greater)
   
       '
