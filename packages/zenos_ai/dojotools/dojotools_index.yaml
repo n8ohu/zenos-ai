@@ -328,9 +328,9 @@ script:
             statistics_result: "{{ {\n  \"eligible\": stats_eligible,\n  \"reason\":
               stats_reason\n} }}"
             device_block: "{% set dev_id = device_id(current_entity) %}\n{% if dev_id
-              is not none %}\n  {% set idents = device_attr(dev_id,
-              'identifiers') or [] %}\n  {% set integ = idents[0][0] if (idents | length
-              > 0 and idents[0] | length > 0) else none %}\n  {{ {\n    'device_id':
+              is not none %}\n  {% set idents = (device_attr(dev_id,
+              'identifiers') or []) | list %}\n  {% set first = idents | first | default([])
+              | list %}\n  {% set integ = first[0] if first | length > 0 else none %}\n  {{ {\n    'device_id':
               dev_id,\n    'name': device_attr(dev_id, 'name'),\n    'manufacturer':
               device_attr(dev_id, 'manufacturer'),\n    'model': device_attr(dev_id,
               'model'),\n    'area_id': device_attr(dev_id, 'area_id'),\n    'integration':
