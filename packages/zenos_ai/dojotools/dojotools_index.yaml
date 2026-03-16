@@ -251,6 +251,16 @@ script:
           and _dk is not string %}\n  {{ _dk | map('trim') | map('lower') | reject('equalto',
           '') | list }}\n{% elif _dk is string and _dk | trim | length > 0 %}\n  {{
           [_dk | trim | lower] }}\n{% else %}\n  []\n{% endif %}"
+        output_fields_input: "{% set _of = output_fields | default([]) %}\n{% if _of
+          is string and _of | trim | length > 0 %}\n  {{ _of | trim | lower | replace('
+          ', '') | split(',') | list }}\n{% elif _of is iterable and _of is not string
+          %}\n  {{ _of | map('lower') | map('trim') | list }}\n{% else %}\n  []\n{%
+          endif %}"
+        _show_timestamps: "{{ '-timestamps' not in output_fields_input }}"
+        _show_device: "{{ '-device' not in output_fields_input }}"
+        _show_volume: "{{ '-volume' not in output_fields_input }}"
+        _show_attributes: "{{ '+attributes' in output_fields_input }}"
+        _show_statistics: "{{ '+statistics' in output_fields_input }}"
     - repeat:
         for_each: '{{ entity_list }}'
         sequence:
@@ -317,16 +327,6 @@ script:
               state_class for statistics.\n{% endif %}"
             statistics_result: "{{ {\n  \"eligible\": stats_eligible,\n  \"reason\":
               stats_reason\n} }}"
-            output_fields_input: "{% set _of = output_fields | default([]) %}\n{% if
-              _of is string and _of | trim | length > 0 %}\n  {{ _of | trim | lower
-              | replace(' ', '') | split(',') | list }}\n{% elif _of is iterable and
-              _of is not string %}\n  {{ _of | map('lower') | map('trim') | list }}\n{%
-              else %}\n  []\n{% endif %}"
-            _show_timestamps: "{{ '-timestamps' not in output_fields_input }}"
-            _show_device: "{{ '-device' not in output_fields_input }}"
-            _show_volume: "{{ '-volume' not in output_fields_input }}"
-            _show_attributes: "{{ '+attributes' in output_fields_input }}"
-            _show_statistics: "{{ '+statistics' in output_fields_input }}"
             device_block: "{% set dev_id = state_attr(current_entity, 'device_id')
               %}\n{% if dev_id is not none %}\n  {% set idents = device_attr(dev_id,
               'identifiers') or [] %}\n  {% set integ = idents[0][0] if (idents | length
