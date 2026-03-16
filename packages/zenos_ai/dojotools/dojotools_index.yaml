@@ -667,7 +667,7 @@ script:
           target_entities: '{{ entities_base }}'
         response_variable: response_zen_query
       - variables:
-          response_entities: '{{ response_zen_query.result | from_json([]) }}'
+          response_entities: "{{ (response_zen_query.result | from_json) if response_zen_query.result is string else response_zen_query.result | default([]) }}"
           fallback_entities_base: '{{ entities_base | default([]) }}'
           strict_mode: '{{ strict | default(false) }}'
           entities_base: "{% if strict_mode %}\n  {{ response_entities }}\n{% else %}\n
