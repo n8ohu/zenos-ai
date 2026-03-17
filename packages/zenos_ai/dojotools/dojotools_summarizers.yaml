@@ -232,6 +232,9 @@ script:
             No extra prose. Normalize all fields. If missing, return null or {}.
             Include ONLY active components. Provide Cliff's Notes for important
             events, anomalies, and near-term focus.
+            Do NOT copy errors from last_summary into the errors[] field.
+            The errors[] array is for errors encountered during THIS run only.
+            Return errors: [] if no new errors occurred.
           query: "{{ query | default(default_query) }}"
           review_data: >-
             {{
