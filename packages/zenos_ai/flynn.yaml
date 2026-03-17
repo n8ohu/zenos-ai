@@ -109,7 +109,7 @@ automation:
           _oobe_name: >-
             {{ (_oobe_essence_val.get('identity', {}).get('name', '') | trim)
                if _oobe_essence_val is mapping else '' }}
-          _oobe_pending: "{{ not _oobe_complete and (_oobe_name in ['', 'your AI']) }}"
+          _oobe_pending: "{{ not _oobe_complete and (_oobe_name in ['', 'your AI', 'unknown']) }}"
       # Early exit: skip when all gates green (or monastery warn) AND oobe done.
       # warn = degraded-but-functional; no bootstrap needed, agent is usable.
       # If oobe is pending we must walk through to Gate 3.5 even on green systems.
@@ -262,7 +262,7 @@ automation:
           # Case 1: placeholder in cabinet but input_text has a name → write it and dismiss
           - conditions: >-
               {{ not _g35_complete
-                 and _g35_name in ['', 'your AI']
+                 and _g35_name in ['', 'your AI', 'unknown']
                  and _g35_input_name != '' }}
             sequence:
               - action: script.zen_dojotools_filecabinet
@@ -284,7 +284,7 @@ automation:
           # Case 2: placeholder in cabinet and input_text empty → genuine OOBE, notify
           - conditions: >-
               {{ not _g35_complete
-                 and _g35_name in ['', 'your AI']
+                 and _g35_name in ['', 'your AI', 'unknown']
                  and _g35_input_name == '' }}
             sequence:
               - action: persistent_notification.create
@@ -646,7 +646,7 @@ script:
       # cabinet still holds the placeholder. force_action: true required to
       # overwrite the placeholder that bootstrap already wrote.
       - choose:
-          - conditions: "{{ persona_name | default('') != '' and _seed_name in ['', 'your AI'] }}"
+          - conditions: "{{ persona_name | default('') != '' and _seed_name in ['', 'your AI', 'unknown'] }}"
             sequence:
               - action: script.zen_dojotools_filecabinet
                 data:

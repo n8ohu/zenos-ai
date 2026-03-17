@@ -65,7 +65,7 @@ script:
                     status: ok
                     mode: status
                     oobe_complete: "{{ _oobe_done }}"
-                    oobe_pending: "{{ not _oobe_done and _persona_name in ['', 'your AI'] }}"
+                    oobe_pending: "{{ not _oobe_done and _persona_name in ['', 'your AI', 'unknown'] }}"
                     persona_name: "{{ _persona_name }}"
                     ai_cabinet: "{{ _ai_cab }}"
               - stop: OOBE status returned
