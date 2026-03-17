@@ -53,6 +53,90 @@ input_boolean:
 
 
 ###############################################################################
+# COMPANION SELECTS
+# Overlay UI controls for the four critical input_texts.
+# Each select reads its current value from the canonical input_text and writes
+# back to it on change — input_texts remain the canonical source of truth.
+# Options are dynamically resolved from HA state at render time.
+###############################################################################
+
+template:
+  - select:
+      - name: "ZenOS: Persona"
+        unique_id: zen_select_persona
+        icon: mdi:account-star
+        state: "{{ states('input_text.zenos_persona_name') }}"
+        options: >-
+          {%- set cabs = label_entities('zen_default_ai_user_cabinet') -%}
+          {%- set names = namespace(list=[]) -%}
+          {%- for cab in cabs -%}
+            {%- set vars = state_attr(cab, 'variables') | default({}, true) -%}
+            {%- set essence_raw = vars.get('zenai_essence', {}) if vars is mapping else {} -%}
+            {%- set essence = essence_raw.get('value', essence_raw) if essence_raw is mapping else {} -%}
+            {%- set name = essence.get('identity', {}).get('name', '') | trim -%}
+            {%- if name not in ['', 'your AI', 'unknown'] -%}
+              {%- set names.list = names.list + [name] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ names.list if names.list | length > 0 else ['unknown'] }}
+        select_option:
+          action: input_text.set_value
+          target:
+            entity_id: input_text.zenos_persona_name
+          data:
+            value: "{{ option }}"
+
+      - name: "ZenOS: Primary User"
+        unique_id: zen_select_primary_user
+        icon: mdi:account
+        state: "{{ states('input_text.zenos_primary_user') }}"
+        options: >-
+          {%- set people = namespace(list=[]) -%}
+          {%- for p in states.person -%}
+            {%- if state_attr(p.entity_id, 'user_id') is not none -%}
+              {%- set people.list = people.list + [p.name] -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ people.list if people.list | length > 0 else ['unknown'] }}
+        select_option:
+          action: input_text.set_value
+          target:
+            entity_id: input_text.zenos_primary_user
+          data:
+            value: "{{ option }}"
+
+      - name: "ZenOS: Conversation Agent"
+        unique_id: zen_select_conversation_agent
+        icon: mdi:robot
+        state: "{{ states('input_text.zenos_conversation_agent') }}"
+        options: >-
+          {%- set agents = states | selectattr('entity_id', 'match', '^conversation\.') | list -%}
+          {{ agents | map(attribute='entity_id') | list
+             if agents | length > 0 else ['unknown'] }}
+        select_option:
+          action: input_text.set_value
+          target:
+            entity_id: input_text.zenos_conversation_agent
+          data:
+            value: "{{ option }}"
+
+      - name: "ZenOS: AI Task"
+        unique_id: zen_select_ai_task
+        icon: mdi:robot-outline
+        state: "{{ states('input_text.zenos_ai_task_entity') }}"
+        options: >-
+          {%- set tasks = states | selectattr('entity_id', 'match', '^ai_task\.') | list -%}
+          {{ tasks | map(attribute='entity_id') | list
+             if tasks | length > 0 else ['unknown'] }}
+        select_option:
+          action: input_text.set_value
+          target:
+            entity_id: input_text.zenos_ai_task_entity
+          data:
+            value: "{{ option }}"
+
+
+###############################################################################
 # STEPGATE SENTINEL
 # Triggers on HA start + all 3 health sensor changes.
 # Walks gates top-down, stops at first non-green, takes corrective action.
