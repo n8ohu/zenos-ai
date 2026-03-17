@@ -1,6 +1,6 @@
 # 📘 **ZenOS-AI Documentation Hub**
 
-> **Version:** 4.2.0 | **Last Updated:** March 2026 | **License:** MIT
+> **Version:** 4.2.1 | **Last Updated:** March 2026 | **License:** MIT
 
 ---
 
@@ -28,6 +28,7 @@ New to ZenOS-AI? Start here.
 * `first_run.md` — First boot walkthrough, OOBE conversation, persona selector, editing profiles, troubleshooting
 * `entity_exposure.md` — What to expose to your conversation agent: actionable vs contextable vs invisible, the three-tier model
 * `oobe.md` — OOBE walkthrough: the six-step first-boot configuration protocol to your conversation agent: actionable vs contextable vs invisible, the three-tier model
+* `troubleshooting.md` — Gauges → Kill Switches → Repair Tools. Health sensor quick-reads, summarizer kill switches, and a seven-step graduated repair sequence (resolver refresh → reseed → label reset → nuclear cabinet reset)
 
 If you just installed ZenOS-AI and want to know what to do next, start here.
 
@@ -143,7 +144,7 @@ Documentation for every Zen DojoTool and script module.
 
 Includes:
 
-* `zen_dojotools_admintools_readme.md` — AdminTools: KungFu Writer, cabinet repair, template press, prompt loader
+* `zen_dojotools_admintools_readme.md` — AdminTools: KungFu Writer, cabinet repair, template press, prompt loader, nuclear label reset, reset_all cabinet sequence
 * `zen_dojotools_scheduler_readme.md` — Scheduler architecture, trigger IDs, component subscription, hardware trigger pattern
 * `zen_dojotools_filecabinet_readme.md` — Cabinet read/write controller, clone action, Highlander mode
 * `zen_dojotools_manifest_readme.md`
