@@ -60,25 +60,28 @@ script:
         kfc_template_seed: >-
           {{
             {
+              "schema_version": "1.1.0",
               "structure": {
                 "version": None,
                 "friendly_name": None,
                 "master_switch": None,
                 "label": None,
-                "command": None,
                 "component_summary": None,
+                "component_instructions": None,
+                "more_info": None,
                 "tool": None,
                 "trigger_subscriptions": [],
                 "delay_seconds": 0,
                 "kata_key": None
               },
               "example": {
-                "version": "1.0.0",
+                "version": "1.1.0",
                 "friendly_name": "Alert Manager",
                 "master_switch": "input_boolean.alert_manager_master_switch",
                 "label": "Alert Manager",
-                "command": "~ALERTS~",
                 "component_summary": "Monitors system alerts and persistent notifications.",
+                "component_instructions": "Focus on unacknowledged alerts. Escalate if count > 3.",
+                "more_info": "Feeds into SuperSummary urgency score.",
                 "tool": None,
                 "trigger_subscriptions": ["ha_start", "daily_midnight", "hourly_trigger", "home_mode_updates", "alarm_panel"],
                 "delay_seconds": 0,
@@ -95,16 +98,18 @@ script:
              | select('match', 'sensor.') | list | first | default('') }}
     - action: script.zen_dojotools_filecabinet
       data:
-        action_type: update
+        action_type: read
         show_hidden_volumes: false
-        force_action: true
         volume_entity_id:
           - "{{ _rtt_kata }}"
         key: zen_template
-        value: '{{ zen_template_seed }}'
-        set_timestamp: true
-        label_input: zen_summary, zen, summary
-    - if: "{{ _rtt_dojo != '' }}"
+      response_variable: _rtt_kata_read
+    - variables:
+        _rtt_kata_version: >-
+          {%- set raw = _rtt_kata_read.result | default('{}') -%}
+          {%- set val = (raw | from_json) if raw is string else raw -%}
+          {{ val.get('schema_version', '') }}
+    - if: "{{ _rtt_kata_version != '1.1.0' }}"
       then:
         - action: script.zen_dojotools_filecabinet
           data:
@@ -112,11 +117,42 @@ script:
             show_hidden_volumes: false
             force_action: true
             volume_entity_id:
+              - "{{ _rtt_kata }}"
+            key: zen_template
+            value: '{{ zen_template_seed }}'
+            set_timestamp: true
+            label_input: zen_summary, zen, summary
+    - if: "{{ _rtt_dojo != '' }}"
+      then:
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: read
+            show_hidden_volumes: false
+            volume_entity_id:
               - "{{ _rtt_dojo }}"
             key: kfc_template
-            value: '{{ kfc_template_seed | tojson }}'
-            set_timestamp: true
-            label_input: kfc, dojo, zen
+          response_variable: _rtt_dojo_read
+        - variables:
+            _rtt_dojo_raw: >-
+              {%- set raw = _rtt_dojo_read.result | default('{}') -%}
+              {%- set val = (raw | from_json) if raw is string else raw -%}
+              {%- set inner = val.get('value', val) if val is mapping else {} -%}
+              {{ (inner | from_json) if inner is string else inner }}
+            _rtt_dojo_version: "{{ _rtt_dojo_raw.get('schema_version', '') if _rtt_dojo_raw is mapping else '' }}"
+            _kfc_is_string: "{{ _rtt_dojo_raw is string }}"
+        - if: "{{ _rtt_dojo_version != '1.1.0' or _kfc_is_string }}"
+          then:
+            - action: script.zen_dojotools_filecabinet
+              data:
+                action_type: update
+                show_hidden_volumes: false
+                force_action: true
+                volume_entity_id:
+                  - "{{ _rtt_dojo }}"
+                key: kfc_template
+                value: '{{ kfc_template_seed | tojson }}'
+                set_timestamp: true
+                label_input: kfc, dojo, zen
     alias: Zen AdminTools Reset Template
     description: >-
       Zen AdminTools Reset Templates (1.1.0). Presses zen_template into the Kata

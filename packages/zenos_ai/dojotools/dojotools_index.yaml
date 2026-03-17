@@ -265,22 +265,17 @@ script:
         sequence:
         - variables:
             current_entity: '{{ repeat.item | string }}'
-            state_obj: '{% set s = states[current_entity] %}
-  
-              {{ s if s is not none else none }}'
-            has_state_obj: '{{ state_obj is not none and state_obj is not string }}'
             domain: "{% set dot = current_entity.find('.') %}\n{% if dot > 0 %}\n  {{
               current_entity[:dot] }}\n{% else %}\n  unknown\n{% endif %}"
             friendly_name: "{{ state_attr(current_entity, 'friendly_name')\n   | default(current_entity)
               }}"
-            state_str: '{{ states(current_entity) if has_state_obj else ''unknown''
-              }}'
-            last_changed: "{% if has_state_obj %}\n  {{ as_timestamp(state_obj.last_changed,
-              default=0)\n       | timestamp_local }}\n{% else %} {{ '' }} {% endif
-              %}"
-            last_updated: "{% if has_state_obj %}\n  {{ as_timestamp(state_obj.last_updated,
-              default=0)\n       | timestamp_local }}\n{% else %} {{ '' }} {% endif
-              %}"
+            state_str: '{{ states(current_entity) }}'
+            last_changed: "{% if has_attrs %}\n  {% set s = states[current_entity]
+              %}\n  {{ as_timestamp(s.last_changed, default=0)\n       | timestamp_local
+              }}\n{% else %} {{ '' }} {% endif %}"
+            last_updated: "{% if has_attrs %}\n  {% set s = states[current_entity]
+              %}\n  {{ as_timestamp(s.last_updated, default=0)\n       | timestamp_local
+              }}\n{% else %} {{ '' }} {% endif %}"
             labels_raw: '{{ labels(current_entity) | default([]) }}'
             safe_labels: "{% if labels_raw is iterable and (labels_raw is not string)
               %}\n  {{ labels_raw | list }}\n{% else %} [] {% endif %}"
@@ -318,7 +313,7 @@ script:
               true) | string }}"
             stats_eligible: "{{ stat_class in ['measurement','total','total_increasing']\n
               \  and stat_uom != '' }}"
-            stats_reason: "{% if not has_state_obj %}\n  Entity not found.\n{% elif
+            stats_reason: "{% if not has_attrs %}\n  Entity not found.\n{% elif
               stats_eligible %}\n  Eligible based on state_class and unit_of_measurement.\n{%
               elif stat_class == '' and stat_uom == '' %}\n  Missing state_class and
               unit_of_measurement.\n{% elif stat_class == '' %}\n  Missing state_class.\n{%
