@@ -268,7 +268,7 @@ script:
             state_obj: '{% set s = states[current_entity] %}
   
               {{ s if s is not none else none }}'
-            has_state_obj: '{{ state_obj is not none }}'
+            has_state_obj: '{{ state_obj is not none and state_obj is not string }}'
             domain: "{% set dot = current_entity.find('.') %}\n{% if dot > 0 %}\n  {{
               current_entity[:dot] }}\n{% else %}\n  unknown\n{% endif %}"
             friendly_name: "{{ state_attr(current_entity, 'friendly_name')\n   | default(current_entity)
