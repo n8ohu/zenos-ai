@@ -18,10 +18,15 @@ template:
   ###########################################################################
   # Cabinet Resolvers
   # Resolves the FIRST sensor.* entity under each label.
-  # State-based (not trigger-based) so they reflect label changes immediately
-  # without a boot race or waiting for a refresh event.
+  # Trigger-based (homeassistant: start) so the label registry is fully
+  # populated before evaluation. Without a states() call there is no
+  # subscription for HA to track — boot-time evaluation always races.
+  # The start trigger guarantees a post-boot re-evaluation.
   ###########################################################################
-  - sensor:
+  - trigger:
+      - platform: homeassistant
+        event: start
+    sensor:
       - name: Zen Dojo Cabinet Resolved
         unique_id: zen_dojo_cabinet_resolved
         state: >-
