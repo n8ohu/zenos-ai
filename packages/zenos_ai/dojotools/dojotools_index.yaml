@@ -772,8 +772,9 @@ script:
         alias: Expand = false
       alias: 'Prepare [ Expand ] Result Set '
     - variables:
-        matched_drawers: "{{ (response.drawers | from_json) if response.drawers is
-          string else response.drawers | default({}) }}"
+        matched_drawers: "{{ {} if (entities_base | default([]) | list | length == 0)
+          else ((response.drawers | from_json) if response.drawers is string else
+          response.drawers | default({})) }}"
     - variables:
         adjacent_labels: "{%- set ns = namespace(labels=[]) -%} {%- for e in entities_base
           -%}\n  {%- set ns.labels = ns.labels + (labels(e) | list) -%}\n{%- endfor
