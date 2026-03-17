@@ -1,9 +1,10 @@
 ###############################################################################
 # ZenOS-AI — System Health Package
-# All cabinets resolved STRICTLY by label:
-#   label_entities('Zen Dojo Cabinet')
-#   label_entities('Zen Kata Cabinet')
-#   label_entities('Zen System Cabinet')
+# All cabinets resolved STRICTLY by label ID (slug):
+#   label_entities('Zen Dojo Cabinet' | slugify)
+#   label_entities('Zen Kata Cabinet' | slugify)
+#   label_entities('Zen System Cabinet' | slugify)
+# NOTE: label_entities() requires slug IDs — display names return [] on strict HA versions.
 #
 # Each resolved drawer is filtered to sensor.* domain and `| first`.
 #
@@ -35,33 +36,33 @@ template:
       - name: Zen Dojo Cabinet Resolved
         unique_id: zen_dojo_cabinet_resolved
         state: >-
-          {{ label_entities('Zen Dojo Cabinet')
+          {{ label_entities('Zen Dojo Cabinet' | slugify)
              | select('match', 'sensor\.')
              | first | default('unavailable') }}
         availability: >-
-          {{ label_entities('Zen Dojo Cabinet')
+          {{ label_entities('Zen Dojo Cabinet' | slugify)
              | select('match', 'sensor\.')
              | list | count > 0 }}
 
       - name: Zen Kata Cabinet Resolved
         unique_id: zen_kata_cabinet_resolved
         state: >-
-          {{ label_entities('Zen Kata Cabinet')
+          {{ label_entities('Zen Kata Cabinet' | slugify)
              | select('match', 'sensor\.')
              | first | default('unavailable') }}
         availability: >-
-          {{ label_entities('Zen Kata Cabinet')
+          {{ label_entities('Zen Kata Cabinet' | slugify)
              | select('match', 'sensor\.')
              | list | count > 0 }}
 
       - name: Zen System Cabinet Resolved
         unique_id: zen_system_cabinet_resolved
         state: >-
-          {{ label_entities('Zen System Cabinet')
+          {{ label_entities('Zen System Cabinet' | slugify)
              | select('match', 'sensor\.')
              | first | default('unavailable') }}
         availability: >-
-          {{ label_entities('Zen System Cabinet')
+          {{ label_entities('Zen System Cabinet' | slugify)
              | select('match', 'sensor\.')
              | list | count > 0 }}
 
@@ -117,7 +118,7 @@ template:
                       .get('structure',{}) is mapping %}
 
             {%- set active =
-              expand(label_entities('Kung Fu System Switch'))
+              expand(label_entities('Kung Fu System Switch' | slugify))
                 | selectattr('state','eq','on')
                 | map(attribute='entity_id')
                 | list %}
@@ -180,7 +181,7 @@ template:
 
           active_components: >-
             {{
-              expand(label_entities('Kung Fu System Switch'))
+              expand(label_entities('Kung Fu System Switch' | slugify))
                 | selectattr('state','eq','on')
                 | map(attribute='entity_id')
                 | list
