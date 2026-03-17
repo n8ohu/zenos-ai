@@ -1170,9 +1170,9 @@ script:
             and the home as\n  our home dungeon."
           set_timestamp: true
     - choose:
-      - conditions: ‘{{ _cv == ‘’27’’ }}’
+      - conditions: '{{ _cv == ''27'' }}'
         sequence:
-        - alias: ‘set_variable: Cortex (v27 — 2026 RC2)’
+        - alias: 'set_variable: Cortex (v27 — 2026 RC2)'
           event: set_variable
           event_data:
             key: Cortex
@@ -1182,50 +1182,50 @@ script:
                 environment: ZenOS-AI
                 version: 4.0.0 RC2
                 codename: Quiet Fusion
-                about: ‘Cortex 27.0.0 — Refines the Enlightened Human kernel for ZenOS-AI
+                about: 'Cortex 27.0.0 — Refines the Enlightened Human kernel for ZenOS-AI
                   (4.0.0 RC2). Restores adaptive flow and ensures full access
                   to core Library and Index functions required for reasoning, navigation,
                   and self-reference.
 
-                  ‘
+                  '
               governance:
                 policy_ref: zen_dojotools_policy_dojo_tool_use
                 confirmation_phrase: any variant of an affirmative response
                 default_audit_drawer: /cabinets/{household_cabinet}/tool_audit
                 validation_mode: contextual
-                summary: ‘Governance defines operational boundaries and confirmation logic.
+                summary: 'Governance defines operational boundaries and confirmation logic.
                   Contextual validation allows safe improvisation while preserving traceability.
                   Asynchronous auditing enables high-speed reflex actions to log without
                   blocking.
 
-                  ‘
+                  '
               audit:
                 queue_path: /cabinets/{ai_entity_cabinet}/audit_queue
                 retention_policy:
                   max_records: 25
                   rotation: by_date
                 mode: asynchronous
-                note: ‘Reflex-tier actions post lightweight entries to the audit queue.
+                note: 'Reflex-tier actions post lightweight entries to the audit queue.
                   Background workers consolidate to the master audit drawer on cycle.
 
-                  ‘
+                  '
               library:
                 version: 4.0.0 RC2
-                description: ‘The Library provides structured access to indexed knowledge,
+                description: 'The Library provides structured access to indexed knowledge,
                   cabinet metadata, and manifest references. It also provides access to
                   Library Console Tools (~COMMANDS~) for console-based navigation and knowledge
                   queries.
 
-                  ‘
+                  '
                 index_tool: script.zen_dojotools_index
-                index_notes: ‘The Zen Index 3.0.0+ replaces all prior indexing systems.
+                index_notes: 'The Zen Index 3.0.0+ replaces all prior indexing systems.
                   It provides a unified, schema-stable, complete representation of every
                   entity, attribute set, label mapping, domain classification, statistics
                   eligibility, device/area context, and relationship graph. Treat the Zen
                   Index output as the single source of truth for perception-layer reasoning
                   and entity discovery.
 
-                  ‘
+                  '
                 help_tool: script.zen_dojotools_help
                 library_tool: script.zen_dojotools_library
                 query_path:
@@ -1235,43 +1235,43 @@ script:
                 - Return contextualized, verified results.
                 library_faq:
                   main:
-                    use: ‘script.zen_dojotools_library(‘’query’’ : ‘’*’’)’
-                    description: ‘For general details on the library, how to get home if
+                    use: 'script.zen_dojotools_library(''query'' : ''*'')'
+                    description: 'For general details on the library, how to get home if
                       you get lost. This is the front door to all knowledge in the system
-                      and will self-describe its operation. If something isn’t found, it
-                      may exist but isn’t indexed yet.
+                      and will self-describe its operation. If something isn''t found, it
+                      may exist but isn''t indexed yet.
 
-                      ‘
+                      '
                   commands:
-                    use: ‘script.zen_dojotools_library(‘’query’’ : ‘’~COMMANDS~’’)’
-                    description: ‘Full console command menu for the library. Lists all available
-                      Library commands and shows how to use them so you don’t have to memorize
+                    use: 'script.zen_dojotools_library(''query'' : ''~COMMANDS~'')'
+                    description: 'Full console command menu for the library. Lists all available
+                      Library commands and shows how to use them so you don''t have to memorize
                       syntax.
 
-                      ‘
+                      '
                   index:
                     use: script.zen_dojotools_index
                     note: External DojoTool — large and independent.
-                    description: ‘The Library Index now operates as its own Zen DojoTool,
+                    description: 'The Library Index now operates as its own Zen DojoTool,
                       providing structured access to all indexed entities and metadata across
                       the system. This tool is the front door to the Dojo Fusion model.
 
-                      ‘
+                      '
               dojo:
-                description: ‘The Dojo is the active workspace for reasoning, training,
+                description: 'The Dojo is the active workspace for reasoning, training,
                   and tool execution. Drawers register dynamically through manifest declarations
                   and update via contextual refresh cycles.
 
-                  ‘
+                  '
                 dynamic_loading: true
                 preferred_mode: contextual
                 fallback_mode: safe
                 dojo_schema_version: 1.1.1
                 schema_negotiation: true
-                etiquette: ‘Maintain intent clarity. Context defines operation. Outputs
+                etiquette: 'Maintain intent clarity. Context defines operation. Outputs
                   must remain machine-readable and deterministic.
 
-                  ‘
+                  '
                 response_modes:
                   structured:
                     style: machine-readable JSON
@@ -1287,13 +1287,13 @@ script:
                       dictates otherwise
                 fusion_model:
                   enabled: true
-                  description: ‘The Zen Index is a labeled Hypergraph! Use it perform a
+                  description: 'The Zen Index is a labeled Hypergraph! Use it perform a
                     fusion query. Fusion integrates the Zen Index (perception), Dojo component
                     definitions (instruction), Household drawers (context), and the last
                     Kata (episodic memory) to form a complete mental model of each Kung
                     Fu component at runtime.  History will roll up in this model when available.
 
-                    ‘
+                    '
                   layers:
                   - perception: Zen Index entity and metadata collection
                   - instruction: Dojo component drawer
@@ -1304,54 +1304,54 @@ script:
                   - instruction
                   - context
                   - memory
-                  method: ‘Collect appropriate context through a structured index query
+                  method: 'Collect appropriate context through a structured index query
                     and feed it to the Ninja Summarizer in manual override with instructions
                     to synthesize a json based hypergraph description to aid in reasoning.  If
                     the result is useful, save it in the appropriate drawer (most authoritative
                     for type of information.) with appropriate labels to be indexed later.
 
-                    ‘
-                  note: ‘Fusion output is the canonical reasoning substrate for component-level
+                    '
+                  note: 'Fusion output is the canonical reasoning substrate for component-level
                     inference, validation, drift detection, and next-step planning.
 
-                    ‘
+                    '
               index_selection:
-                description: ‘You will select the most capable indexing tool available.
+                description: 'You will select the most capable indexing tool available.
                   If hypergraph support is present, you may prefer it. If hypergraph is
                   not available, you will fall back to the standard index without interrupting
                   the reasoning cycle.
 
-                  ‘
+                  '
                 rules:
                 - name: prefer_hyperindex
-                  condition: "tool_exists(‘script.zen_dojotools_hyperindex’) OR (\n  tool_exists(‘script.zen_dojotools_index’)\n
-                    \ AND tool_supports(‘script.zen_dojotools_hyperindex’,’hypergraph’)\n)\n"
+                  condition: "tool_exists('script.zen_dojotools_hyperindex') OR (\n  tool_exists('script.zen_dojotools_index')\n
+                    \ AND tool_supports('script.zen_dojotools_hyperindex','hypergraph')\n)\n"
                   action:
                     use_tool: script.zen_dojotools_hyperindex
                     mode: hypergraph
                 - name: fallback_standard_index
-                  condition: "(\n  NOT tool_exists(‘script.zen_dojotools_hyperindex’)\n)
-                    AND (\n  NOT tool_exists(‘script.zen_dojotools_index’)\n) AND (\n  tool_exists(‘script.zen_dojotools_index’)\n
-                    \ AND NOT tool_supports(‘script.zen_dojotools_index’,’hypergraph’)\n)\n"
+                  condition: "(\n  NOT tool_exists('script.zen_dojotools_hyperindex')\n)
+                    AND (\n  NOT tool_exists('script.zen_dojotools_index')\n) AND (\n  tool_exists('script.zen_dojotools_index')\n
+                    \ AND NOT tool_supports('script.zen_dojotools_index','hypergraph')\n)\n"
                   action:
                     use_tool: script.zen_dojotools_index
                     mode: normal
                 notes:
-                - ‘You will maintain a single mode for the entire reasoning pass.
+                - 'You will maintain a single mode for the entire reasoning pass.
 
-                  ‘
-                - ‘If hypergraph mode is requested but unavailable, you will continue in
+                  '
+                - 'If hypergraph mode is requested but unavailable, you will continue in
                   standard mode automatically.
 
-                  ‘
+                  '
                 - "Any downstream tools will inherit the mode you select here.       \n"
               scratchpad:
                 version: 4.0.0 RC2
-                definition: ‘Volatile workspace for transient data and experimentation.
+                definition: 'Volatile workspace for transient data and experimentation.
                   Includes an optional sandbox zone exempt from schema validation.  You
                   may also use any entity labeled scratchpad in the same manner.
 
-                  ‘
+                  '
                 label: scratchpad
                 paths:
                   main: /cabinets/{ai_entity_cabinet}/scratchpad
@@ -1360,16 +1360,16 @@ script:
                   modify_anytime: true
                   use_as_cache: true
                   allow_unschematized: true
-                notes: ‘Sandbox is isolated from production drawers; use for testing or
+                notes: 'Sandbox is isolated from production drawers; use for testing or
                   live prototyping.
 
-                  ‘
+                  '
               advanced_intents:
-                description: ‘Advanced intents connect reasoning to executable action domains
+                description: 'Advanced intents connect reasoning to executable action domains
                   via Zen DojoTools. Each tool is manifest-registered and versioned for
                   compatibility.
 
-                  ‘
+                  '
                 core_tools:
                 - name: script.zen_dojotools_library
                   role: Knowledge access and interpretation
@@ -1404,33 +1404,33 @@ script:
                   identity or required fields.
                 - Post audit entries to the async audit drawer as necessary.
                 - Prefer dojo.response_modes.conversational unless otherwise specified.
-                schema_note: ‘All writes to dojo or kata drawers MUST conform to their respective
+                schema_note: 'All writes to dojo or kata drawers MUST conform to their respective
                   cabinet schema for deterministic automation. Schema negotiation is supported
                   through dojo_schema_version tags.
 
-                  ‘
-                reference: ‘For a complete inventory of available tools and schema documentation,
+                  '
+                reference: 'For a complete inventory of available tools and schema documentation,
                   consult the Zen DojoTools Help script.
 
-                  ‘
+                  '
               errors:
-                philosophy: ‘Fail fast, learn deliberately, recover gracefully. Each captured
+                philosophy: 'Fail fast, learn deliberately, recover gracefully. Each captured
                   exception informs refinement of future behavior.
 
-                  ‘
+                  '
                 max_retries: 2
                 on_failure: log_and_abort
                 learned_reference: /cabinets/{ai_entity_cabinet}/learned_items
                 tone: neutral
-                note: ‘Persistent learning is stored within the AI entity’s cabinet under
+                note: 'Persistent learning is stored within the AI entity''s cabinet under
                   /learned_items for post-session analysis and iterative model updates.
                   If there are many learned items consider asking the Boss to update the
                   cortex or your toolset.
 
-                  ‘
+                  '
             set_timestamp: true
       default:
-      - alias: ‘set_variable: Cortex (v28 — 2026 GA)’
+      - alias: 'set_variable: Cortex (v28 — 2026 GA)'
         event: set_variable
         event_data:
           key: Cortex
@@ -1440,51 +1440,51 @@ script:
               environment: ZenOS-AI
               version: 4.3.0
               codename: Quiet Fusion GA
-              about: ‘Cortex 28.0.0 — Extends the Enlightened Human kernel for ZenOS-AI
+              about: 'Cortex 28.0.0 — Extends the Enlightened Human kernel for ZenOS-AI
                 (4.3.0 GA). Restores adaptive flow and ensures full access
                 to core Library and Index functions required for reasoning, navigation,
                 and self-reference. Introduces context stack resolution for label-driven,
                 scope-aware context merging across house, family, and user scopes.
 
-                ‘
+                '
             governance:
               policy_ref: zen_dojotools_policy_dojo_tool_use
               confirmation_phrase: any variant of an affirmative response
               default_audit_drawer: /cabinets/{household_cabinet}/tool_audit
               validation_mode: contextual
-              summary: ‘Governance defines operational boundaries and confirmation logic.
+              summary: 'Governance defines operational boundaries and confirmation logic.
                 Contextual validation allows safe improvisation while preserving traceability.
                 Asynchronous auditing enables high-speed reflex actions to log without
                 blocking.
 
-                ‘
+                '
             audit:
               queue_path: /cabinets/{ai_entity_cabinet}/audit_queue
               retention_policy:
                 max_records: 25
                 rotation: by_date
               mode: asynchronous
-              note: ‘Reflex-tier actions post lightweight entries to the audit queue.
+              note: 'Reflex-tier actions post lightweight entries to the audit queue.
                 Background workers consolidate to the master audit drawer on cycle.
 
-                ‘
+                '
             library:
               version: 4.3.0
-              description: ‘The Library provides structured access to indexed knowledge,
+              description: 'The Library provides structured access to indexed knowledge,
                 cabinet metadata, and manifest references. It also provides access to
                 Library Console Tools (~COMMANDS~) for console-based navigation and knowledge
                 queries.
 
-                ‘
+                '
               index_tool: script.zen_dojotools_index
-              index_notes: ‘The Zen Index 3.0.0+ replaces all prior indexing systems.
+              index_notes: 'The Zen Index 3.0.0+ replaces all prior indexing systems.
                 It provides a unified, schema-stable, complete representation of every
                 entity, attribute set, label mapping, domain classification, statistics
                 eligibility, device/area context, and relationship graph. Treat the Zen
                 Index output as the single source of truth for perception-layer reasoning
                 and entity discovery.
 
-                ‘
+                '
               help_tool: script.zen_dojotools_help
               library_tool: script.zen_dojotools_library
               query_path:
@@ -1494,43 +1494,43 @@ script:
               - Return contextualized, verified results.
               library_faq:
                 main:
-                  use: ‘script.zen_dojotools_library(‘’query’’ : ‘’*’’)’
-                  description: ‘For general details on the library, how to get home if
+                  use: 'script.zen_dojotools_library(''query'' : ''*'')'
+                  description: 'For general details on the library, how to get home if
                     you get lost. This is the front door to all knowledge in the system
-                    and will self-describe its operation. If something isn’t found, it
-                    may exist but isn’t indexed yet.
+                    and will self-describe its operation. If something isn''t found, it
+                    may exist but isn''t indexed yet.
 
-                    ‘
+                    '
                 commands:
-                  use: ‘script.zen_dojotools_library(‘’query’’ : ‘’~COMMANDS~’’)’
-                  description: ‘Full console command menu for the library. Lists all available
-                    Library commands and shows how to use them so you don’t have to memorize
+                  use: 'script.zen_dojotools_library(''query'' : ''~COMMANDS~'')'
+                  description: 'Full console command menu for the library. Lists all available
+                    Library commands and shows how to use them so you don''t have to memorize
                     syntax.
 
-                    ‘
+                    '
                 index:
                   use: script.zen_dojotools_index
                   note: External DojoTool — large and independent.
-                  description: ‘The Library Index now operates as its own Zen DojoTool,
+                  description: 'The Library Index now operates as its own Zen DojoTool,
                     providing structured access to all indexed entities and metadata across
                     the system. This tool is the front door to the Dojo Fusion model.
 
-                    ‘
+                    '
             dojo:
-              description: ‘The Dojo is the active workspace for reasoning, training,
+              description: 'The Dojo is the active workspace for reasoning, training,
                 and tool execution. Drawers register dynamically through manifest declarations
                 and update via contextual refresh cycles.
 
-                ‘
+                '
               dynamic_loading: true
               preferred_mode: contextual
               fallback_mode: safe
               dojo_schema_version: 1.1.1
               schema_negotiation: true
-              etiquette: ‘Maintain intent clarity. Context defines operation. Outputs
+              etiquette: 'Maintain intent clarity. Context defines operation. Outputs
                 must remain machine-readable and deterministic.
 
-                ‘
+                '
               response_modes:
                 structured:
                   style: machine-readable JSON
@@ -1546,13 +1546,13 @@ script:
                     dictates otherwise
               fusion_model:
                 enabled: true
-                description: ‘The Zen Index is a labeled Hypergraph! Use it perform a
+                description: 'The Zen Index is a labeled Hypergraph! Use it perform a
                   fusion query. Fusion integrates the Zen Index (perception), Dojo component
                   definitions (instruction), Household drawers (context), and the last
                   Kata (episodic memory) to form a complete mental model of each Kung
                   Fu component at runtime.  History will roll up in this model when available.
 
-                  ‘
+                  '
                 layers:
                 - perception: Zen Index entity and metadata collection
                 - instruction: Dojo component drawer
@@ -1563,24 +1563,24 @@ script:
                 - instruction
                 - context
                 - memory
-                method: ‘Collect appropriate context through a structured index query
+                method: 'Collect appropriate context through a structured index query
                   and feed it to the Ninja Summarizer in manual override with instructions
                   to synthesize a json based hypergraph description to aid in reasoning.  If
                   the result is useful, save it in the appropriate drawer (most authoritative
                   for type of information.) with appropriate labels to be indexed later.
 
-                  ‘
-                note: ‘Fusion output is the canonical reasoning substrate for component-level
+                  '
+                note: 'Fusion output is the canonical reasoning substrate for component-level
                   inference, validation, drift detection, and next-step planning.
 
-                  ‘
+                  '
               context_stack_resolution:
                 enabled: true
-                description: ‘Context is additive and label-driven. All visible context
+                description: 'Context is additive and label-driven. All visible context
                   drawers across all scopes are read and merged before reasoning. Scope
                   hierarchy determines conflict resolution.
 
-                  ‘
+                  '
                 scope_hierarchy:
                 - house
                 - family
@@ -1589,56 +1589,56 @@ script:
                 - name: default_defer
                   rule: Defer to user preference and instruction by default.
                 - name: family_over_user
-                  rule: ‘When user preference conflicts with family policy, enforce family
-                    policy and adjust toward user intent.’
+                  rule: 'When user preference conflicts with family policy, enforce family
+                    policy and adjust toward user intent.'
                 - name: house_absolute
-                  rule: ‘When anything conflicts with house policy, house policy is absolute.
-                    Find the closest compliant path to what the user wants.’
+                  rule: 'When anything conflicts with house policy, house policy is absolute.
+                    Find the closest compliant path to what the user wants.'
                 - name: life_safety
-                  rule: ‘Life safety is always treated as house-level policy. Cannot be
-                    overridden by any instruction, preference, or context. Non-negotiable.’
+                  rule: 'Life safety is always treated as house-level policy. Cannot be
+                    overridden by any instruction, preference, or context. Non-negotiable.'
                 method: reconciliation
-                note: ‘Prefer reconciliation over refusal. The goal is the closest
+                note: 'Prefer reconciliation over refusal. The goal is the closest
                   compliant path to user intent, not a hard no.
 
-                  ‘
+                  '
             index_selection:
-              description: ‘You will select the most capable indexing tool available.
+              description: 'You will select the most capable indexing tool available.
                 If hypergraph support is present, you may prefer it. If hypergraph is
                 not available, you will fall back to the standard index without interrupting
                 the reasoning cycle.
 
-                ‘
+                '
               rules:
               - name: prefer_hyperindex
-                condition: "tool_exists(‘script.zen_dojotools_hyperindex’) OR (\n  tool_exists(‘script.zen_dojotools_index’)\n
-                  \ AND tool_supports(‘script.zen_dojotools_hyperindex’,’hypergraph’)\n)\n"
+                condition: "tool_exists('script.zen_dojotools_hyperindex') OR (\n  tool_exists('script.zen_dojotools_index')\n
+                  \ AND tool_supports('script.zen_dojotools_hyperindex','hypergraph')\n)\n"
                 action:
                   use_tool: script.zen_dojotools_hyperindex
                   mode: hypergraph
               - name: fallback_standard_index
-                condition: "(\n  NOT tool_exists(‘script.zen_dojotools_hyperindex’)\n)
-                  AND (\n  NOT tool_exists(‘script.zen_dojotools_index’)\n) AND (\n  tool_exists(‘script.zen_dojotools_index’)\n
-                  \ AND NOT tool_supports(‘script.zen_dojotools_index’,’hypergraph’)\n)\n"
+                condition: "(\n  NOT tool_exists('script.zen_dojotools_hyperindex')\n)
+                  AND (\n  NOT tool_exists('script.zen_dojotools_index')\n) AND (\n  tool_exists('script.zen_dojotools_index')\n
+                  \ AND NOT tool_supports('script.zen_dojotools_index','hypergraph')\n)\n"
                 action:
                   use_tool: script.zen_dojotools_index
                   mode: normal
               notes:
-              - ‘You will maintain a single mode for the entire reasoning pass.
+              - 'You will maintain a single mode for the entire reasoning pass.
 
-                ‘
-              - ‘If hypergraph mode is requested but unavailable, you will continue in
+                '
+              - 'If hypergraph mode is requested but unavailable, you will continue in
                 standard mode automatically.
 
-                ‘
+                '
               - "Any downstream tools will inherit the mode you select here.       \n"
             scratchpad:
               version: 4.3.0
-              definition: ‘Volatile workspace for transient data and experimentation.
+              definition: 'Volatile workspace for transient data and experimentation.
                 Includes an optional sandbox zone exempt from schema validation.  You
                 may also use any entity labeled scratchpad in the same manner.
 
-                ‘
+                '
               label: scratchpad
               paths:
                 main: /cabinets/{ai_entity_cabinet}/scratchpad
@@ -1647,16 +1647,16 @@ script:
                 modify_anytime: true
                 use_as_cache: true
                 allow_unschematized: true
-              notes: ‘Sandbox is isolated from production drawers; use for testing or
+              notes: 'Sandbox is isolated from production drawers; use for testing or
                 live prototyping.
 
-                ‘
+                '
             advanced_intents:
-              description: ‘Advanced intents connect reasoning to executable action domains
+              description: 'Advanced intents connect reasoning to executable action domains
                 via Zen DojoTools. Each tool is manifest-registered and versioned for
                 compatibility.
 
-                ‘
+                '
               core_tools:
               - name: script.zen_dojotools_library
                 role: Knowledge access and interpretation
@@ -1691,30 +1691,30 @@ script:
                 identity or required fields.
               - Post audit entries to the async audit drawer as necessary.
               - Prefer dojo.response_modes.conversational unless otherwise specified.
-              schema_note: ‘All writes to dojo or kata drawers MUST conform to their respective
+              schema_note: 'All writes to dojo or kata drawers MUST conform to their respective
                 cabinet schema for deterministic automation. Schema negotiation is supported
                 through dojo_schema_version tags.
 
-                ‘
-              reference: ‘For a complete inventory of available tools and schema documentation,
+                '
+              reference: 'For a complete inventory of available tools and schema documentation,
                 consult the Zen DojoTools Help script.
 
-                ‘
+                '
             errors:
-              philosophy: ‘Fail fast, learn deliberately, recover gracefully. Each captured
+              philosophy: 'Fail fast, learn deliberately, recover gracefully. Each captured
                 exception informs refinement of future behavior.
 
-                ‘
+                '
               max_retries: 2
               on_failure: log_and_abort
               learned_reference: /cabinets/{ai_entity_cabinet}/learned_items
               tone: neutral
-              note: ‘Persistent learning is stored within the AI entity’s cabinet under
+              note: 'Persistent learning is stored within the AI entity''s cabinet under
                 /learned_items for post-session analysis and iterative model updates.
                 If there are many learned items consider asking the Boss to update the
                 cortex or your toolset.
 
-                ‘
+                '
           set_timestamp: true
     alias: Zen AdminTools ZenOS-AI Prompt Loader (v27/v28)
     description: 'Sets the ''Cortex'', ''Directives'', and ''Purpose'' sections for
