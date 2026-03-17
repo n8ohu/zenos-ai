@@ -30,6 +30,7 @@ template:
         minutes: "/15"
       - platform: event
         event_type: zen_resolver_refresh
+        alias: Manual refire via event emitter
     sensor:
       - name: Zen Dojo Cabinet Resolved
         unique_id: zen_dojo_cabinet_resolved
