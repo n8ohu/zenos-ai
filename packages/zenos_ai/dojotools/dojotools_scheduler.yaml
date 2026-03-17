@@ -239,10 +239,7 @@ automation:
           id:
           - quarter_hour
         sequence:
-        - event: zen_event
-          event_data:
-            event:
-              kind: health_retrigger
+        - event: zen_resolver_refresh
         alias: Health Sensor Retrigger
 
     # ── Dojo-driven Ninja Summarizer dispatch ────────────────────────────────
