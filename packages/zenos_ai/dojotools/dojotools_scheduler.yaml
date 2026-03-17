@@ -234,6 +234,17 @@ automation:
           response_variable: response_filecabinet_gc
         alias: FileCabinet GC
 
+      - conditions:
+        - condition: trigger
+          id:
+          - quarter_hour
+        sequence:
+        - event: zen_event
+          event_data:
+            event:
+              kind: health_retrigger
+        alias: Health Sensor Retrigger
+
     # ── Dojo-driven Ninja Summarizer dispatch ────────────────────────────────
     # Reads all KFC drawers from the Dojo cabinet. Filters to those whose
     # trigger_subscriptions include the current trigger.id. For force_summary

@@ -26,6 +26,11 @@ template:
   - trigger:
       - platform: homeassistant
         event: start
+      - platform: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: health_retrigger
     sensor:
       - name: Zen Dojo Cabinet Resolved
         unique_id: zen_dojo_cabinet_resolved
