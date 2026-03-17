@@ -1,4 +1,4 @@
-# Zen DojoTools Labels — 4.2.0
+# Zen DojoTools Labels — 4.2.1
 
 *Create, read, delete, and assign labels in the Home Assistant label index*
 
@@ -18,10 +18,10 @@ This script is **not MCP-exposed by default**. It is an admin tool. Friday can r
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `action_type` | select | `read` | `create`, `read`, `delete`, `tag`, `untag` |
+| `action_type` | select | `read` | `create`, `read`, `delete`, `tag`, `untag`, `reset` |
 | `label_list` | list of text | `[]` | Label names (case-insensitive). Required for create, delete, tag, untag |
 | `target_entities` | list of entity_ids | `[]` | Entities to tag/untag. Required for tag and untag |
-| `confirm` | boolean | `false` | Required `true` for create and delete |
+| `confirm` | boolean | `false` | Required `true` for create, delete, and reset |
 
 ---
 
@@ -112,6 +112,32 @@ Removes one or more labels from one or more entities. No confirmation required.
 
 ---
 
+### `reset`
+
+Wipes all entity assignments from every `zen_` label. Labels survive — only the assignments are cleared. Use this when label IDs are correct but entity tagging is wrong or missing (for example, after a partial install or a label migration gone sideways).
+
+`confirm: true` is required. The script will refuse without it.
+
+After reset, `zen_resolver_refresh` is fired automatically. Flynn re-engages on the next `zen_label_health` state change and re-assigns via Gate 1.
+
+```yaml
+action_type: reset
+confirm: true
+```
+
+```json
+{
+  "status": "ok",
+  "action": "reset",
+  "labels_cleared": 16,
+  "message": "Soft reset complete. 16 zen_ label(s) cleared. All assignments wiped. zen_resolver_refresh fired — Flynn will re-assign on next label health check."
+}
+```
+
+> **This is the soft reset.** For the nuclear option (delete labels entirely and trigger full Flynn rebuild), use `script.zen_admintools_reset_labels`.
+
+---
+
 ## Response Status Values
 
 | Status | Meaning |
@@ -190,3 +216,4 @@ Checklist when adding a component:
 | `homeassistant.delete_label` | Delete labels |
 | `homeassistant.add_label_to_entity` | Tag entities |
 | `homeassistant.remove_label_from_entity` | Untag entities |
+| `zen_resolver_refresh` event | Fired after reset to re-trigger resolver sensors |
