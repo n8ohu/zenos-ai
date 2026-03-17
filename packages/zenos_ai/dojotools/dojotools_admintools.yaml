@@ -319,8 +319,7 @@ script:
 
       confirm: true is REQUIRED. This tool will refuse without it.
     icon: mdi:label-off
-    mode: queued
-    max: 1
+    mode: single
     fields:
       confirm:
         name: Confirm Nuclear Reset
