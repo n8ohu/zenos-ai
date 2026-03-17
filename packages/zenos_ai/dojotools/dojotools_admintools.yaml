@@ -299,13 +299,97 @@ script:
     - stop: Migration complete
       response_variable: _result
 
+  zen_admintools_reset_labels:
+    alias: Zen AdminTools Reset Labels (NUCLEAR)
+    description: >-
+      ⚠️  NUCLEAR — deletes ALL zen_ labels and ALL their entity assignments.
+      No undo. Flynn fires automatically (zen_label_health → critical triggers
+      Stepgate Sentinel → Gate 0 recreates labels → Gate 1 re-assigns).
+
+      What this does, in order:
+        1. Untag all entities from every label with a zen_ ID
+        2. Delete every zen_ label (zen_* IDs only — non-zen labels untouched)
+        3. Fire zen_resolver_refresh so resolver sensors re-evaluate immediately
+
+      Non-zen labels (home, media_players, hot_tub, etc.) are never touched.
+      User cabinets are never touched.
+
+      If you only need to wipe assignments (labels survive), use
+      zen_dojotools_labels with action_type: reset instead.
+
+      confirm: true is REQUIRED. This tool will refuse without it.
+    icon: mdi:label-off
+    mode: queued
+    max: 1
+    fields:
+      confirm:
+        name: Confirm Nuclear Reset
+        description: >-
+          Must be true to proceed. This deletes all zen_ labels. No undo.
+        required: true
+        default: false
+        selector:
+          boolean:
+
+    sequence:
+    - if:
+      - condition: template
+        value_template: '{{ not confirm }}'
+      then:
+      - stop: >-
+          Nuclear reset refused — confirm: true required. All zen_ labels and
+          assignments will be permanently deleted. Set confirm: true to proceed.
+
+    - variables:
+        zen_labels: '{{ labels() | select(''match'', ''^zen_'') | list }}'
+
+    # Pass 1 — untag all entities from every zen_ label
+    - repeat:
+        for_each: '{{ zen_labels }}'
+        sequence:
+        - variables:
+            lbl_entities: '{{ label_entities(repeat.item) | list }}'
+        - if:
+          - condition: template
+            value_template: '{{ lbl_entities | length > 0 }}'
+          then:
+          - action: homeassistant.remove_label_from_entity
+            data:
+              label_id: '{{ repeat.item }}'
+              entity_id: '{{ lbl_entities }}'
+
+    # Pass 2 — delete all zen_ labels
+    - repeat:
+        for_each: '{{ zen_labels }}'
+        sequence:
+        - action: homeassistant.delete_label
+          data:
+            label_id: '{{ repeat.item }}'
+
+    # Pass 3 — kick resolvers; Flynn sentinel fires from zen_label_health change
+    - event: zen_resolver_refresh
+
+    - set_conversation_response: >-
+        Nuclear label reset complete. {{ zen_labels | length }} zen_ label(s)
+        deleted. zen_resolver_refresh fired. Flynn will recreate and reassign
+        on next sentinel cycle.
+
   zen_admintools_cabinetadmin:
     alias: Zen AdminTools CabinetAdmin
-    description: 'Zen AdminTools CabinetAdmin (4.0.0 RC2). Pattern A — strict redirector
-      mode. All writes routed exclusively through set_variable_legacy / clear_variables_legacy
-      for safe cabinet volume routing.
+    description: >-
+      Zen AdminTools CabinetAdmin (4.0.0 RC2). Pattern A — strict redirector
+      mode. All writes routed exclusively through set_variable_legacy /
+      clear_variables_legacy for safe cabinet volume routing.
 
-      '
+      Ops: inspect, restore, reset, hammer, init, reset_all.
+
+      ⚠️  reset_all is NUCLEAR — wipes ALL ring-0 canonical cabinets, reseeds
+      schemas, and triggers Flynn bootstrap. No undo. User cabinets are NOT
+      touched. This tool calls zen_admintools_reset_template and fires Flynn
+      sentinel via cabinet health sensor change. If you want to customize the
+      sequence (skip a cabinet, change order), read the docs and call the
+      individual tools directly — that is exactly what reset_all does under
+      the hood. confirm: true required for reset_all.
     mode: parallel
     max: 10
     fields:
@@ -319,6 +403,7 @@ script:
             - reset
             - hammer
             - init
+            - reset_all
         default: inspect
       target_cabinet:
         name: Target Cabinet
@@ -332,6 +417,13 @@ script:
         selector:
           boolean:
         default: false
+      confirm:
+        name: Confirm Nuclear Reset (reset_all only)
+        description: Required for reset_all. Wipes all ring-0 cabinets. No undo.
+        required: false
+        default: false
+        selector:
+          boolean:
     sequence:
     - variables:
         canon_ring0_cabinets:
@@ -443,6 +535,40 @@ script:
                       initialized: true
                       timestamp: '{{ now().isoformat() }}'
                   set_timestamp: true
+    # ── reset_all — nuclear cabinet wipe + reseed + Flynn bootstrap ──────────
+    - if:
+      - condition: template
+        value_template: '{{ op == ''reset_all'' }}'
+      then:
+      - if:
+        - condition: template
+          value_template: '{{ not confirm }}'
+        then:
+        - set_conversation_response: >-
+            reset_all refused — confirm: true required. This wipes all ring-0
+            canonical cabinets, reseeds schemas, and triggers Flynn bootstrap.
+            No undo. Set confirm: true to proceed.
+        - stop: confirm required
+      # Step 1 — wipe all ring-0 cabinets
+      - repeat:
+          for_each: '{{ canon_ring0_cabinets }}'
+          sequence:
+          - event: clear_variables_legacy
+            event_data:
+              volume_entity: '{{ repeat.item }}'
+              key: '*'
+      # Step 2 — reseed kfc_template + zen_template
+      - action: script.zen_admintools_reset_template
+        data: {}
+      # Step 3 — kick resolvers; Flynn sentinel fires from zen_cabinet_health change
+      - event: zen_resolver_refresh
+      - set_conversation_response: >-
+          reset_all complete. {{ canon_ring0_cabinets | length }} ring-0
+          cabinet(s) wiped. Schemas reseeded via reset_template.
+          zen_resolver_refresh fired. Flynn will bootstrap on next sentinel
+          cycle. User cabinets were not touched.
+      - stop: reset_all complete
+
     - set_conversation_response: 'AdminTools completed ''{{ op }}'' on {{ effective_targets
         | length }} cabinet(s).
 

@@ -28,13 +28,13 @@ script:
           in user_labels %}\n    \"{{ lbl }}\": {\n      \"description\": \"{{ label_description(
           lbl ) | default('') }}\"\n    }{{ \",\" if not loop.last else \"\" }}\n  {%-
           endfor %}\n  }\n{% else %}\n  {}\n{% endif %}"
-        minihelp: 'Minihelp: actions = tag, untag, create, delete, summary, update'
+        minihelp: 'Minihelp: actions = tag, untag, create, delete, summary, update, reset'
         results_list: []
         failures_list: []
     - choose:
       - conditions:
         - condition: template
-          value_template: '{{ action not in [''tag'',''untag'',''create'',''delete'',''summary'',''update'',''read'']
+          value_template: '{{ action not in [''tag'',''untag'',''create'',''delete'',''summary'',''update'',''read'',''reset'']
             }}'
           alias: Error - invalid Action
         sequence:
@@ -264,6 +264,53 @@ script:
               affected_entities: '{{ target_ent_list }}'
         - stop: pass var scope
           response_variable: response
+      - conditions:
+        - alias: RESET (soft)
+          condition: template
+          value_template: '{{ action == ''reset'' }}'
+        sequence:
+        - if:
+          - condition: template
+            value_template: '{{ not confirm }}'
+          then:
+          - variables:
+              response:
+                status: error
+                error: >-
+                  RESET requires confirm: true. This untags ALL entities from ALL
+                  zen_ labels. Labels survive — only assignments are wiped. Use
+                  when label IDs exist but assignments are wrong or missing. For
+                  nuclear (delete labels too) use zen_admintools_reset_labels.
+          - stop: confirm required
+            response_variable: response
+        - variables:
+            zen_labels: '{{ labels() | select(''match'', ''^zen_'') | list }}'
+        - repeat:
+            for_each: '{{ zen_labels }}'
+            sequence:
+            - variables:
+                lbl_entities: '{{ label_entities(repeat.item) | list }}'
+            - if:
+              - condition: template
+                value_template: '{{ lbl_entities | length > 0 }}'
+              then:
+              - action: homeassistant.remove_label_from_entity
+                data:
+                  label_id: '{{ repeat.item }}'
+                  entity_id: '{{ lbl_entities }}'
+        - event: zen_resolver_refresh
+        - variables:
+            response:
+              status: ok
+              action: reset
+              labels_cleared: '{{ zen_labels | length }}'
+              message: >-
+                Soft reset complete. {{ zen_labels | length }} zen_ label(s)
+                cleared. All assignments wiped. zen_resolver_refresh fired —
+                Flynn will re-assign on next label health check.
+        - stop: pass var scope
+          response_variable: response
+
     - choose:
       - conditions:
         - alias: No response defined yet
@@ -284,7 +331,7 @@ script:
       '
     fields:
       action_type:
-        description: '''create'', ''read'', ''delete'', ''tag'', ''untag'''
+        description: '''create'', ''read'', ''delete'', ''tag'', ''untag'', ''reset'''
         required: true
         selector:
           select:
@@ -294,6 +341,7 @@ script:
             - delete
             - tag
             - untag
+            - reset
         default: read
       target_entities:
         description: List of entity_ids to apply labels to or summarize. Required for
