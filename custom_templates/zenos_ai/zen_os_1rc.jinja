@@ -839,9 +839,9 @@
 
     {% set h = zen_health_block() | from_json %}
 
-    {% set label_ok = h.zen_health.label_health in ['ok','warn'] %}
-    {% set cab_ok   = h.zen_health.cabinet_health in ['ok','warn'] %}
-    {% set mon_ok   = h.zen_health.monastery_health in ['ok','warn'] %}
+    {% set label_ok = h.zen_health.label_health in ['ok','warn','disabled'] %}
+    {% set cab_ok   = h.zen_health.cabinet_health in ['ok','warn','disabled'] %}
+    {% set mon_ok   = h.zen_health.monastery_health in ['ok','warn','disabled'] %}
 
     {% if label_ok and cab_ok and mon_ok %}
         healthy

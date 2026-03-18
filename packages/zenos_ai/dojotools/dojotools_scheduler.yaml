@@ -159,6 +159,20 @@ automation:
         event:
           kind: gc_force
       alias: 'Zen Event: Force FileCabinet GC'
+    - trigger: event
+      event_type: zen_event
+      id: force_ninja
+      event_data:
+        event:
+          kind: ninja_force
+      alias: 'Zen Event: Force Ninja Summarizer (all KFCs, skip SuperSummary)'
+    - trigger: event
+      event_type: zen_event
+      id: force_supersummary
+      event_data:
+        event:
+          kind: supersummary_force
+      alias: 'Zen Event: Force SuperSummary only (skip Ninja dispatch)'
     actions:
 
     # ── Pre-fetch home overview ──────────────────────────────────────────────
@@ -202,6 +216,7 @@ automation:
           - ha_start
           - every_10_minutes
           - force_summary
+          - force_supersummary
         sequence:
         - variables:
             supplemental_prompt: >-
@@ -246,7 +261,9 @@ automation:
     # Reads all KFC drawers from the Dojo cabinet. Filters to those whose
     # trigger_subscriptions include the current trigger.id. For force_summary
     # with a zen_event_component set, only that component runs.
-    # delay_seconds is skipped for force_summary (urgent path).
+    # delay_seconds is skipped for force_summary / force_ninja (urgent path).
+    # force_ninja remaps to ha_start scope — runs only boot-sequence KFCs.
+    # force_supersummary skips this block entirely (gated by if above).
     - variables:
         _dojo_cab: >-
           {{ label_entities('Zen Dojo Cabinet')
@@ -258,7 +275,8 @@ automation:
         _protected: "['AI_Cabinet_VolumeInfo', 'kfc_template', 'zen_library_manifest', '_context']"
         _subscribers: >-
           {%- set dojo_vars = state_attr(_dojo_cab, 'variables') | default({}, true) -%}
-          {%- set trig_id   = trigger.id | default('') -%}
+          {%- set _raw_trig = trigger.id | default('') -%}
+          {%- set trig_id   = 'ha_start' if _raw_trig == 'force_ninja' else _raw_trig -%}
           {%- set force_c   = zen_event_component | default('', true) | slugify -%}
           {%- set protected = ['AI_Cabinet_VolumeInfo', 'kfc_template', 'zen_library_manifest', '_context'] -%}
           {%- set ns = namespace(subs=[]) -%}
@@ -277,42 +295,44 @@ automation:
           {%- endfor -%}
           {{ ns.subs | sort(attribute='delay_seconds') }}
 
-    - repeat:
-        for_each: "{{ _subscribers }}"
-        sequence:
-        - if:
-          - condition: template
-            value_template: >-
-              {{ trigger.id != 'force_summary'
-                 and (repeat.item.delay_seconds | default(0) | int(0)) > 0 }}
-          then:
-          - delay:
-              seconds: "{{ repeat.item.delay_seconds | default(0) | int(0) }}"
-        - action: script.zen_dojotools_filecabinet
-          metadata: {}
-          data:
-            action_type: read
-            show_hidden_volumes: false
-            volume_entity_id:
-            - "{{ _kata_cab }}"
-            key: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
-          response_variable: _iter_last_kata
-        - variables:
-            _iter_prompt: >-
-              {{
-                {
-                  "source":            {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
-                  "home_overview":     home_overview | default({}),
-                  "last_kata_summary": _iter_last_kata | default({})
-                } | tojson
-              }}
-        - action: script.zen_dojotools_ninja_summarizer
-          metadata: {}
-          data:
-            kung_fu_component_id: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
-            post_to_kata_cabinet: true
-            supplemental_prompt: '{{ _iter_prompt }}'
-          response_variable: _iter_ninja_response
+    - if: "{{ trigger.id != 'force_supersummary' }}"
+      then:
+        - repeat:
+            for_each: "{{ _subscribers }}"
+            sequence:
+              - if:
+                - condition: template
+                  value_template: >-
+                    {{ trigger.id not in ['force_summary', 'force_ninja']
+                       and (repeat.item.delay_seconds | default(0) | int(0)) > 0 }}
+                then:
+                - delay:
+                    seconds: "{{ repeat.item.delay_seconds | default(0) | int(0) }}"
+              - action: script.zen_dojotools_filecabinet
+                metadata: {}
+                data:
+                  action_type: read
+                  show_hidden_volumes: false
+                  volume_entity_id:
+                  - "{{ _kata_cab }}"
+                  key: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
+                response_variable: _iter_last_kata
+              - variables:
+                  _iter_prompt: >-
+                    {{
+                      {
+                        "source":            {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
+                        "home_overview":     home_overview | default({}),
+                        "last_kata_summary": _iter_last_kata | default({})
+                      } | tojson
+                    }}
+              - action: script.zen_dojotools_ninja_summarizer
+                metadata: {}
+                data:
+                  kung_fu_component_id: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
+                  post_to_kata_cabinet: true
+                  supplemental_prompt: '{{ _iter_prompt }}'
+                response_variable: _iter_ninja_response
 
     # ── Write scheduler heartbeat to Kata ───────────────────────────────────
     - variables:

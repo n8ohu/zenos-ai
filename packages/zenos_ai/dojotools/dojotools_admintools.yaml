@@ -1100,6 +1100,15 @@ script:
                 value: '27'
               - label: 29 — 2026 GA
                 value: '29'
+      ship_zen_system:
+        name: "Ship KFC: ZenOS System Health"
+        description: >-
+          Write the zen_system default KFC to the Dojo cabinet. Monitors pipeline
+          health, kill switches, and cabinet resolvers. Ships checked by default —
+          this is the proof-of-concept KFC and the guidepost for all others.
+        default: true
+        selector:
+          boolean:
     sequence:
     - variables:
         _cv: >-
@@ -1975,6 +1984,54 @@ script:
 
                 '
           set_timestamp: true
+
+    # ── Default KFC Components ────────────────────────────────────────────────
+    # Ship default KFCs via KF Writer. Each KFC gets a checkbox field (default
+    # off) except zen_system which ships ON — it is the proof KFC and guidepost.
+    # Pattern for adding a new default KFC:
+    #   1. Add a boolean field: ship_<kata_key> with default: false
+    #   2. Add an if-gated action block below calling zen_dojotools_kungfu_writer
+    #   3. zen_system stays default: true — all others ship unchecked
+    - if: "{{ ship_zen_system | default(true) | bool }}"
+      then:
+        - alias: 'Ship default KFC: zen_system'
+          action: script.zen_dojotools_kungfu_writer
+          data:
+            action: write
+            kata_key: zen_system
+            friendly_name: ZenOS System Health
+            component_summary: >-
+              Monitors ZenOS pipeline health: cabinet resolvers, kill switches,
+              summarizer staleness, and monk status. The meta-KFC that watches the watchers.
+            component_instructions: >-
+              Surface health state first. If any sensor is warn or critical, or any
+              pipeline kill switch is off — lead with that. If all ok — single line nominal.
+
+              Priority order for reporting:
+              1. Cabinets missing or unavailable — surface before anything else. No cabinets = no cognition.
+              2. Kill switches off — pipeline_master, supersummary_enabled, ninja_summarizer_enabled. Name the specific switch that is off.
+              3. Summarizer staleness — if zen_summary timestamp > 15 min, flag as stale. > 30 min = critical stale.
+              4. Monk errors — if supersummary_status is error/timeout/none, flag with status value.
+              5. Schema health — if schema_ok false, flag. No template = no monk output structure.
+
+              NAVIGATION — do NOT enumerate entity IDs. Express discovery paths instead:
+              - To find system health sensors: query label 'zen_system'
+              - To find all ZenOS entities: query label 'zen'
+              - To find KFC specs: query label 'dojo'
+              - To find kill switches: query label 'zen_system', filter input_boolean domain
+
+              In watchlist and attention fields, write "entities under label 'zen_system'" not a list of sensor.* IDs. Labels are stable; entity IDs are not. The label IS the scope.
+
+              Do NOT expand individual component kata here — this component owns the rollup signal only. If you see warn/critical on a specific component, name it and stop. The per-component monk will have detail.
+
+              Nominal report format: "ZenOS nominal. [N] components active. Last summary [X] min ago."
+              Alert format: "ZenOS [warn|critical]: [specific issue]. [switch name|sensor name|cabinet name]."
+            label: zen_system
+            trigger_subscriptions: ha_start,daily_midnight
+            version: 1.2.0
+            confirm_action: true
+          response_variable: _zen_system_kfc_result
+
     alias: Zen AdminTools ZenOS-AI Prompt Loader (v27/v29)
     description: 'Sets the ''Cortex'', ''Directives'', and ''Purpose'' sections for
       the ZenOS-AI Prompt Loader. Use cortex_version field to select: 27 = 2026 RC2

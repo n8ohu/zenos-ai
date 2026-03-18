@@ -7,7 +7,7 @@
 # sensor.zen_flynn_health
 #   Flynn infrastructure rollup. Compresses label_health + cabinet_health +
 #   monastery_health into a single clean state.
-#   State: critical | error | warn | ok
+#   State: critical | error | warn | disabled | ok
 #   Key attributes:
 #     current_gate — ok | gate_0 | gate_1 | gate_2 | gate_3
 #     next_step    — plain-language instruction for the blocking gate
@@ -52,7 +52,7 @@ template:
 
         #######################################################################
         # STATE — worst of the three gate sensors
-        # Priority: critical > error > warn > ok
+        # Priority: critical > error > warn > disabled > ok
         #######################################################################
         state: >-
           {%- set label_st = states('sensor.zen_label_health') %}
@@ -67,6 +67,8 @@ template:
             error
           {%- elif 'warn' in all %}
             warn
+          {%- elif 'disabled' in all %}
+            disabled
           {%- else %}
             ok
           {%- endif %}
@@ -130,6 +132,8 @@ template:
               Labels exist but not assigned to cabinet entities. Trigger automation.flynn_stepgate_sentinel — Flynn will wire them.
             {%- elif cab_st != 'ok' %}
               Labels wired but required cabinets not initialized. Trigger automation.flynn_stepgate_sentinel — Flynn will initialize them.
+            {%- elif mon_st == 'disabled' %}
+              Summary pipeline is disabled. Enable zen_summarizers_enabled (and optionally zen_ninja_summarizer_enabled / zen_supersummarizer_enabled) in Settings > Helpers to restore full cognition.
             {%- elif mon_st != 'ok' %}
               Cabinets ready but content not bootstrapped. Fill in Settings > Helpers (household name, primary user, persona name, conversation agent), then trigger automation.flynn_stepgate_sentinel.
             {%- else %}

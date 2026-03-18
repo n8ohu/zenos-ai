@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Labels
-# Version: 4.0.0 RC2
+# Version: 4.1.0
 #
 # Scripts:
 #   zen_dojotools_labels — Label CRUD. Read/modify the HA label index.
@@ -88,8 +88,9 @@ script:
               metadata: {}
               data:
                 name: '{{ repeat.item }}'
-                description: tbd
-                color: primary
+                description: '{{ new_description | default('''', true) }}'
+                icon: '{{ new_icon | default('''', true) }}'
+                color: '{{ new_color | default(''primary'', true) }}'
         - variables:
             created_count: '{{ target_labels | count }}'
             response:
@@ -310,6 +311,114 @@ script:
                 Flynn will re-assign on next label health check.
         - stop: pass var scope
           response_variable: response
+      - conditions:
+        - alias: UPDATE
+          condition: template
+          value_template: '{{ action == ''update'' }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ user_labels | length == 0 }}'
+              alias: No label specified
+            sequence:
+            - variables:
+                response:
+                  status: error
+                  error: Update requires exactly one label. {{ minihelp }}
+                  index: '{{ label_index }}'
+            - stop: pass var scope
+              response_variable: response
+          - conditions:
+            - condition: template
+              value_template: '{{ user_labels | length > 1 }}'
+              alias: Too many labels
+            sequence:
+            - variables:
+                response:
+                  status: error
+                  error: Update operates on one label at a time. {{ minihelp }}
+                  index: '{{ label_index }}'
+            - stop: pass var scope
+              response_variable: response
+        - variables:
+            _upd_name: '{{ user_labels[0] }}'
+            _upd_id: '{{ user_labels[0] | slugify(separator=''_'') }}'
+            _upd_exists: '{{ _upd_id in label_index }}'
+            _upd_desc: '{{ new_description | default('''', true) }}'
+            _upd_icon: '{{ new_icon | default('''', true) }}'
+            _upd_color: '{{ new_color | default('''', true) }}'
+            _has_change: '{{ _upd_desc != '''' or _upd_icon != '''' or _upd_color != '''' }}'
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ not _upd_exists }}'
+            sequence:
+            - variables:
+                response:
+                  status: error
+                  error: "Label '{{ _upd_name }}' not found in index. Use create first."
+                  index: '{{ label_index }}'
+            - stop: pass var scope
+              response_variable: response
+          - conditions:
+            - condition: template
+              value_template: '{{ not _has_change }}'
+            sequence:
+            - variables:
+                response:
+                  status: error
+                  error: Update requires at least one of new_description, new_icon, new_color.
+            - stop: pass var scope
+              response_variable: response
+        - if:
+          - condition: template
+            value_template: '{{ not confirm }}'
+          then:
+          - variables:
+              response:
+                status: start
+                action: update
+                label: '{{ _upd_name }}'
+                label_id: '{{ _upd_id }}'
+                new_description: '{{ _upd_desc }}'
+                new_icon: '{{ _upd_icon }}'
+                new_color: '{{ _upd_color }}'
+                warning: Delete and recreate — unprovided fields will be empty.
+                message: Confirmation required. Update will delete and recreate the
+                  label then restore all entity associations.
+          - stop: confirm required
+            response_variable: response
+        - variables:
+            _upd_entities: '{{ label_entities(_upd_id) | list }}'
+        - action: homeassistant.delete_label
+          data:
+            label_id: '{{ _upd_id }}'
+        - action: homeassistant.create_label
+          data:
+            name: '{{ _upd_name }}'
+            description: '{{ _upd_desc }}'
+            icon: '{{ _upd_icon }}'
+            color: '{{ _upd_color }}'
+        - if:
+          - condition: template
+            value_template: '{{ _upd_entities | length > 0 }}'
+          then:
+          - action: homeassistant.add_label_to_entity
+            data:
+              label_id: '{{ _upd_id }}'
+              entity_id: '{{ _upd_entities }}'
+        - variables:
+            response:
+              status: ok
+              action: update
+              label: '{{ _upd_name }}'
+              label_id: '{{ _upd_id }}'
+              retagged_count: '{{ _upd_entities | length }}'
+              message: "Update complete. {{ _upd_entities | length }} entity association(s) restored."
+        - stop: pass var scope
+          response_variable: response
+        alias: UPDATE
 
     - choose:
       - conditions:

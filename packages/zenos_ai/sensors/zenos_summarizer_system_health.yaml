@@ -107,7 +107,9 @@ template:
           {%- set dojo_cab = states('sensor.zen_dojo_cabinet_resolved') %}
           {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') %}
 
-          {%- if dojo_cab in ['unknown','unavailable','none'] %}
+          {%- if not is_state('input_boolean.zen_summarizers_enabled', 'on') %}
+            disabled
+          {%- elif dojo_cab in ['unknown','unavailable','none'] %}
             critical
           {%- elif kata_cab in ['unknown','unavailable','none'] %}
             critical
@@ -254,7 +256,9 @@ template:
           }}
         state: >-
           {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') %}
-          {%- if kata_cab in ['unknown','unavailable','none'] %}
+          {%- if not is_state('input_boolean.zen_ninja_summarizer_enabled', 'on') %}
+            disabled
+          {%- elif kata_cab in ['unknown','unavailable','none'] %}
             critical
           {%- else %}
             {%- set kata = state_attr(kata_cab,'variables') or {} %}
@@ -302,7 +306,9 @@ template:
           }}
         state: >-
           {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') %}
-          {%- if kata_cab in ['unknown','unavailable','none'] %}
+          {%- if not is_state('input_boolean.zen_supersummarizer_enabled', 'on') %}
+            disabled
+          {%- elif kata_cab in ['unknown','unavailable','none'] %}
             critical
           {%- else %}
             {%- set kata = state_attr(kata_cab,'variables') or {} %}
@@ -337,3 +343,52 @@ template:
 
           pipeline_master: "{{ is_state('input_boolean.zen_summarizers_enabled', 'on') }}"
           supersummary_enabled: "{{ is_state('input_boolean.zen_supersummarizer_enabled', 'on') }}"
+
+
+###############################################################################
+# Auto-fire pipeline when a summarizer kill switch is re-enabled.
+# Fires zen_event kind:summary_force → scheduler force_summary branch →
+# SuperSummary + Ninja dispatch + zen_health_tick in one pass.
+###############################################################################
+automation:
+
+  - id: zen_pipeline_autofire_on_enable
+    alias: ZenOS — Auto-fire pipeline on summarizer enable
+    description: >-
+      When any summarizer kill switch is turned on, immediately fire the
+      summary pipeline rather than waiting for the next scheduled tick.
+    trigger:
+      - platform: state
+        entity_id: input_boolean.zen_summarizers_enabled
+        to: "on"
+        id: master
+      - platform: state
+        entity_id: input_boolean.zen_ninja_summarizer_enabled
+        to: "on"
+        id: ninja
+      - platform: state
+        entity_id: input_boolean.zen_supersummarizer_enabled
+        to: "on"
+        id: supersummary
+    action:
+      - choose:
+          - conditions: "{{ trigger.id == 'master' }}"
+            sequence:
+              - event: zen_event
+                event_data:
+                  event:
+                    kind: summary_force
+          - conditions: "{{ trigger.id == 'ninja' }}"
+            sequence:
+              - event: zen_event
+                event_data:
+                  event:
+                    kind: ninja_force
+          - conditions: "{{ trigger.id == 'supersummary' }}"
+            sequence:
+              - event: zen_event
+                event_data:
+                  event:
+                    kind: supersummary_force
+    mode: single
+    max_exceeded: silent
