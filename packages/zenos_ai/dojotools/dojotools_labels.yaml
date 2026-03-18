@@ -28,13 +28,13 @@ script:
           in user_labels %}\n    \"{{ lbl }}\": {\n      \"description\": \"{{ label_description(
           lbl ) | default('') }}\"\n    }{{ \",\" if not loop.last else \"\" }}\n  {%-
           endfor %}\n  }\n{% else %}\n  {}\n{% endif %}"
-        minihelp: 'Minihelp: actions = tag, untag, create, delete, summary, update, reset'
+        minihelp: 'Minihelp: actions = create, read, delete, tag, untag, update, reset'
         results_list: []
         failures_list: []
     - choose:
       - conditions:
         - condition: template
-          value_template: '{{ action not in [''tag'',''untag'',''create'',''delete'',''summary'',''update'',''read'',''reset'']
+          value_template: '{{ action not in [''tag'',''untag'',''create'',''delete'',''update'',''read'',''reset'']
             }}'
           alias: Error - invalid Action
         sequence:
@@ -44,7 +44,7 @@ script:
               error: Invalid action_type '{{ action_type }}'. {{ minihelp }}
               index: '{{ label_index }}'
         - stop: response
-          response_variable: Pass Car Scope
+          response_variable: response
       - conditions:
         - condition: template
           value_template: '{{ action == ''create'' }}'
@@ -141,7 +141,7 @@ script:
             - variables:
                 response:
                   status: error
-                  error: Create requires at least one label. {{ minihelp }}
+                  error: Delete requires at least one label. {{ minihelp }}
                   index: '{{ label_index }}'
             - stop: pass var scope
               response_variable: response
@@ -168,7 +168,7 @@ script:
             sequence:
             - action: homeassistant.delete_label
               data:
-                label_id: '{{ repeat.item | slugify }}'
+                label_id: '{{ repeat.item | slugify(separator=''_'') }}'
         - variables:
             deleted_count: '{{ target_labels | count }}'
             response:
@@ -432,15 +432,14 @@ script:
         - stop: Return
           response_variable: response
     alias: Zen DojoTools Labels
-    description: 'Zen DojoTools Labels (1.0.0) (was Label CRUD) Read, modify the index
-      tags, tag and untag entities. Label manager for Home Assistant. Tool does NOT
-      support overwrite. Hint: Read details for one or more labels to find out what
-      those labels are...
-  
-      '
+    description: 'Zen DojoTools Labels (4.1.0) — Label CRUD. Read, modify the index,
+      tag and untag entities, create, delete, and update labels. Update (description,
+      icon, color) deletes and recreates the label then restores all entity associations.
+      Hint: Read details for one or more labels to find out what those labels are...'
     fields:
       action_type:
-        description: '''create'', ''read'', ''delete'', ''tag'', ''untag'', ''reset'''
+        description: '''create'', ''read'', ''delete'', ''tag'', ''untag'', ''update'',
+          ''reset'''
         required: true
         selector:
           select:
@@ -450,22 +449,38 @@ script:
             - delete
             - tag
             - untag
+            - update
             - reset
         default: read
       target_entities:
-        description: List of entity_ids to apply labels to or summarize. Required for
-          'tag', 'untag', and 'summary' actions.
+        description: List of entity_ids to tag or untag. Required for 'tag' and 'untag'
+          actions.
         required: false
         selector:
           entity:
             multiple: true
       label_list:
         description: List of labels (case-insensitive). Required for 'tag', 'untag',
-          'create', and 'delete'.
+          'create', 'delete', and 'update' (exactly one for update).
         required: false
         selector:
           text:
             multiple: true
+      new_description:
+        description: Label description. Used by 'create' and 'update'.
+        required: false
+        selector:
+          text: {}
+      new_icon:
+        description: MDI icon slug (e.g. mdi:home). Used by 'create' and 'update'.
+        required: false
+        selector:
+          text: {}
+      new_color:
+        description: Label color. Used by 'create' (default primary) and 'update'.
+        required: false
+        selector:
+          text: {}
       confirm:
         description: Required for writable / destructive actions, Function will alert
           when Confirmation is required - expect it for Create, Delete, Update.  Confirms
