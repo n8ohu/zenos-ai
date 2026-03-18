@@ -89,7 +89,6 @@ script:
               data:
                 name: '{{ repeat.item }}'
                 description: '{{ new_description | default('''', true) }}'
-                icon: '{{ new_icon | default('''', true) }}'
                 color: '{{ new_color | default(''primary'', true) }}'
         - variables:
             created_count: '{{ target_labels | count }}'
@@ -398,7 +397,6 @@ script:
           data:
             name: '{{ _upd_name }}'
             description: '{{ _upd_desc }}'
-            icon: '{{ _upd_icon }}'
             color: '{{ _upd_color }}'
         - if:
           - condition: template
@@ -470,17 +468,18 @@ script:
         description: Label description. Used by 'create' and 'update'.
         required: false
         selector:
-          text: {}
+          text:
       new_icon:
         description: MDI icon slug (e.g. mdi:home). Used by 'create' and 'update'.
+          Omit to use HA default. Empty string is rejected by HA.
         required: false
         selector:
-          text: {}
+          text:
       new_color:
         description: Label color. Used by 'create' (default primary) and 'update'.
         required: false
         selector:
-          text: {}
+          text:
       confirm:
         description: Required for writable / destructive actions, Function will alert
           when Confirmation is required - expect it for Create, Delete, Update.  Confirms
