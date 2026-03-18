@@ -282,6 +282,9 @@ script:
             labels_raw: '{{ labels(current_entity) | default([]) }}'
             safe_labels: "{% if labels_raw is iterable and (labels_raw is not string)
               %}\n  {{ labels_raw | list }}\n{% else %} [] {% endif %}"
+            label_details: "{%- set ns = namespace(d={}) %}{%- for lbl in safe_labels
+              %}{%- set ns.d = ns.d | combine({lbl: label_description(lbl) | default('',
+              true)}) %}{%- endfor %}{{ ns.d }}"
             attrs_raw: "{% set s = states[current_entity] %} {% if s is not none and
               s.attributes is mapping %}\n  {{ s.attributes }}\n{% else %}\n  {}\n{%
               endif %}"
@@ -385,7 +388,7 @@ script:
               endif %}"
             entity_result: "{% set ns = namespace(out={\n  'entity_id': current_entity,\n
               \  'friendly_name': friendly_name,\n  'domain': domain,\n  'state': state_str,\n
-              \  'labels': safe_labels\n}) %}\n{% if _show_timestamps %}\n  {% set ns.out
+              \  'labels': label_details\n}) %}\n{% if _show_timestamps %}\n  {% set ns.out
               = ns.out | combine({'last_changed': last_changed, 'last_updated': last_updated})
               %}\n{% endif %}\n{% if _show_device and device_block is not none and device_block
               is mapping %}\n  {% set ns.out = ns.out | combine({'device': device_block})
