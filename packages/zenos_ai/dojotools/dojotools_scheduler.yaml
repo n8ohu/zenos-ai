@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Scheduler
-# Version: 4.1.0
+# Version: 4.1.1
 #
 # Automations:
 #   Zen DojoTools Scheduler — time/event orchestrator for the Dojo system
@@ -353,5 +353,9 @@ automation:
         - "{{ _kata_cab }}"
         key: zen_scheduler
         value: '{{ final_response }}'
+
+    # ── Fire health tick — unblocks trigger-based health sensors ────────────
+    - event: zen_health_tick
+
     mode: queued
     max: 5

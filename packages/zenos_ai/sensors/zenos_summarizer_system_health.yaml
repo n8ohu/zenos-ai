@@ -82,7 +82,15 @@ template:
   ###########################################################################
   # 1️⃣ ZEN MONASTERY HEALTH — global cognition rollup
   ###########################################################################
-  - sensor:
+  - trigger:
+      - platform: homeassistant
+        event: start
+      - platform: event
+        event_type: zen_health_tick
+      - platform: event
+        event_type: zen_resolver_refresh
+        alias: Manual refire
+    sensor:
       - name: Zen Monastery Health
         unique_id: zen_monastery_health
         device_class: enum
@@ -174,10 +182,40 @@ template:
             {{ _vars.get('zen_template',{}).get('value',{}).get('structure',{}) is mapping }}
 
           ninja_summary_status: >-
-            {{ states('sensor.zen_summarizer_health') }}
-            
+            {%- set _kc = states('sensor.zen_kata_cabinet_resolved') %}
+            {%- if _kc in ['unknown','unavailable','none'] %}
+              unavailable
+            {%- else %}
+              {%- set _k = state_attr(_kc,'variables') or {} %}
+              {%- set _sched = _k.get('zen_scheduler',{}) %}
+              {%- set _ts = _sched.get('timestamp') %}
+              {%- set _stale = _ts and (now() - as_datetime(_ts) >= timedelta(minutes=20)) %}
+              {%- set _task = states('input_text.zenos_ai_task_entity') | trim
+                  not in ['','unknown','unavailable'] %}
+              {%- if not _task %}warn
+              {%- elif not _sched %}warn
+              {%- elif _stale %}warn
+              {%- else %}ok
+              {%- endif %}
+            {%- endif %}
+
           supersummary_status: >-
-            {{ states('sensor.zen_supersummary_health') }}
+            {%- set _kc = states('sensor.zen_kata_cabinet_resolved') %}
+            {%- if _kc in ['unknown','unavailable','none'] %}
+              unavailable
+            {%- else %}
+              {%- set _k    = state_attr(_kc,'variables') or {} %}
+              {%- set _ss_d = _k.get('zen_supersummary_status', {}) %}
+              {%- set _monk = _ss_d.get('value', {}).get('status', 'unknown') if _ss_d is mapping else 'unknown' %}
+              {%- set _ts   = _k.get('zen_summary',{}).get('timestamp') %}
+              {%- set _stale = _ts and (now() - as_datetime(_ts) >= timedelta(minutes=15)) %}
+              {%- set _crit  = _ts and (now() - as_datetime(_ts) >= timedelta(minutes=30)) %}
+              {%- if _monk in ['error','timeout','none','null'] %}warn
+              {%- elif _crit %}warn
+              {%- elif _stale %}warn
+              {%- else %}ok
+              {%- endif %}
+            {%- endif %}
 
           active_components: >-
             {{
@@ -198,7 +236,15 @@ template:
   ###########################################################################
   # 2️⃣ NINJA SUMMARIZER HEALTH
   ###########################################################################
-  - sensor:
+  - trigger:
+      - platform: homeassistant
+        event: start
+      - platform: event
+        event_type: zen_health_tick
+      - platform: event
+        event_type: zen_resolver_refresh
+        alias: Manual refire
+    sensor:
       - name: Zen Summarizer Health
         unique_id: zen_summarizer_health
         device_class: enum
@@ -238,7 +284,15 @@ template:
   ###########################################################################
   # 3️⃣ SUPER SUMMARY (High Priestess)
   ###########################################################################
-  - sensor:
+  - trigger:
+      - platform: homeassistant
+        event: start
+      - platform: event
+        event_type: zen_health_tick
+      - platform: event
+        event_type: zen_resolver_refresh
+        alias: Manual refire
+    sensor:
       - name: Zen SuperSummary Health
         unique_id: zen_supersummary_health
         device_class: enum
