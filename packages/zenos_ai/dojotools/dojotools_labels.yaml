@@ -84,12 +84,24 @@ script:
         - repeat:
             for_each: '{{ target_labels }}'
             sequence:
-            - action: homeassistant.create_label
-              metadata: {}
-              data:
-                name: '{{ repeat.item }}'
-                description: '{{ new_description | default('''', true) }}'
-                color: '{{ new_color | default(''primary'', true) }}'
+            - if:
+              - condition: template
+                value_template: '{{ new_icon | default('''', true) != '''' }}'
+              then:
+              - action: homeassistant.create_label
+                metadata: {}
+                data:
+                  name: '{{ repeat.item }}'
+                  description: '{{ new_description | default('''', true) }}'
+                  icon: '{{ new_icon }}'
+                  color: '{{ new_color | default(''primary'', true) }}'
+              else:
+              - action: homeassistant.create_label
+                metadata: {}
+                data:
+                  name: '{{ repeat.item }}'
+                  description: '{{ new_description | default('''', true) }}'
+                  color: '{{ new_color | default(''primary'', true) }}'
         - variables:
             created_count: '{{ target_labels | count }}'
             response:
@@ -393,11 +405,22 @@ script:
         - action: homeassistant.delete_label
           data:
             label_id: '{{ _upd_id }}'
-        - action: homeassistant.create_label
-          data:
-            name: '{{ _upd_name }}'
-            description: '{{ _upd_desc }}'
-            color: '{{ _upd_color }}'
+        - if:
+          - condition: template
+            value_template: '{{ _upd_icon != '''' }}'
+          then:
+          - action: homeassistant.create_label
+            data:
+              name: '{{ _upd_name }}'
+              description: '{{ _upd_desc }}'
+              icon: '{{ _upd_icon }}'
+              color: '{{ _upd_color }}'
+          else:
+          - action: homeassistant.create_label
+            data:
+              name: '{{ _upd_name }}'
+              description: '{{ _upd_desc }}'
+              color: '{{ _upd_color }}'
         - if:
           - condition: template
             value_template: '{{ _upd_entities | length > 0 }}'
