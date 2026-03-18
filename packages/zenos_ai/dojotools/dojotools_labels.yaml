@@ -355,23 +355,12 @@ script:
         - variables:
             _upd_name: '{{ user_labels[0] }}'
             _upd_id: '{{ user_labels[0] | slugify(separator=''_'') }}'
-            _upd_exists: '{{ _upd_id in label_index }}'
             _upd_desc: '{{ new_description | default('''', true) }}'
             _upd_icon: '{{ new_icon | default('''', true) }}'
-            _upd_color: '{{ new_color | default('''', true) }}'
-            _has_change: '{{ _upd_desc != '''' or _upd_icon != '''' or _upd_color != '''' }}'
+            _upd_color: '{{ new_color | default(''primary'', true) }}'
+            _has_change: '{{ new_description | default('''', true) != '''' or new_icon
+              | default('''', true) != '''' or new_color | default('''', true) != '''' }}'
         - choose:
-          - conditions:
-            - condition: template
-              value_template: '{{ not _upd_exists }}'
-            sequence:
-            - variables:
-                response:
-                  status: error
-                  error: "Label '{{ _upd_name }}' not found in index. Use create first."
-                  index: '{{ label_index }}'
-            - stop: pass var scope
-              response_variable: response
           - conditions:
             - condition: template
               value_template: '{{ not _has_change }}'
@@ -395,7 +384,8 @@ script:
                 new_description: '{{ _upd_desc }}'
                 new_icon: '{{ _upd_icon }}'
                 new_color: '{{ _upd_color }}'
-                warning: Delete and recreate — unprovided fields will be empty.
+                warning: Delete and recreate — icon not preserved if omitted. Color
+                  defaults to primary if not provided.
                 message: Confirmation required. Update will delete and recreate the
                   label then restore all entity associations.
           - stop: confirm required
