@@ -191,6 +191,10 @@ template:
             {%- set _vars = state_attr(states('sensor.zen_kata_cabinet_resolved'),'variables') or {} %}
             {{ _vars.get('zen_summary',{}).get('timestamp') | default('none') }}
 
+          pipeline_master: "{{ is_state('input_boolean.zen_summarizers_enabled', 'on') }}"
+          supersummary_enabled: "{{ is_state('input_boolean.zen_supersummarizer_enabled', 'on') }}"
+          ninja_summarizer_enabled: "{{ is_state('input_boolean.zen_ninja_summarizer_enabled', 'on') }}"
+
   ###########################################################################
   # 2️⃣ NINJA SUMMARIZER HEALTH
   ###########################################################################
@@ -276,3 +280,6 @@ template:
           last_timestamp: >-
             {%- set _vars = state_attr(states('sensor.zen_kata_cabinet_resolved'),'variables') or {} %}
             {{ _vars.get('zen_summary',{}).get('timestamp') | default('none') }}
+
+          pipeline_master: "{{ is_state('input_boolean.zen_summarizers_enabled', 'on') }}"
+          supersummary_enabled: "{{ is_state('input_boolean.zen_supersummarizer_enabled', 'on') }}"
