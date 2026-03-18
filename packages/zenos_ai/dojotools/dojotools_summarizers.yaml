@@ -337,7 +337,7 @@ script:
       - alias: Post zen_summary to kata cabinet
         if:
           - condition: template
-            value_template: "{{ zen_summary and (post_to_kata_cabinet | bool) }}"
+            value_template: "{{ zen_summary and (post_to_kata_cabinet | default(false) | bool) }}"
         then:
           - delay:
               milliseconds: 250
@@ -639,7 +639,7 @@ script:
         if:
           - alias: If post set to true with valid data
             condition: template
-            value_template: "{{ monk_response.data and (post_to_kata_cabinet | bool) }}"
+            value_template: "{{ monk_response.data and (post_to_kata_cabinet | default(false) | bool) }}"
         then:
           - delay:
               milliseconds: 250
