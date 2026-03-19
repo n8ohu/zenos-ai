@@ -350,7 +350,7 @@ script:
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: ZEN_SUMMARY
-              value: "{{ zen_summary }}"
+              value: "{{ zen_summary | tojson }}"
               label_input: Zen Summary
             response_variable: filecabinet_response
 
@@ -652,7 +652,7 @@ script:
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: "{{ component_slug }}"
-              value: "{{ kata_summary }}"
+              value: "{{ kata_summary | tojson }}"
               # FIX: was {{ index_command, 'Ninja Summary' }} — tuple syntax, fixed to clean CSV
               # Guard: if index_command empty, omit leading comma
               label_input: "{{ (index_command + ', ') if index_command else '' }}Ninja Summary"

@@ -253,6 +253,7 @@ automation:
         - condition: trigger
           id:
           - quarter_hour
+          - ha_start
         sequence:
         - event: zen_resolver_refresh
         alias: Health Sensor Retrigger
