@@ -411,8 +411,7 @@ script:
         - action: script.zen_dojotools_filecabinet
           data:
             action_type: read
-            volume_entity_id: "{{ label_entities('Zen Dojo Cabinet') | first | default('')
-              }}"
+            volume_entity_id: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
             label_targets: '{{ label_targets_input | join('','') }}'
           response_variable: _fc_label_response
         - variables:

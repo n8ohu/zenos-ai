@@ -284,10 +284,9 @@ template:
                                   and hh_vars.get('zen_library_manifest') | string | trim != '' %}
 
             {#--- who is the currently active default persona? ---#}
-            {%- set def_ai_cabs = label_entities('zen_default_ai_user_cabinet')
-                                  | select('match', 'sensor\\.') | list %}
+            {%- set def_cab = label_entities('zen_default_ai_user_cabinet')
+                             | select('match', 'sensor\\.') | list | first | default('') %}
             {%- set def_ns = namespace(loaded_name='') %}
-            {%- set def_cab = def_ai_cabs | first | default('') %}
             {%- if def_cab != '' and states(def_cab) not in ['unknown','unavailable'] %}
               {%- set def_vars = state_attr(def_cab, 'variables') | default({}, true) %}
               {%- set def_essence = def_vars.get('zenai_essence', {}) %}
@@ -311,7 +310,7 @@ template:
                 {%- set ag_name = (ag_identity.get('name', ag_cab) | string | trim)
                                   if ag_identity is mapping else ag_cab %}
 
-                {%- set ag_is_default = ag_cab in def_ai_cabs %}
+                {%- set ag_is_default = ag_cab == def_cab %}
 
                 {#--- required agent gates ---#}
                 {%- set agent = {
@@ -382,11 +381,12 @@ template:
                   and states(conv_eid) not in ['unknown','unavailable'] %}
             {%- set all_ai_cabs = label_entities('zen_ai_user_cabinet')
                                   | select('match', 'sensor\\.') | list %}
-            {%- set def_ai_cabs = label_entities('zen_default_ai_user_cabinet') | list %}
+            {%- set def_cab = label_entities('zen_default_ai_user_cabinet')
+                             | select('match', 'sensor\\.') | list | first | default('') %}
             {%- set ns = namespace(ok=0) %}
             {%- for ag_cab in all_ai_cabs %}
               {%- if states(ag_cab) not in ['unknown','unavailable'] %}
-                {%- if labels_cabs_ok and conv_avail and ag_cab in def_ai_cabs %}
+                {%- if labels_cabs_ok and conv_avail and ag_cab == def_cab %}
                   {%- set ns.ok = ns.ok + 1 %}
                 {%- endif %}
               {%- endif %}

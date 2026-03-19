@@ -52,7 +52,7 @@
 #   rich per-component zen_summary produced; confidence: 0.95 ✓
 #   post=false path (no cabinet write) → correct behavior ✓
 #   post=true path — zen_summary written to kata cabinet, verification confirmed ✓
-#   label_entities() cabinet resolution — 10 components flowing ✓
+#   resolver sensor cabinet resolution — 10 components flowing ✓
 #   post_to_kata_cabinet | bool gate — type-safe, passes correctly ✓
 #   config check → go; restart → clean ✓
 #
@@ -151,8 +151,8 @@ script:
       # ── 1. Resolve cabinets ───────────────────────────────────────────────
       - alias: Resolve cabinets
         variables:
-          dojo_cabinet: "{{ label_entities('Zen Dojo Cabinet' | slugify) | first | default('sensor.zen_dojo_cabinet') }}"
-          kata_cabinet: "{{ label_entities('Zen Kata Cabinet' | slugify) | first | default('sensor.zen_kata_storage_cabinet') }}"
+          dojo_cabinet: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
+          kata_cabinet: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
           monk_response: {}
           filecabinet_response: {}
 
@@ -472,8 +472,8 @@ script:
       # ── 1. Resolve cabinets + slug ────────────────────────────────────────
       - alias: Resolve cabinets and component slug
         variables:
-          dojo_cabinet: "{{ label_entities('Zen Dojo Cabinet' | slugify) | first | default('') }}"
-          kata_cabinet: "{{ label_entities('Zen Kata Cabinet' | slugify) | first | default('') }}"
+          dojo_cabinet: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
+          kata_cabinet: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
           household_cabinet: "{{ label_entities('Zen Default Household Cabinet' | slugify) | first | default('') }}"
           monk_response: {}
           filecabinet_response: {}

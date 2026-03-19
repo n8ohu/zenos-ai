@@ -265,12 +265,8 @@ automation:
     # force_ninja remaps to ha_start scope — runs only boot-sequence KFCs.
     # force_supersummary skips this block entirely (gated by if above).
     - variables:
-        _dojo_cab: >-
-          {{ label_entities('Zen Dojo Cabinet')
-             | select('match', 'sensor.') | list | first | default('') }}
-        _kata_cab: >-
-          {{ label_entities('Zen Kata Cabinet')
-             | select('match', 'sensor.') | list | first | default('') }}
+        _dojo_cab: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
+        _kata_cab: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
         _force_component: "{{ zen_event_component | default('', true) | slugify }}"
         _protected: "['AI_Cabinet_VolumeInfo', 'kfc_template', 'zen_library_manifest', '_context']"
         _subscribers: >-
