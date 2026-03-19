@@ -265,16 +265,6 @@ script:
     - stop: Return data through response variable
       response_variable: action_response
       enabled: true
-    - set_conversation_response: "response:\n  'music_assistant': {\n    'search': '{{
-        query | default('')}}',\n    'artist': '{{ artist | default('') }}',\n    'album':
-        '{{ album | default('') }}',\n    'media_type': '{{ media_type | default('')
-        }}',\n    'number': {{ number| default(25) }},\n    'status': {{ status | default(true)
-        }},\n    'result':\n      {%- if action_response | count | int(0) > 0 -%}\n
-        \     {%- for library in action_response %}\n      '{{library}}': {\n        {%-
-        if action_response[library] | count | int(0) > 0 -%}\n        {%- for media
-        in action_response[library] %}\n        {{ media }},\n        {%- endfor %}\n
-        \       {%- else %}\n        {%- endif %}\n      },\n      {%- endfor %}\n      {%-
-        else %}\n      {%- endif %}\n    }"
     fields:
       query:
         selector:
@@ -452,7 +442,12 @@ script:
         minutes: 0
         seconds: '{{ duration | default(15) }} '
         milliseconds: 0
-    - set_conversation_response: '{{duration}} Second Wait complete'
+    - variables:
+        _wait_response:
+          status: success
+          message: '{{ duration }} second wait complete'
+    - stop: done
+      response_variable: _wait_response
     fields:
       duration:
         selector:

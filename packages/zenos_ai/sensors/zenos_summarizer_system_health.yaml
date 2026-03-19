@@ -127,11 +127,17 @@ template:
                       .get('value',{})
                       .get('structure',{}) is mapping %}
 
-            {%- set active =
-              expand(label_entities('Kung Fu System Switch' | slugify))
-                | selectattr('state','eq','on')
-                | map(attribute='entity_id')
-                | list %}
+            {%- set _ns = namespace(active=[]) %}
+            {%- for _k, _raw in dojo.items() %}
+              {%- set _d = _raw.get('value', _raw) if _raw is mapping else {} %}
+              {%- if _d.get('kata_key','') | trim != '' and _d.get('trigger_subscriptions') is not none %}
+                {%- set _ms = (_d.get('master_switch') | default('', true)) | string | trim %}
+                {%- if _ms in ['', 'None'] or is_state(_ms, 'on') %}
+                  {%- set _ns.active = _ns.active + [_d.get('kata_key', _k)] %}
+                {%- endif %}
+              {%- endif %}
+            {%- endfor %}
+            {%- set active = _ns.active %}
 
             {%- set _ss_drawer = kata.get('zen_supersummary_status', {}) %}
             {%- set _ss_status = _ss_drawer.get('value', {}).get('status', 'unknown') if _ss_drawer is mapping else 'unknown' %}
@@ -220,12 +226,19 @@ template:
             {%- endif %}
 
           active_components: >-
-            {{
-              expand(label_entities('Kung Fu System Switch' | slugify))
-                | selectattr('state','eq','on')
-                | map(attribute='entity_id')
-                | list
-            }}
+            {%- set _dc = states('sensor.zen_dojo_cabinet_resolved') %}
+            {%- set _dojo = state_attr(_dc, 'variables') or {} %}
+            {%- set _ns = namespace(active=[]) %}
+            {%- for _k, _raw in _dojo.items() %}
+              {%- set _d = _raw.get('value', _raw) if _raw is mapping else {} %}
+              {%- if _d.get('kata_key','') | trim != '' and _d.get('trigger_subscriptions') is not none %}
+                {%- set _ms = (_d.get('master_switch') | default('', true)) | string | trim %}
+                {%- if _ms in ['', 'None'] or is_state(_ms, 'on') %}
+                  {%- set _ns.active = _ns.active + [_d.get('kata_key', _k)] %}
+                {%- endif %}
+              {%- endif %}
+            {%- endfor %}
+            {{ _ns.active | tojson }}
 
           last_timestamp: >-
             {%- set _vars = state_attr(states('sensor.zen_kata_cabinet_resolved'),'variables') or {} %}
