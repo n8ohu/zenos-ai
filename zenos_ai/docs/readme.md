@@ -1,6 +1,8 @@
 # 📘 **ZenOS-AI Documentation Hub**
 
-> **Version:** 4.2.2 | **Last Updated:** March 2026 | **License:** MIT
+> **Version:** 4.2.0 | **Last Updated:** March 2026 | **License:** MIT
+
+→ [Project Overview & Install](../../README.md)
 
 ---
 
@@ -164,9 +166,9 @@ Scripts are the motor cortex. They turn reasoning into action.
 
 **Folder:** `docs/sensors/`
 
-Layered health monitoring stack — labels, cabinets, cognition pipeline, agent bootability.
+Layered health monitoring stack — cabinet resolvers, cognition pipeline, agent bootability.
 
-* `readme.md` — full reference: all 8 sensors, states, conditions, attributes, troubleshooting quick-reference
+* `readme.md` — full reference: 7 always-live cabinet resolver sensors + 5 trigger-based health sensors, states, conditions, attributes, troubleshooting quick-reference. Includes `zen_health_report` (full system diagnostic) and `zen_resolver_refresh` (cold-start recovery).
 
 ---
 
@@ -232,15 +234,13 @@ This is Friday’s trust spine — the system that decides which parts of the wo
 
 **File:** `docs/roadmap.md`
 
-Tracks development goals for:
+Current milestone: **1.0 GA**
 
-* Cabinet v3 and redirects
-* MCP channel
-* Summarizer Engine 2
-* HyperIndex extensions
-* Identity v2
-* Persona bootflow
-* Recovery and rollback contracts
+* RC2 — complete (KF4, Dojo-driven scheduler, FileCabinet v4)
+* GA Stability Gates — Highlander resolver architecture delivered (2026-03-19)
+* GA deliverables — bootstrap, legacy import, cabinet loader, governance, Flynn finalization
+* SP1 — queued post-GA
+* v.next — KFC v1.1 (state key, master-switch-free controller), deeper memory, governance modules
 
 ---
 
