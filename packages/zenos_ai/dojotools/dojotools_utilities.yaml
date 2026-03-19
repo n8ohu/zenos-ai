@@ -391,6 +391,12 @@ script:
           Maintenance
           Flynn Stepgate Sentinel and health sensors run continuously.
           After any YAML edit: run 'ha core check' or check Settings → Repairs.
+
+          Diagnostics
+          Something wrong? Start with zen_dojotools_systemtools tool=zen_health_report.
+          One call returns all 7 resolver states, all 5 health sensors, kill switches,
+          schema status, timestamps, monk status, and a plain-English diagnosis.
+          If reloads don't fix it — restart HA (ha_restart). She'll find her way around.
         contacts:
           maintainer: Nathan Curtis
           project: ZenOS-AI (Friday / Zen DojoTools)
