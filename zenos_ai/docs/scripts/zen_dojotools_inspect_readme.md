@@ -1,4 +1,4 @@
-# Zen DojoTools Inspect — 4.2.1
+# Zen DojoTools Inspect — 4.2.2
 **File:** `zen_dojotools_inspect_readme.md`  
 **Type:** Technical Documentation  
 
@@ -35,7 +35,7 @@ For each entity inspected, the module returns:
 - state
 - domain
 - timestamps (suppressible via `-timestamps`)
-- labels
+- labels (as `{slug: description}` dict — description is empty string if unset)
 - device block (suppressible via `-device`)
 - sanitized attributes (opt-in via `+attributes`)
 - cabinet header metadata (if applicable)
@@ -227,7 +227,10 @@ Inspect outputs a unified, LLM-safe envelope:
       "state": "...",
       "last_changed": "ISO-8601",    # present unless -timestamps
       "last_updated": "ISO-8601",    # present unless -timestamps
-      "labels": [...],
+      "labels": {                    # {slug: description} — description '' if unset
+        "water": "Domain label for all water entities; label:water.",
+        "spa": ""
+      },
       "device": {                    # present unless -device or no device
         "device_id": "...",
         "name": "...",
@@ -285,8 +288,7 @@ entity_list = [ ... ]
 ```
 
 ### 2. Labels Are Always Safe
-Labels are always returned as a clean list;  
-string edge cases are normalized.
+Labels are always returned as a `{slug: description}` dict. If a label has no description set, its value is an empty string. String edge cases are normalized. This dict is the primary semantic token for label-driven reasoning — the description travels inline so the agent does not need a separate lookup.
 
 ### 3. Cabinet Sensors Are Protected
 Agents cannot read drawers or Cabinet contents through Inspect.  
@@ -397,6 +399,7 @@ The Zen DojoTools Inspect 4.2.1 provides:
 - safe cabinet identification
 - statistics eligibility detection (opt-in)
 - label-targeted drawer blurbs via FileCabinet (`label_targets`)
+- inline label descriptions via `{slug: description}` dict on every entity
 - JSON-compatible, LLM-stable outputs
 - strict no-write behavior
 - guaranteed safety against HA quirks

@@ -22,7 +22,7 @@ Most tools in this module are **admin-only** — they are not exposed to the AI 
 | `zen_admintools_cabinetadmin` | 4.2.1 | No | Inspect, restore, reset, hammer, init, or reset_all Ring-0 cabinets |
 | `zen_admintools_cabinetadmin_backup` | 1.x | No | Factory-stamp or repair a cabinet's VolumeInfo drawer |
 | `zen_admintools_kfc_migration_press` | 1.1.0 | No | One-time migration: seed scheduling fields into KFC drawers |
-| `zen_admintools_zenos_prompt_loader` | 4.2.1 | No | Load versioned Cortex, Directives, and Purpose (v27 = RC2, v28/latest = GA) |
+| `zen_admintools_zenos_prompt_loader` | 4.2.1 | No | Load versioned Cortex, Directives, and Purpose (v27 = RC2, v29/latest = GA Ninja Fusion, v30 = Living Index) |
 
 ---
 
@@ -59,7 +59,7 @@ hourly_trigger        quarter_hour          every_10_minutes
 every_5_minutes       home_mode_updates     alarm_panel
 door_opens_or_closes  lock_changes          window_opens_or_closes
 garage_door           home_occupancy_change force_summary
-force_gc
+force_ninja           force_supersummary    force_gc
 ```
 
 > Hardware triggers (`nathan_bed_changes`, `kim_bed_changes`, `water_flow_stop`, `hot_tub_state`, `elec_panel_door_change`, `mb_wake`, `test_button`, `start_home_wake`, `start_home_evening`) are available in the trigger ID list but only active if you have added them to a custom scheduler. See `docs/examples/zen_dojotools_scheduler_custom.yaml`.
@@ -313,9 +313,22 @@ Loads the AI's identity substrate: **Cortex**, **Directives**, and **Purpose**. 
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `cortex_version` | select | `latest` | `latest` or `28` = 2026 GA (4.3.x). `27` = 2026 RC2 (4.2.x) |
+| `cortex_version` | select | `latest` | `latest` or `29` = 2026 GA Ninja Fusion. `30` = Living Index (opt-in). `27` = 2026 RC2 |
+| `ship_zen_system` | boolean | `true` | If `true`, also writes the `zen_system` KFC drawer after loading. Set `false` to load Cortex only without touching the Dojo. |
 
-Use the `cortex_version` field to select which version to load. The three primitives (Purpose, Directives, Cortex) are versioned together as a set. v27 = 2026 RC2 (4.2.x series). v28 / latest = 2026 GA (4.3.x series — includes Context Resolution directive and Cortex 28.0.0 with scope-aware context stack resolution).
+Use the `cortex_version` field to select which version to load. The three primitives (Purpose, Directives, Cortex) are versioned together as a set:
+
+| Version | Codename | Notes |
+|---|---|---|
+| `27` | Quiet Fusion (RC2) | 2026 RC2 — 4.2.x series |
+| `29` / `latest` | Ninja Fusion | 2026 GA — includes Context Resolution directive and scope-aware context stack |
+| `30` | Living Index | Opt-in — adds label policy, memory policy, expanded audit schema, and `zen_dojotools_labels` as a core tool. Requires Friday Memory Delta Spec installed in AI user cabinet. |
+
+Cortex 30 is an explicit opt-in. Selecting `latest` or passing no `cortex_version` loads v29.
+
+### Custom Prompt Material
+
+If you want to ship completely custom Purpose, Directives, or Cortex content, copy the prompt loader script, make your changes, and fire it. The loader is a standard HA script — there's nothing special about it beyond the version-select logic. Custom forks are your own maintenance surface; ZenOS ships the versioned canonical set and that's the extent of it.
 
 ---
 

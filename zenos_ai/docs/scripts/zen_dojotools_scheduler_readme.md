@@ -36,6 +36,8 @@ These trigger IDs are active in the core scheduler. Components subscribe to them
 | `window_opens_or_closes` | `group.all_windows` state change |
 | `garage_door` | `group.garage_doors` state change |
 | `force_summary` | `zen_event: {kind: summary_force}` fired |
+| `force_ninja` | `zen_event: {kind: ninja_force}` fired — runs Ninja dispatch only (remaps to `ha_start` scope), skips delay |
+| `force_supersummary` | `zen_event: {kind: supersummary_force}` fired — runs SuperSummary only, Ninja dispatch is skipped |
 | `force_gc` | `zen_event: {kind: gc_force}` fired |
 
 ---
@@ -61,9 +63,11 @@ When the scheduler fires, it reads every KFC drawer and dispatches the Ninja Sum
 
 ---
 
-## Forcing a Summary
+## Forcing Runs
 
-To force an immediate summary for a specific component, fire:
+Three force events are available, each targeting a different part of the pipeline:
+
+**`summary_force`** — Runs the full Dojo-driven Ninja dispatch (all matching subscribers) plus SuperSummary. `delay_seconds` is skipped.
 
 ```yaml
 event: zen_event
@@ -73,7 +77,25 @@ event_data:
     component: security_manager   # optional — omit to run all subscribers
 ```
 
-This hits the `force_summary` trigger in the scheduler. The `delay_seconds` wait is skipped on forced runs.
+**`ninja_force`** — Runs Ninja dispatch only. Remaps the trigger scope to `ha_start` so all components that subscribe to `ha_start` fire. Delay is skipped. SuperSummary does not run.
+
+```yaml
+event: zen_event
+event_data:
+  event:
+    kind: ninja_force
+```
+
+**`supersummary_force`** — Runs SuperSummary only. Ninja dispatch is skipped entirely. Use this when you want a fresh high-level summary without re-running all component summarizers.
+
+```yaml
+event: zen_event
+event_data:
+  event:
+    kind: supersummary_force
+```
+
+`zen_pipeline_autofire_on_enable` uses `ninja_force` and `supersummary_force` internally when kill switches are re-enabled.
 
 ---
 
