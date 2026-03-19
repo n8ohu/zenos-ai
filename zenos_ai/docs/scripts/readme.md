@@ -47,7 +47,7 @@ Ring-2 administrative tools for component registration, cabinet repair, template
 * `zen_admintools_cabinetadmin` — Inspect, restore, reset, hammer, init, or `reset_all` Ring-0 cabinets
 * `zen_admintools_cabinetadmin_backup` — Factory-stamp or repair a cabinet's VolumeInfo header
 * `zen_admintools_kfc_migration_press` — One-time migration: seed KF4 scheduling fields into existing drawers
-* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose (v27 = RC2, v28/latest = GA)
+* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose (v29/latest = GA Ninja Fusion, v30 = Living Index opt-in, v27 = RC2)
 
 KungFu Writer is the only AI-accessible tool here. All others are admin-only and should not be exposed to the conversation agent.
 
@@ -88,18 +88,21 @@ Expose this to your conversation agent — Friday can then help you configure yo
 
 ---
 
-## **3. Zen DojoTools Labels — 4.2.1**
+## **3. Zen DojoTools Labels — 4.1.0**
 
 **File:** `zen_dojotools_labels_readme.md`
 **Type:** Technical Documentation
 
 **Summary:**
-Core primitive for label CRUD and entity tagging. Backbone of the label index that powers HyperIndex, KFC components, and cabinet resolution.
+Core primitive for label CRUD and entity tagging. Backbone of the label index that powers HyperIndex, KFC components, and cabinet resolution. MCP-exposed — write operations are gated behind `confirm: true`.
 
-* `create` / `delete` — manage labels (confirm required)
+* `create` / `update` / `delete` — manage labels (confirm required)
+* `update` — delete→recreate→retag with new metadata; entity assignments preserved automatically
 * `read` — full index or filtered by label/entity
 * `tag` / `untag` — assign or remove labels from entities
 * `reset` — soft reset: wipe all entity assignments from every `zen_` label (labels survive); fires `zen_resolver_refresh`
+
+`new_description`, `new_icon`, `new_color` params available on `create` and `update`. Label descriptions travel inline in every Inspect call as `{slug: description}` — annotate labels at creation time.
 
 Includes label design guidance: cross-entity labels outperform single-use labels; layer broad domain labels with specific sub-labels for richer HyperIndex traversal.
 
@@ -309,7 +312,7 @@ The Zen Index is Friday’s “graph engine,” letting her understand relations
 
 ---
 
-## **8. Zen DojoTools Inspect — 4.2.0**
+## **8. Zen DojoTools Inspect — 4.2.2**
 
 **File:** `zen_dojotools_inspect_readme.md`
 **Type:** Technical Documentation
@@ -320,6 +323,7 @@ A safe, deterministic deep-inspection tool for entities — Friday’s x-ray mac
 Provides:
 
 * Entity snapshots
+* Labels as `{slug: description}` dict — inline semantic context, no secondary lookup needed
 * Fully sanitized attributes
 * Cabinet sensor header detection
 * Statistics eligibility detection

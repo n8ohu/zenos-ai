@@ -67,11 +67,13 @@ Use these to stop or restart the summarization pipeline without touching anythin
 
 | Entity | Default | Effect |
 |---|---|---|
-| `input_boolean.zen_summarizers_enabled` | `on` | **Master** — off stops both summarizers immediately |
-| `input_boolean.zen_supersummarizer_enabled` | `on` | Off stops SuperSummary only |
-| `input_boolean.zen_ninja_summarizer_enabled` | `on` | Off stops Ninja Summarizer only |
+| `input_boolean.zen_summarizers_enabled` | `off` | **Master** — off stops both summarizers immediately |
+| `input_boolean.zen_supersummarizer_enabled` | `off` | Off stops SuperSummary only |
+| `input_boolean.zen_ninja_summarizer_enabled` | `off` | Off stops Ninja Summarizer only |
 
-Master is checked first. Individual switches only apply when master is on.
+**The summarizers ship disabled by default.** Enable them once you've confirmed your AI task entity points at a local model (see install guide). Master is checked first. Individual switches only apply when master is on.
+
+When a switch is re-enabled, `automation.zen_pipeline_autofire_on_enable` fires the appropriate force event immediately — no waiting for the next scheduled run.
 
 **Toggle from:** Settings → Helpers, or any dashboard card.
 
@@ -109,7 +111,7 @@ Re-presses `kfc_template` into the Dojo cabinet and `zen_template` into the Kata
 
 ```
 script.zen_admintools_zenos_prompt_loader
-  cortex_version: latest   (28 = GA, 27 = RC2)
+  cortex_version: latest   (29 = GA Ninja Fusion, 30 = Living Index opt-in, 27 = RC2)
 ```
 
 Reloads Cortex, Directives, and Purpose into the system cabinet. Use after an upgrade or if Friday's behavior has drifted from expected.
@@ -184,7 +186,8 @@ Flynn handles the full rebuild sequence automatically.
 | Symptom | Start Here |
 |---|---|
 | Friday won't wake up | `sensor.zen_agent_health` → `roster` attr |
-| Summaries stopped | Check kill switches first — all three must be `on` |
+| Summaries stopped | Check kill switches — ships `off` by default; all three must be `on` to run |
+| Summarizer health shows `disabled` | Kill switch is off — intentional state. Enable the relevant switch; autofire restarts it. |
 | Summaries are stale | `sensor.zen_supersummary_health` → `monk_status` |
 | Scheduler not firing | `sensor.zen_summarizer_health` → `ai_task_entity`, `last_timestamp` |
 | Flynn stuck at boot | `sensor.zen_flynn_health` → `current_gate`, `next_step` |

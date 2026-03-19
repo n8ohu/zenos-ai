@@ -1,6 +1,6 @@
 # 📘 **ZenOS-AI Documentation Hub**
 
-> **Version:** 4.2.1 | **Last Updated:** March 2026 | **License:** MIT
+> **Version:** 4.2.2 | **Last Updated:** March 2026 | **License:** MIT
 
 ---
 
@@ -24,7 +24,7 @@ This directory contains **11 documentation suites**, each aligned with a major s
 
 New to ZenOS-AI? Start here.
 
-* `install.md` — File copy, configuration.yaml setup, conversation agent prompt, helper configuration, health verification
+* `install.md` — File copy, configuration.yaml setup, conversation agent prompt, set conversation agent before restart, restart, health verification
 * `first_run.md` — First boot walkthrough, OOBE conversation, persona selector, editing profiles, troubleshooting
 * `entity_exposure.md` — What to expose to your conversation agent: actionable vs contextable vs invisible, the three-tier model
 * `oobe.md` — OOBE walkthrough: the six-step first-boot configuration protocol to your conversation agent: actionable vs contextable vs invisible, the three-tier model
