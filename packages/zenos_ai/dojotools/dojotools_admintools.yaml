@@ -903,7 +903,7 @@ script:
     {{ ns.mounts }}
   {% else %}[]{% endif %}"
         drawers_to_init:
-          AI_Cabinet_VolumeInfo: "{{\n  {\n    \"value\": {\n      \"id\": cabinet_guid,\n
+          AI_Cabinet_VolumeInfo: "{{\n  {\n    \"id\": cabinet_guid,\n
             \     \"friendly_name\": cabinet_friendly,\n      \"type\": cabinet_type,\n
             \     \"schema_version\": schema_version,\n      \"created\": now_iso,\n
             \     \"updated\": now_iso,\n      \"flags\": flags,\n      \"acls\": {\n
@@ -918,11 +918,11 @@ script:
             acl_family is iterable and not (acl_family is string)\n          else (acl_family
             | from_json)\n        )\n      },\n      \"entity_labels\":\n        ([\"chat\",\"history\",\"secure\",\"context\",\"transcript\",\"cabinet\"]\n
             \        if cabinet_type | lower == 'chat history cabinet'\n         else
-            [\"system\",\"cabinet\",\"volumeinfo\"])\n    }\n  } | tojson\n}}"
-          _label_index: '{{ {''value'': {}} | tojson }}'
-          _zen_relationships: "{{\n  {\n    \"value\": {\n      \"mounts_out\": mounts_out,\n
+            [\"system\",\"cabinet\",\"volumeinfo\"])\n  } | tojson\n}}"
+          _label_index: '{{ {} | tojson }}'
+          _zen_relationships: "{{\n  {\n    \"mounts_out\": mounts_out,\n
             \     \"mounts_in\": [],\n      \"mount_policy\": \"allow_all\" if flag_profile
-            == 'system' else \"restricted\"\n    }\n  } | tojson\n}}"
+            == 'system' else \"restricted\"\n  } | tojson\n}}"
     - choose:
       - conditions:
         - condition: template
