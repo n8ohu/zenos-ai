@@ -1,14 +1,25 @@
 ###############################################################################
 # ZenOS-AI — System Health Package
-# All cabinets resolved STRICTLY by label ID (slug):
-#   label_entities('Zen Dojo Cabinet' | slugify)
-#   label_entities('Zen Kata Cabinet' | slugify)
-#   label_entities('Zen System Cabinet' | slugify)
-# NOTE: label_entities() requires slug IDs — display names return [] on strict HA versions.
+# v2.1.0 — Highlander resolver architecture.
 #
-# Each resolved drawer is filtered to sensor.* domain and `| first`.
+# There can only be ONE source of truth for cabinet entity IDs.
+#
+# RESOLVERS (sensor.zen_dojo_cabinet_resolved, sensor.zen_kata_cabinet_resolved, etc.)
+# are regular (non-trigger) template sensors. They evaluate at HA startup,
+# have their values immediately — no clock, no race, no unavailable window.
+# Everything in the system reads cabinet entity IDs from these sensors.
+#
+# HEALTH SENSORS are trigger-based (zen_health_tick + zen_resolver_refresh +
+# ha_start). They read from the resolvers via states(). Since resolvers are
+# always-live, the availability check is clean on first fire.
 #
 # Sensors:
+#   - sensor.zen_dojo_cabinet_resolved  (always-live resolver)
+#   - sensor.zen_kata_cabinet_resolved  (always-live resolver)
+#   - sensor.zen_default_household_cabinet_resolved  (always-live resolver)
+#   - sensor.zen_default_ai_user_cabinet_resolved    (always-live resolver)
+#   - sensor.zen_default_family_cabinet_resolved     (always-live resolver)
+#   - sensor.zen_default_user_cabinet_resolved       (always-live resolver)
 #   - sensor.zen_monastery_health
 #   - sensor.zen_summarizer_health
 #   - sensor.zen_supersummary_health
@@ -17,67 +28,90 @@
 template:
 
   ###########################################################################
-  # Cabinet Resolvers
-  # Resolves the FIRST sensor.* entity under each label.
-  # Trigger-based (homeassistant: start) so the label registry is fully
-  # populated before evaluation. Without a states() call there is no
-  # subscription for HA to track — boot-time evaluation always races.
-  # The start trigger guarantees a post-boot re-evaluation.
+  # Cabinet Resolvers — regular (non-trigger) template sensors.
+  # Evaluate at HA startup. No trigger, no clock, no race window.
+  # ONE source of truth for cabinet entity IDs. All consumers read from here.
+  # Labels used (slugs): zen_dojo_cabinet, zen_kata_cabinet, zen_system_cabinet,
+  #   zen_default_household_cabinet, zen_default_ai_user_cabinet,
+  #   zen_default_family_cabinet, zen_default_user_cabinet
   ###########################################################################
-  - trigger:
-      - platform: homeassistant
-        event: start
-      - platform: time_pattern
-        minutes: "/15"
-      - platform: event
-        event_type: zen_resolver_refresh
-        alias: Manual refire via event emitter
-    sensor:
+  - sensor:
       - name: Zen Dojo Cabinet Resolved
         unique_id: zen_dojo_cabinet_resolved
         state: >-
-          {{ label_entities('Zen Dojo Cabinet' | slugify)
+          {{ label_entities('zen_dojo_cabinet')
              | select('match', 'sensor\.')
              | first | default('unavailable') }}
         availability: >-
-          {{ label_entities('Zen Dojo Cabinet' | slugify)
+          {{ label_entities('zen_dojo_cabinet')
              | select('match', 'sensor\.')
              | list | count > 0 }}
 
       - name: Zen Kata Cabinet Resolved
         unique_id: zen_kata_cabinet_resolved
         state: >-
-          {{ label_entities('Zen Kata Cabinet' | slugify)
+          {{ label_entities('zen_kata_cabinet')
              | select('match', 'sensor\.')
              | first | default('unavailable') }}
         availability: >-
-          {{ label_entities('Zen Kata Cabinet' | slugify)
+          {{ label_entities('zen_kata_cabinet')
              | select('match', 'sensor\.')
              | list | count > 0 }}
 
       - name: Zen System Cabinet Resolved
         unique_id: zen_system_cabinet_resolved
         state: >-
-          {{ label_entities('Zen System Cabinet' | slugify)
+          {{ label_entities('zen_system_cabinet')
              | select('match', 'sensor\.')
              | first | default('unavailable') }}
         availability: >-
-          {{ label_entities('Zen System Cabinet' | slugify)
+          {{ label_entities('zen_system_cabinet')
              | select('match', 'sensor\.')
              | list | count > 0 }}
 
+      - name: Zen Default Household Cabinet Resolved
+        unique_id: zen_default_household_cabinet_resolved
+        state: >-
+          {{ label_entities('zen_default_household_cabinet')
+             | select('match', 'sensor\.')
+             | first | default('unavailable') }}
+        availability: >-
+          {{ label_entities('zen_default_household_cabinet')
+             | select('match', 'sensor\.')
+             | list | count > 0 }}
 
-  ###########################################################################
-  # Shorthand variables used across all health sensors
-  ###########################################################################
-  - sensor:
-      - name: Zen Summary Cabinets
-        unique_id: zen_summary_cabinets
-        state: "ok"
-        attributes:
-          dojo: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
-          kata: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
-          system: "{{ states('sensor.zen_system_cabinet_resolved') }}"
+      - name: Zen Default AI User Cabinet Resolved
+        unique_id: zen_default_ai_user_cabinet_resolved
+        state: >-
+          {{ label_entities('zen_default_ai_user_cabinet')
+             | select('match', 'sensor\.')
+             | first | default('unavailable') }}
+        availability: >-
+          {{ label_entities('zen_default_ai_user_cabinet')
+             | select('match', 'sensor\.')
+             | list | count > 0 }}
+
+      - name: Zen Default Family Cabinet Resolved
+        unique_id: zen_default_family_cabinet_resolved
+        state: >-
+          {{ label_entities('zen_default_family_cabinet')
+             | select('match', 'sensor\.')
+             | first | default('unavailable') }}
+        availability: >-
+          {{ label_entities('zen_default_family_cabinet')
+             | select('match', 'sensor\.')
+             | list | count > 0 }}
+
+      - name: Zen Default User Cabinet Resolved
+        unique_id: zen_default_user_cabinet_resolved
+        state: >-
+          {{ label_entities('zen_default_user_cabinet')
+             | select('match', 'sensor\.')
+             | first | default('unavailable') }}
+        availability: >-
+          {{ label_entities('zen_default_user_cabinet')
+             | select('match', 'sensor\.')
+             | list | count > 0 }}
 
   ###########################################################################
   # 1️⃣ ZEN MONASTERY HEALTH — global cognition rollup
@@ -99,8 +133,6 @@ template:
             states('sensor.zen_dojo_cabinet_resolved') not in ['unknown','unavailable','none']
             and
             states('sensor.zen_kata_cabinet_resolved') not in ['unknown','unavailable','none']
-            and
-            states('sensor.zen_system_cabinet_resolved') not in ['unknown','unavailable','none']
           }}
         state: >-
           {#- -------- Resolve cabinets by label -------- #}
@@ -123,14 +155,16 @@ template:
             {%- set stale = ts and (now() - as_datetime(ts) >= timedelta(minutes=15)) %}
             {%- set crit_stale = ts and (now() - as_datetime(ts) >= timedelta(minutes=30)) %}
             {%- set _zt_drawer = kata.get('zen_template', {}) %}
-            {%- set _zt_val = _zt_drawer.get('value', {}) if _zt_drawer is mapping else {} %}
-            {%- set _zt_val = _zt_val if _zt_val is mapping else (_zt_val | from_json if _zt_val is string else {}) %}
-            {%- set schema_ok = kata and _zt_val.get('structure', {}) is mapping %}
+            {%- set _zt_v1 = _zt_drawer.get('value', {}) if _zt_drawer is mapping else {} %}
+            {%- set _zt_v2 = _zt_v1 if _zt_v1 is mapping else (_zt_v1 | from_json if _zt_v1 is string else {}) %}
+            {%- set _zt_val = _zt_v2 if _zt_v2 is mapping else (_zt_v2 | from_json if _zt_v2 is string else {}) %}
+            {%- set schema_ok = kata and (_zt_val is mapping) and _zt_val.get('structure', {}) is mapping %}
 
             {%- set _ns = namespace(active=[]) %}
             {%- for _k, _raw in dojo.items() %}
               {%- set _d_val = _raw.get('value', _raw) if _raw is mapping else {} %}
-            {%- set _d = _d_val if _d_val is mapping else (_d_val | from_json if _d_val is string else {}) %}
+              {%- set _d_v2 = _d_val if _d_val is mapping else (_d_val | from_json if _d_val is string else {}) %}
+              {%- set _d = _d_v2 if _d_v2 is mapping else (_d_v2 | from_json if _d_v2 is string else {}) %}
               {%- if _d.get('kata_key','') | trim != '' and _d.get('trigger_subscriptions') is not none %}
                 {%- set _ms = (_d.get('master_switch') | default('', true)) | string | trim %}
                 {%- if _ms in ['', 'None'] or is_state(_ms, 'on') %}
@@ -174,12 +208,7 @@ template:
         attributes:
           dojo_cabinet: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
           kata_cabinet: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
-          system_cabinet: "{{ states('sensor.zen_system_cabinet_resolved') }}"
 
-          system_ok: >-
-            {{ states('sensor.zen_system_cabinet_resolved')
-               not in ['unknown','unavailable','none'] }}
-               
           dojo_ok: >-
             {{ states('sensor.zen_dojo_cabinet_resolved')
                not in ['unknown','unavailable','none'] }}
@@ -190,10 +219,11 @@ template:
                
           schema_ok: >-
             {%- set _vars = state_attr(states('sensor.zen_kata_cabinet_resolved'),'variables') or {} %}
-            {%- set _zt_d = _vars.get('zen_template', {}) %}
-            {%- set _zt_v = _zt_d.get('value', {}) if _zt_d is mapping else {} %}
-            {%- set _zt_v = _zt_v if _zt_v is mapping else (_zt_v | from_json if _zt_v is string else {}) %}
-            {{ _zt_v.get('structure', {}) is mapping }}
+            {%- set _zt_drawer = _vars.get('zen_template', {}) %}
+            {%- set _zt_v1 = _zt_drawer.get('value', {}) if _zt_drawer is mapping else {} %}
+            {%- set _zt_v2 = _zt_v1 if _zt_v1 is mapping else (_zt_v1 | from_json if _zt_v1 is string else {}) %}
+            {%- set _zt_val = _zt_v2 if _zt_v2 is mapping else (_zt_v2 | from_json if _zt_v2 is string else {}) %}
+            {{ (_zt_val is mapping) and _zt_val.get('structure', {}) is mapping }}
 
           ninja_summary_status: >-
             {%- set _kc = states('sensor.zen_kata_cabinet_resolved') %}
@@ -242,7 +272,8 @@ template:
             {%- set _ns = namespace(active=[]) %}
             {%- for _k, _raw in _dojo.items() %}
               {%- set _d_val = _raw.get('value', _raw) if _raw is mapping else {} %}
-              {%- set _d = _d_val if _d_val is mapping else (_d_val | from_json if _d_val is string else {}) %}
+              {%- set _d_v2 = _d_val if _d_val is mapping else (_d_val | from_json if _d_val is string else {}) %}
+              {%- set _d = _d_v2 if _d_v2 is mapping else (_d_v2 | from_json if _d_v2 is string else {}) %}
               {%- if _d.get('kata_key','') | trim != '' and _d.get('trigger_subscriptions') is not none %}
                 {%- set _ms = (_d.get('master_switch') | default('', true)) | string | trim %}
                 {%- if _ms in ['', 'None'] or is_state(_ms, 'on') %}

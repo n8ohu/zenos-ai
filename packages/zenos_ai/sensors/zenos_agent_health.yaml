@@ -189,7 +189,7 @@ template:
             {%- set ns = namespace(ok_count=0) %}
             {%- for ag_cab in all_ai_cabs %}
               {%- if states(ag_cab) not in ['unknown','unavailable'] %}
-                {%- if conv_avail and ag_cab in label_entities('zen_default_ai_user_cabinet') %}
+                {%- if conv_avail and ag_cab == states('sensor.zen_default_ai_user_cabinet_resolved') %}
                   {%- set ns.ok_count = ns.ok_count + 1 %}
                 {%- endif %}
               {%- endif %}
@@ -276,16 +276,14 @@ template:
                                    and kata_vars.get('zen_summary') != {} %}
 
             {#--- household cabinet: zen_library_manifest (optional) ---#}
-            {%- set hh_cab = label_entities('zen_default_household_cabinet')
-                             | select('match', 'sensor\\.') | list | first | default('') %}
+            {%- set hh_cab = states('sensor.zen_default_household_cabinet_resolved') %}
             {%- set hh_ok = hh_cab != '' and states(hh_cab) not in ['unknown','unavailable'] %}
             {%- set hh_vars = state_attr(hh_cab, 'variables') | default({}, true) if hh_ok else {} %}
             {%- set manifest_ok = hh_ok and hh_vars.get('zen_library_manifest') is not none
                                   and hh_vars.get('zen_library_manifest') | string | trim != '' %}
 
             {#--- who is the currently active default persona? ---#}
-            {%- set def_cab = label_entities('zen_default_ai_user_cabinet')
-                             | select('match', 'sensor\\.') | list | first | default('') %}
+            {%- set def_cab = states('sensor.zen_default_ai_user_cabinet_resolved') %}
             {%- set def_ns = namespace(loaded_name='') %}
             {%- if def_cab != '' and states(def_cab) not in ['unknown','unavailable'] %}
               {%- set def_vars = state_attr(def_cab, 'variables') | default({}, true) %}
@@ -381,8 +379,7 @@ template:
                   and states(conv_eid) not in ['unknown','unavailable'] %}
             {%- set all_ai_cabs = label_entities('zen_ai_user_cabinet')
                                   | select('match', 'sensor\\.') | list %}
-            {%- set def_cab = label_entities('zen_default_ai_user_cabinet')
-                             | select('match', 'sensor\\.') | list | first | default('') %}
+            {%- set def_cab = states('sensor.zen_default_ai_user_cabinet_resolved') %}
             {%- set ns = namespace(ok=0) %}
             {%- for ag_cab in all_ai_cabs %}
               {%- if states(ag_cab) not in ['unknown','unavailable'] %}
@@ -400,8 +397,7 @@ template:
           # ACTIVE PERSONA (who is currently the default)
           ##################################################################
           active_persona: >-
-            {%- set def_cab = label_entities('zen_default_ai_user_cabinet')
-                              | select('match', 'sensor\\.') | list | first | default('') %}
+            {%- set def_cab = states('sensor.zen_default_ai_user_cabinet_resolved') %}
             {%- if def_cab == '' or states(def_cab) in ['unknown','unavailable'] %}
               none
             {%- else %}
@@ -456,8 +452,7 @@ template:
           {%- if stored not in ['', 'unknown', 'unavailable'] %}
             {{ stored }}
           {%- else %}
-            {%- set def_cab = label_entities('zen_default_ai_user_cabinet')
-                              | select('match', 'sensor\\.') | list | first | default('') %}
+            {%- set def_cab = states('sensor.zen_default_ai_user_cabinet_resolved') %}
             {%- if def_cab != '' and states(def_cab) not in ['unknown', 'unavailable'] %}
               {%- set ag_vars = state_attr(def_cab, 'variables') | default({}, true) %}
               {%- set ag_essence = ag_vars.get('zenai_essence', {}) %}

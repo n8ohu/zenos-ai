@@ -556,9 +556,7 @@
   {%- set ns = namespace(result={}) -%}
   {#- Default registered agent for this install — fallback on any resolution failure.
       Empty means pre-bootstrap: cabinets not yet initialized, system not ready. -#}
-  {%- set _default_entity = label_entities('zen_default_ai_user_cabinet')
-        | select('match', 'sensor\.')
-        | list | first | default('') -%}
+  {%- set _default_entity = states('sensor.zen_default_ai_user_cabinet_resolved') -%}
   {%- if not _default_entity %}
     {%- set ns.result = {
       "status": "system_not_ready",
@@ -1015,10 +1013,7 @@
 
 {# ================== MANIFEST LOADER ================== #}
 {%- macro manifest_loader() -%}
-  {%- set mani_cab = expand(label_entities('Zen Default Household Cabinet'))
-      | selectattr('domain','eq','sensor')
-      | map(attribute='entity_id')
-      | list | first | default('') -%}
+  {%- set mani_cab = states('sensor.zen_default_household_cabinet_resolved') -%}
 
   {%- set manifest = {} -%}
 
@@ -1051,10 +1046,7 @@
   mode: build_compact_index to populate/refresh.
 #}
 {%- macro root_index() -%}
-  {%- set hcab = expand(label_entities('Zen Default Household Cabinet'))
-      | selectattr('domain','eq','sensor')
-      | map(attribute='entity_id')
-      | list | first | default('') -%}
+  {%- set hcab = states('sensor.zen_default_household_cabinet_resolved') -%}
   {%- set ci_entry = {} -%}
   {%- if hcab -%}
     {%- set hc_vars = state_attr(hcab, 'variables') or {} -%}

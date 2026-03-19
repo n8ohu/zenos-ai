@@ -474,7 +474,7 @@ script:
         variables:
           dojo_cabinet: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
           kata_cabinet: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
-          household_cabinet: "{{ label_entities('Zen Default Household Cabinet' | slugify) | first | default('') }}"
+          household_cabinet: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
           monk_response: {}
           filecabinet_response: {}
           component_slug: "{{ kung_fu_component_id | slugify | default('kung_fu') }}"

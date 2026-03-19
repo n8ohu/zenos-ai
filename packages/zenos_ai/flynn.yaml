@@ -67,7 +67,7 @@ template:
         icon: mdi:account-star
         state: "{{ states('input_text.zenos_persona_name') }}"
         options: >-
-          {%- set cabs = label_entities('zen_default_ai_user_cabinet') -%}
+          {%- set cabs = [states('sensor.zen_default_ai_user_cabinet_resolved')] -%}
           {%- set names = namespace(list=[]) -%}
           {%- for cab in cabs -%}
             {%- set vars = state_attr(cab, 'variables') | default({}, true) -%}
@@ -179,9 +179,7 @@ automation:
       # Capture green state + OOBE state BEFORE delay
       - variables:
           was_green: "{{ is_state('binary_sensor.flynn_system_ready', 'on') }}"
-          _oobe_ai_cab: >-
-            {{ label_entities('zen_default_ai_user_cabinet')
-               | select('match', 'sensor.') | list | first | default('') }}
+          _oobe_ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
           _oobe_cab_vars: >-
             {{ state_attr(_oobe_ai_cab, 'variables') | default({}, true)
                if _oobe_ai_cab != '' else {} }}
@@ -327,9 +325,7 @@ automation:
       # fresh so we catch names written by Gate 3 bootstrap in this same run.
       #####################################################################
       - variables:
-          _g35_ai_cab: >-
-            {{ label_entities('zen_default_ai_user_cabinet')
-               | select('match', 'sensor.') | list | first | default('') }}
+          _g35_ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
           _g35_cab_vars: >-
             {{ state_attr(_g35_ai_cab, 'variables') | default({}, true)
                if _g35_ai_cab != '' else {} }}
@@ -705,16 +701,14 @@ script:
                   set_timestamp: true
                   show_hidden_volumes: false
                   volume_entity_id:
-                    - "{{ label_entities('zen_default_household_cabinet') | select('match', 'sensor.') | first | default('') }}"
+                    - "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
                   key: "_household_name"
                   value: "{{ household_name }}"
 
       # Read current AI cab name before writing — needed to guard both the
       # persona_name write (below) and the default seed write.
       - variables:
-          _seed_ai_cab: >-
-            {{ label_entities('zen_default_ai_user_cabinet')
-               | select('match', 'sensor.') | list | first | default('') }}
+          _seed_ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
           _seed_cab_vars: >-
             {{ state_attr(_seed_ai_cab, 'variables') | default({}, true)
                if _seed_ai_cab != '' else {} }}
@@ -739,7 +733,7 @@ script:
                   set_timestamp: true
                   show_hidden_volumes: false
                   volume_entity_id:
-                    - "{{ label_entities('zen_default_ai_user_cabinet') | select('match', 'sensor.') | first | default('') }}"
+                    - "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
                   key: "zenai_essence"
                   value: >-
                     {% import 'zenos_ai/zen_os_1rc.jinja' as zen %}
@@ -1182,12 +1176,8 @@ script:
       # 1 — LOAD CURRENT STATE
       #########################################################################
       - variables:
-          ai_cab: >-
-            {{ label_entities('zen_default_ai_user_cabinet')
-               | select('match', 'sensor.') | list | first | default('') }}
-          hh_cab: >-
-            {{ label_entities('zen_default_household_cabinet')
-               | select('match', 'sensor.') | list | first | default('') }}
+          ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
+          hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
           ai_cab_vars: >-
             {{ state_attr(ai_cab, 'variables') | default({}, true)
                if ai_cab != '' else {} }}
