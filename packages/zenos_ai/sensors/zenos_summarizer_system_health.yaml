@@ -1,28 +1,41 @@
 ###############################################################################
 # ZenOS-AI — System Health Package
-# v2.1.0 — Highlander resolver architecture.
+# v2.2.0 — 7-resolver canonization + FG-38 v3 three-round normalization.
+#
+# Changelog:
+#   v2.2.0 (2026-03-19) — zen_system_cabinet_resolved added (7th resolver).
+#                          FG-38 v3 three-round normalization applied to
+#                          _zt_val, _ss_v, _sched, _sum_d across all health
+#                          sensors. UAT-passed fix/ga-batch-1.
+#   v2.1.0 (2026-03-19) — Highlander resolver architecture. 6 resolver sensors
+#                          (non-trigger, always-live). Health sensors trigger-based.
 #
 # There can only be ONE source of truth for cabinet entity IDs.
 #
-# RESOLVERS (sensor.zen_dojo_cabinet_resolved, sensor.zen_kata_cabinet_resolved, etc.)
-# are regular (non-trigger) template sensors. They evaluate at HA startup,
-# have their values immediately — no clock, no race, no unavailable window.
-# Everything in the system reads cabinet entity IDs from these sensors.
+# RESOLVERS (sensor.zen_*_cabinet_resolved) are regular (non-trigger) template
+# sensors. They evaluate at HA startup, have their values immediately — no
+# clock, no race, no unavailable window. Everything in the system reads cabinet
+# entity IDs from these sensors.
 #
 # HEALTH SENSORS are trigger-based (zen_health_tick + zen_resolver_refresh +
 # ha_start). They read from the resolvers via states(). Since resolvers are
 # always-live, the availability check is clean on first fire.
 #
-# Sensors:
-#   - sensor.zen_dojo_cabinet_resolved  (always-live resolver)
-#   - sensor.zen_kata_cabinet_resolved  (always-live resolver)
-#   - sensor.zen_default_household_cabinet_resolved  (always-live resolver)
-#   - sensor.zen_default_ai_user_cabinet_resolved    (always-live resolver)
-#   - sensor.zen_default_family_cabinet_resolved     (always-live resolver)
-#   - sensor.zen_default_user_cabinet_resolved       (always-live resolver)
+# Resolvers (7 — always-live):
+#   - sensor.zen_dojo_cabinet_resolved
+#   - sensor.zen_kata_cabinet_resolved
+#   - sensor.zen_system_cabinet_resolved
+#   - sensor.zen_default_household_cabinet_resolved
+#   - sensor.zen_default_ai_user_cabinet_resolved
+#   - sensor.zen_default_family_cabinet_resolved
+#   - sensor.zen_default_user_cabinet_resolved
+#
+# Health sensors (trigger-based):
 #   - sensor.zen_monastery_health
 #   - sensor.zen_summarizer_health
 #   - sensor.zen_supersummary_health
+#   - sensor.zen_cabinet_health
+#   - sensor.zen_agent_health
 ###############################################################################
 
 template:
