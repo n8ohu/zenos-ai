@@ -161,6 +161,8 @@ After every run, the scheduler writes a `zen_scheduler` drawer to the Kata cabin
 - Models under ~4B parameters do not perform reliably as the summarization backend. The summarizer does not require tool-calling capability — it needs strong summarization and JSON authoring skills.
 
 > **⚠️ Do not use a paid inference API for the AI task entity.** The Ninja Summarizer fires multiple times per hour and the SuperSummary fires a minimum of 4 times per hour. Pointing `input_text.zenos_ai_task_entity` at a metered API will generate a significant and continuous token bill. Use a locally-hosted model for background summarization. Your frontline conversation agent operates on demand only and does not carry this risk.
+>
+> **The summarizers ship disabled by default.** Enable them via `input_boolean.zen_summarizers_enabled` (master), `input_boolean.zen_ninja_summarizer_enabled`, and `input_boolean.zen_supersummarizer_enabled` only after you have confirmed your AI task entity points at a local model.
 
 **Spook ghost-entity warnings on scheduler**
 - Hardware-specific entity IDs should not be in `dojotools_scheduler.yaml`. Move them to a local `zen_dojotools_scheduler_custom.yaml` (see Hardware Triggers section above).
