@@ -649,6 +649,7 @@ script:
                 },
                 'restart_required': 'auth_providers/auth_mfa_modules changes, http: block (port/SSL/CORS/trusted_proxies), recorder: block (db_url/include/exclude), adding net-new integrations never bootstrapped, logger: YAML block. Use logger.set_level service for runtime log level changes — no restart needed.',
                 'other_tools': {
+                  'zen_resolver_refresh': 'Fire zen_resolver_refresh. Kicks cabinet resolvers, monastery health, and all resolver-subscribed sensors. Use after ha_reload_all to recover sensors from cold-start unavailable. On real HA restart, the scheduler fires this automatically via ha_start trigger.',
                   'zen_health_report': 'Read all 5 health sensors + 7 resolver states. Returns overall ok/issues_found, resolver all_ok, timestamps, monk_status, schema_ok, kill switches, and plain-English diagnosis.',
                   'ha_config_check': 'YAML validation, go/nogo. No side effects. Safe to run anytime.',
                   'ha_restart': 'Full HA restart. Requires confirm=true. Config check runs automatically first — blocked if check fails.',
@@ -656,10 +657,21 @@ script:
                   'ha_update_skip': 'Skip a pending update. Requires confirm=true + entity_id.',
                   'ha_update_clear_skipped': 'Un-skip a skipped update. Requires confirm=true + entity_id.'
                 },
-                'when_in_doubt': 'Run ha_config_check, then ha_reload_all.',
+                'when_in_doubt': 'Run zen_health_report first. If issues found, run ha_config_check then ha_reload_all. If reloads do not fix it, use ha_restart.',
                 'halmark_fgs': ['FG-35: automation.reload kills in-flight automations', 'FG-36: reload_all silent abort on config check failure (mitigated here by explicit preflight)', 'FG-37: partial reload state from incorrect surgical reload sequencing']
               }
             }}"
+      - conditions:
+        - alias: Resolver Refresh
+          condition: template
+          value_template: '{{ tool == ''zen_resolver_refresh'' }}'
+        sequence:
+        - event: zen_resolver_refresh
+        - variables:
+            response:
+              tool: "{{ tool }}"
+              result: success
+              message: "zen_resolver_refresh fired. Cabinet resolvers, monastery health, and all zen_resolver_refresh subscribers will re-evaluate."
       - conditions:
         - alias: Health Report
           condition: template
@@ -856,6 +868,7 @@ script:
         selector:
           select:
             options:
+            - zen_resolver_refresh
             - zen_health_report
             - help
             - ha_reload_all
