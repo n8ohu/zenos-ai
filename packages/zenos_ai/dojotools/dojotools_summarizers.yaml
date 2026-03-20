@@ -205,23 +205,33 @@ script:
       # ── 5. Collect active components ──────────────────────────────────────
       # FIX: was {% set active = {} %} inside for loop — Jinja2 scoping bug,
       #      always returned {}. Fixed with namespace().
-      - alias: Collect active components from KF System Switch
+      - alias: Collect active components from Dojo meta.enabled + KF System Switch override
         variables:
           active_components: >-
-            {%- set kata = state_attr(kata_cabinet, 'variables') or {} -%}
-            {%- set ns = namespace(active={}) -%}
-            {%- for sw in expand(label_entities('Kung Fu System Switch' | slugify))
+            {%- set dojo = state_attr(dojo_cabinet, 'variables') | default({}, true) -%}
+            {%- set kata = state_attr(kata_cabinet, 'variables') | default({}, true) -%}
+            {%- set override_bools = expand(label_entities('kung_fu_system_switch'))
                   | selectattr('domain', 'eq', 'input_boolean')
-                  | selectattr('state', 'eq', 'on')
-                  | map(attribute='entity_id')
-                  | list -%}
-              {%- set key = sw
-                | replace('input_boolean.', '')
-                | replace('_master_switch', '') -%}
-              {%- if key in kata -%}
-                {%- set drawer = kata[key] -%}
-                {%- set value  = drawer.get('value', {}) if drawer is mapping else {} -%}
-                {%- set ns.active = ns.active | combine({ key: value }) -%}
+                  | map(attribute='entity_id') | list -%}
+            {%- set ns = namespace(active={}) -%}
+            {%- for key, drawer in dojo.items() if key not in ['AI_Cabinet_VolumeInfo', 'kfc_template'] -%}
+              {%- if drawer is mapping -%}
+                {%- set _v1 = drawer.get('value', drawer) -%}
+                {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
+                {%- set val = _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) -%}
+                {%- if val is mapping and val.get('kata_key', '') != '' -%}
+                  {%- set comp_key = val.get('kata_key', key) -%}
+                  {%- set _meta = val.get('meta', {}) -%}
+                  {%- set _meta = _meta if _meta is mapping else {} -%}
+                  {%- set drawer_enabled = _meta.get('enabled', true) | bool -%}
+                  {%- set override = override_bools | select('search', comp_key) | list | first | default('') -%}
+                  {%- set resolved = (states(override) == 'on') if override != '' else drawer_enabled -%}
+                  {%- if resolved and comp_key in kata -%}
+                    {%- set kd = kata[comp_key] -%}
+                    {%- set kv = kd.get('value', {}) if kd is mapping else {} -%}
+                    {%- set ns.active = ns.active | combine({comp_key: kv}) -%}
+                  {%- endif -%}
+                {%- endif -%}
               {%- endif -%}
             {%- endfor -%}
             {{ ns.active }}

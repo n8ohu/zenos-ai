@@ -265,13 +265,30 @@ Following GA, ZenOS-AI can evolve toward:
 
 ### KFC v1.1 — State Key + Master-Switch-Free Controller
 
-Replace the `master_switch` field in KFC drawer schema with a `state` key. Remove the
-kill-switch visibility requirement from the scheduler dispatch path. Introduce a dedicated
-KFC controller that owns component lifecycle (enable, disable, reset) as a first-class
-operation rather than a side-effect of master switch state.
+Replace the `master_switch` field in KFC drawer schema with a `state` key stored directly
+in drawer `meta`. Remove the kill-switch HA switch entity as the default lifecycle mechanism.
+Component enabled/disabled state lives in the drawer itself — no external entity required.
+Introduce a dedicated KFC controller that owns component lifecycle (enable, disable, reset)
+as a first-class operation rather than a side-effect of master switch state.
 
-Scope: Dojo cabinet schema, Scheduler dispatch loop, KungFu Writer, Flynn gate-3 bootstrap
-validation.
+**`meta` block additions:**
+
+```yaml
+meta:
+  description: "Plain-English description of what this component does."
+  enabled: true          # replaces master_switch — on/off stored here, not in HA switch
+  requires:
+    cert: "zen_level_2"  # machine-readable capability requirement — retrievable by code
+    level: 2             # numeric level for range checks
+```
+
+`requires.cert` is checked at Monastery dispatch time. When zen_auth is live, TGT validation
+gates against this field. A component declares its own scope of practice; the runtime
+enforces it. `cert` is intentionally retrievable by code — it is not documentation, it
+is a runtime predicate.
+
+Scope: Dojo cabinet schema (KFC drawer meta), Scheduler dispatch loop, KungFu Writer,
+Flynn gate-3 bootstrap validation, Monastery dispatch guard.
 
 ---
 

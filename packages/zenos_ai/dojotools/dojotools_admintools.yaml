@@ -60,7 +60,7 @@ script:
         kfc_template_seed: >-
           {{
             {
-              "schema_version": "1.1.0",
+              "schema_version": "1.2.0",
               "structure": {
                 "version": None,
                 "friendly_name": None,
@@ -72,10 +72,17 @@ script:
                 "tool": None,
                 "trigger_subscriptions": [],
                 "delay_seconds": 0,
-                "kata_key": None
+                "kata_key": None,
+                "meta": {
+                  "enabled": None,
+                  "requires": {
+                    "cert": None,
+                    "level": None
+                  }
+                }
               },
               "example": {
-                "version": "1.1.0",
+                "version": "1.2.0",
                 "friendly_name": "Alert Manager",
                 "master_switch": "input_boolean.alert_manager_master_switch",
                 "label": "Alert Manager",
@@ -85,7 +92,18 @@ script:
                 "tool": None,
                 "trigger_subscriptions": ["ha_start", "daily_midnight", "hourly_trigger", "home_mode_updates", "alarm_panel"],
                 "delay_seconds": 0,
-                "kata_key": "alert_manager"
+                "kata_key": "alert_manager",
+                "meta": {
+                  "enabled": True,
+                  "requires": {
+                    "cert": "",
+                    "level": 0
+                  }
+                }
+              },
+              "notes": {
+                "master_switch": "Deprecated in 1.2.0. Use meta.enabled for on/off control. If an input_boolean with the kung_fu_system_switch label exists for this component, its state overrides meta.enabled.",
+                "meta.requires": "Stub in 1.2.0 — cert and level are stored but not enforced. zen_auth enforcement arrives in SP1."
               }
             } | tojson
           }}
@@ -105,7 +123,7 @@ script:
           {%- set raw = _rtt_kata_read.result | default('{}') -%}
           {%- set val = (raw | from_json) if raw is string else raw -%}
           {{ val.get('schema_version', '') }}
-    - if: "{{ _rtt_kata_version != '1.1.0' }}"
+    - if: "{{ _rtt_kata_version != '1.2.0' }}"
       then:
         - action: script.zen_dojotools_filecabinet
           data:
@@ -136,7 +154,7 @@ script:
               {{ (inner | from_json) if inner is string else inner }}
             _rtt_dojo_version: "{{ _rtt_dojo_raw.get('schema_version', '') if _rtt_dojo_raw is mapping else '' }}"
             _kfc_is_string: "{{ _rtt_dojo_raw is string }}"
-        - if: "{{ _rtt_dojo_version != '1.1.0' or _kfc_is_string }}"
+        - if: "{{ _rtt_dojo_version != '1.2.0' or _kfc_is_string }}"
           then:
             - action: script.zen_dojotools_filecabinet
               data:
@@ -151,9 +169,11 @@ script:
                 label_input: kfc, dojo, zen
     alias: Zen AdminTools Reset Template
     description: >-
-      Zen AdminTools Reset Templates (1.1.0). Presses zen_template into the Kata
+      Zen AdminTools Reset Templates (1.2.0). Presses zen_template into the Kata
       cabinet and kfc_template into the Dojo cabinet. Called by Flynn gate-3 if
-      either template is missing. Safe to re-run — force_action overwrites in place.
+      either template is missing or version is outdated. Safe to re-run —
+      force_action overwrites in place. KFC drawer upconvert (1.1.0 → 1.2.0)
+      is a separate tool: zen_admintools_kfc_upconvert.
 
   ###########################################################################
   # KFC MIGRATION — one-time press of trigger_subscriptions + delay_seconds
@@ -586,7 +606,7 @@ script:
     mode: parallel
     max: 5
     description: >-
-      Zen AdminTools KungFu Writer (1.1.0). Creates or updates a Kung Fu component
+      Zen AdminTools KungFu Writer (1.2.0). Creates or updates a Kung Fu component
       registration drawer in the Zen Dojo Cabinet.
 
       Each KFC drawer tells the Ninja Summarizer what a component does, what data
@@ -672,11 +692,44 @@ script:
             min: 0
             max: 300
             step: 5
-      master_switch:
-        name: Master Switch Entity
+      enabled:
+        name: Component Enabled
         description: >-
-          input_boolean entity that gates whether this component is active.
-          SuperSummary will only include components whose master switch is ON.
+          Whether this component is active. Stored in meta.enabled.
+          Default true. Replaces master_switch as the lifecycle control in 1.2.0.
+          If a kung_fu_system_switch-labeled input_boolean exists for this
+          component, its state overrides this setting at runtime.
+        required: false
+        default: true
+        selector:
+          boolean:
+      requires_cert:
+        name: Required Cert
+        description: >-
+          Capability certificate required to run this component (stub — not
+          enforced until SP1). Example: zen_level_2.
+        required: false
+        selector:
+          text:
+      requires_level:
+        name: Required Level
+        description: >-
+          Numeric capability level required (stub — not enforced until SP1).
+          Default 0.
+        required: false
+        default: 0
+        selector:
+          number:
+            min: 0
+            max: 10
+            step: 1
+      master_switch:
+        name: Master Switch Entity (deprecated)
+        description: >-
+          Deprecated in 1.2.0. Use enabled instead. If provided, the referenced
+          entity will be tagged with the kung_fu_system_switch label so the
+          SuperSummary can still use it as a runtime override. Will be removed
+          in a future version.
         required: false
         selector:
           entity:
@@ -812,7 +865,14 @@ script:
                   "tool":                  tool | default(''),
                   "trigger_subscriptions": _trigger_list,
                   "delay_seconds":         delay_seconds | default(0) | int(0),
-                  "kata_key":              _slug
+                  "kata_key":              _slug,
+                  "meta": {
+                    "enabled":  enabled | default(true) | bool,
+                    "requires": {
+                      "cert":  requires_cert  | default(''),
+                      "level": requires_level | default(0) | int(0)
+                    }
+                  }
                 } | tojson
               }}
         - action: script.zen_dojotools_filecabinet
@@ -831,6 +891,15 @@ script:
               no_autorecycle: true
               description: "KFC component definition — permanent, do not expire"
           response_variable: _write_response
+        - alias: Tag master switch with kung_fu_system_switch label
+          if:
+            - condition: template
+              value_template: "{{ (master_switch | default('')) | trim != '' }}"
+          then:
+            - action: homeassistant.add_label_to_entity
+              data:
+                entity_id: "{{ master_switch }}"
+                label_id: kung_fu_system_switch
         - variables:
             result: >-
               {{
