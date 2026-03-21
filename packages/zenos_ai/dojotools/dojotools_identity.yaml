@@ -101,9 +101,9 @@ script:
           as a plain label --- #}\n{%- else -%}\n  {{ rt }}\n{%- endif -%}"
     - variables:
         cab_json: '{% import ''zenos_ai/zen_os_1rc.jinja'' as zen %}
-  
-          {{ zen.zen_cabinets(normalized) }}
-  
+
+          {{ zen.identity_resolve_source(normalized) }}
+
           '
         cab: "{%- set raw = cab_json | trim -%}\n\n{# 0. Empty/None → valid empty result
           #}\n{%- if raw in ['', None] -%}\n  {{ {\"result\": [], \"error\": \"empty_input\"}
