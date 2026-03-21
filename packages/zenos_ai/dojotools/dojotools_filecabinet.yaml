@@ -494,20 +494,6 @@ script:
               }}{% else %}[]{% endif %}'
             read_label_index: "{% if read_volume %}\n  {{ read_volume.get('_label_index',
               {}).get('value', []) }}\n{% else %}\n  []\n{% endif %}"
-            read_filtered_manifest: "{%- import 'zenos_ai/library_index.jinja' as library_index
-              -%}\n{%- set cabs_json = library_index.parse_index_command('AI Data Storage
-              Cabinet') -%}\n{%- set fixed_json = cabs_json | replace(\"['\", '[\"')
-              \ | replace(\"']\", '\"]') | replace(\"', '\", '\", \"') | trim %}\n{%-
-              set cabs = fixed_json | from_json -%}\n{%- set sensors = states['sensor']
-              | map(attribute='entity_id') | list -%}\n{%- set fcabs = intersect(sensors,
-              cabs) -%}\n\n{%- set ns = namespace(filtered={}) %}\n{%- for cab_entity
-              in fcabs %}\n  {%- set variables = state_attr(cab_entity, 'variables')
-              %}\n  {%- if variables and variables.get('AI_Cabinet_VolumeInfo') and
-              variables['AI_Cabinet_VolumeInfo'].get('value') %}\n    {%- set cab_id
-              = variables['AI_Cabinet_VolumeInfo']['value'].get('id', cab_entity) %}\n
-              \   {%- set ns.filtered = ns.filtered | combine({\n      (cab_entity):
-              variables['AI_Cabinet_VolumeInfo']['value']\n    }) %}\n  {%- endif %}\n{%-
-              endfor %}\n{{ ns.filtered }}"
             parsed_key: '{{ key | default('''', true) | trim | lower }}'
             initial_volume: '{{ read_volume if read_volume is mapping else {} }}'
             read_payload: "\n{# Ensure read_volume is a mapping; else fallback to empty
