@@ -198,9 +198,10 @@ script:
       - alias: Load last summary
         variables:
           last_summary: >-
-            {{
-              (state_attr(kata_cabinet, 'variables') or {}).get('zen_summary', {}) | to_json
-            }}
+            {%- set _raw = (state_attr(kata_cabinet, 'variables') or {}).get('zen_summary', {}) -%}
+            {%- set _v1 = _raw if _raw is mapping else (_raw | from_json if _raw is string else {}) -%}
+            {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
+            {{ _v2 | tojson }}
 
       # ── 5. Collect active components ──────────────────────────────────────
       # FIX: was {% set active = {} %} inside for loop — Jinja2 scoping bug,
@@ -360,7 +361,7 @@ script:
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: ZEN_SUMMARY
-              value: "{{ zen_summary | tojson }}"
+              value: "{{ zen_summary }}"
               label_input: Zen Summary
             response_variable: filecabinet_response
 
