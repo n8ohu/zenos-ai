@@ -153,8 +153,6 @@ script:
         sequence:
         - variables:
             history_result: '{{ help_text }}'
-        - variables:
-            history_result: "{{ history_result | combine({'caller_token': caller_token | default('')}) }}"
         - stop: 'Read error: Required fields missing'
           response_variable: history_result
       - conditions:
@@ -219,8 +217,6 @@ script:
         sequence:
         - variables:
             history_result: '{{help_text}}'
-        - variables:
-            history_result: "{{ history_result | combine({'caller_token': caller_token | default('')}) }}"
         - stop: Help complete
           response_variable: history_result
     alias: Zen DojoTools History
