@@ -75,6 +75,14 @@ script:
         selector:
           text:
             multiline: false
+      caller_token:
+        name: Caller Token
+        required: false
+        default: ''
+        selector:
+          text:
+        description: 'Reserved. Governance stub — echoed in response. SP1 enforcement
+          not yet active.'
     sequence:
     - variables:
         user_label: '{{ user_label | default('''') }}'
@@ -113,6 +121,7 @@ script:
           #}\n{%- else -%}\n  {{ raw | from_json | tojson }}\n{%- endif %}"
     - variables:
         response: "{{\n  {\n    \"result\": cab,\n    \"target_normalized\": normalized,\n
-          \   \"timestamp\": now().isoformat()\n  }\n}}\n"
+          \   \"timestamp\": now().isoformat(),\n    \"caller_token\": caller_token
+          | default('')\n  }\n}}\n"
     - stop: Return Variables
       response_variable: response
