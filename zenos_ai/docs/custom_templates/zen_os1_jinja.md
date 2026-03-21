@@ -2,7 +2,7 @@ ZenOS-AI Template Engine: zen_os_1rc.jinja
 
 Technical Specification & Prompt Loader Requirements
 
-Version: 4.3.0
+Version: 4.3.0 'Meridian'
 Status: Stable & Required for All Front-Line Agents
 
 

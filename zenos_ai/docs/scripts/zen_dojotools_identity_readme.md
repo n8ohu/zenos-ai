@@ -1,4 +1,4 @@
-# Zen DojoTools Identity — 4.2.0
+# Zen DojoTools Identity — 4.3.0 'Meridian'
 
 *Resolve user and construct identities within the ZenOS-AI household*
 

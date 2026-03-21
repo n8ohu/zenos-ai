@@ -1,4 +1,4 @@
-# Zen DojoTools AdminTools — 4.3.0
+# Zen DojoTools AdminTools — 4.3.0 'Meridian'
 
 *Ring-2 administrative tools: component registration, cabinet repair, template management, and prompt configuration*
 

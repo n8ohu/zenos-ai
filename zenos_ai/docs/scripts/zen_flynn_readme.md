@@ -1,4 +1,4 @@
-# Flynn — Stepgate Sentinel & Bootstrap Engine — 4.2.1
+# Flynn — Stepgate Sentinel & Bootstrap Engine — 4.3.0 'Meridian'
 
 *ZenOS-AI's boot guard, initializer, and onboarding driver*
 
