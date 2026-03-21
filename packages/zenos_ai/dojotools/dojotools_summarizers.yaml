@@ -361,7 +361,7 @@ script:
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: ZEN_SUMMARY
-              value: "{{ zen_summary }}"
+              value: "{{ zen_summary | tojson }}"
               label_input: Zen Summary
             response_variable: filecabinet_response
 
