@@ -7,14 +7,14 @@
 #   zen_admintools_kfc_migration_press   — One-time scheduling field migration (v1.1.0)
 #   zen_admintools_cabinetadmin          — Cabinet inspect/restore/reset/hammer (v4.0.0 RC2)
 #   zen_dojotools_kungfu_writer          — Dojo component writer (v4.0.0 RC2)
-#   zen_admintools_cabinetadmin_backup   — Cabinet factory stamper/repairer (v1.x)
+#   zen_admintools_cabinetadmin_stamp   — Cabinet factory stamper/repairer (v1.x)
 #   zen_admintools_zenos_prompt_loader   — Cortex/Directives/Purpose loader
 #
 # MIGRATED FROM: scripts.yaml (2026-03-06)
 #
 # FG-14 FIXED: boolean: {} in cabinetadmin, 10x text: {} + boolean: {} in kungfu_writer (now zen_dojotools_kungfu_writer),
-#              5x boolean: {} + 2x text: {} in cabinetadmin_backup
-# FG (sandbox) FIXED: mounts.append() -> namespace(mounts=[]) in cabinetadmin_backup
+#              5x boolean: {} + 2x text: {} in cabinetadmin_stamp
+# FG (sandbox) FIXED: mounts.append() -> namespace(mounts=[]) in cabinetadmin_stamp
 #
 # === UAT PASS — 2026-03-06 ===
 # Auditor: Claude (Anthropic, Sonnet 4.6)
@@ -23,7 +23,7 @@
 #
 # zen_dojotools_kungfu_writer:
 #   help action → response clean ✓
-# zen_admintools_reset_template, cabinetadmin, cabinetadmin_backup, prompt_loader:
+# zen_admintools_reset_template, cabinetadmin, cabinetadmin_stamp, prompt_loader:
 #   not MCP-exposed; verified via config check pass + clean restart ✓
 #
 # config check → go; restart → clean ✓
@@ -979,7 +979,7 @@ script:
     - stop: Return Result
       response_variable: result
 
-  zen_admintools_cabinetadmin_backup:
+  zen_admintools_cabinetadmin_stamp:
     sequence:
     - variables:
         confirm_action: '{{ confirm_action | default(false) }}'

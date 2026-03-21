@@ -20,7 +20,7 @@ Most tools in this module are **admin-only** — they are not exposed to the AI 
 | `zen_admintools_reset_template` | 1.1.0 | No | Press zen_template and kfc_template into cabinets |
 | `zen_admintools_reset_labels` | 4.2.1 | No | Nuclear: delete all zen_ labels and assignments, trigger Flynn rebuild |
 | `zen_admintools_cabinetadmin` | 4.2.1 | No | Inspect, restore, reset, hammer, init, or reset_all Ring-0 cabinets |
-| `zen_admintools_cabinetadmin_backup` | 1.x | No | Factory-stamp or repair a cabinet's VolumeInfo drawer |
+| `zen_admintools_cabinetadmin_stamp` | 1.x | No | Factory-stamp or repair a cabinet's VolumeInfo drawer |
 | `zen_admintools_kfc_migration_press` | 1.1.0 | No | One-time migration: seed scheduling fields into KFC drawers |
 | `zen_admintools_zenos_prompt_loader` | 4.2.1 | No | Load versioned Cortex, Directives, and Purpose (v27 = RC2, v29/latest = GA Ninja Fusion, v30 = Living Index) |
 
@@ -221,7 +221,7 @@ sensor.zenos_default_ai_user_history_cabinet
 
 ---
 
-## zen_admintools_cabinetadmin_backup
+## zen_admintools_cabinetadmin_stamp
 
 Factory tool for stamping or repairing a cabinet's `AI_Cabinet_VolumeInfo`, `_label_index`, and `_zen_relationships` drawers.
 
