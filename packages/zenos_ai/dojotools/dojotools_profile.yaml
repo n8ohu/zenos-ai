@@ -38,11 +38,19 @@ script:
 
       target_type:
         name: Target Type
-        description: "ai_user | household | user | family. Defaults to ai_user."
+        description: "ai_user | secondary_ai_user | household | user | secondary_user | tertiary_user | quaternary_user | family. Defaults to ai_user."
         default: ai_user
         selector:
           select:
-            options: [ai_user, household, user, family]
+            options:
+              - ai_user
+              - secondary_ai_user
+              - household
+              - user
+              - secondary_user
+              - tertiary_user
+              - quaternary_user
+              - family
 
       target:
         name: Target Entity
@@ -303,12 +311,20 @@ script:
           _default_target: >-
             {%- if _type == 'ai_user' -%}
               {{ states('sensor.zen_default_ai_user_cabinet_resolved') }}
+            {%- elif _type == 'secondary_ai_user' -%}
+              {{ states('sensor.zen_secondary_ai_user_cabinet_resolved') }}
             {%- elif _type == 'household' -%}
               {{ states('sensor.zen_default_household_cabinet_resolved') }}
             {%- elif _type == 'family' -%}
               {{ states('sensor.zen_default_family_cabinet_resolved') }}
             {%- elif _type == 'user' -%}
               {{ states('sensor.zen_default_user_cabinet_resolved') }}
+            {%- elif _type == 'secondary_user' -%}
+              {{ states('sensor.zen_secondary_user_cabinet_resolved') }}
+            {%- elif _type == 'tertiary_user' -%}
+              {{ states('sensor.zen_tertiary_user_cabinet_resolved') }}
+            {%- elif _type == 'quaternary_user' -%}
+              {{ states('sensor.zen_quaternary_user_cabinet_resolved') }}
             {%- else -%}
             {%- endif -%}
           _target: "{{ _explicit if _explicit != '' else _default_target }}"
@@ -334,7 +350,7 @@ script:
             sequence:
               - variables:
                   _r_profile: >-
-                    {%- if _type == 'ai_user' -%}
+                    {%- if _type in ['ai_user', 'secondary_ai_user'] -%}
                       {%- set raw = _cab_vars.get('zenai_essence', {}) -%}
                       {%- set ev  = raw.get('value', raw) if raw is mapping else {} -%}
                       {%- set id  = ev.get('identity', {})     if ev is mapping else {} -%}
@@ -374,7 +390,7 @@ script:
                         'timezone':       pv.get('timezone', '')
                       } }}
                     {%- else -%}
-                      {%- set key = '_user_profile' if _type == 'user' else '_family_profile' -%}
+                      {%- set key = '_family_profile' if _type == 'family' else '_user_profile' -%}
                       {%- set raw = _cab_vars.get(key, {}) -%}
                       {%- set pv  = raw.get('value', raw) if raw is mapping else {} -%}
                       {{ {
@@ -410,7 +426,7 @@ script:
       #   Step C — assemble final essence + write
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'write' and _type == 'ai_user' }}"
+          - conditions: "{{ _mode == 'write' and _type in ['ai_user', 'secondary_ai_user'] }}"
             sequence:
 
               # Step A — current state + inputs
@@ -625,10 +641,10 @@ script:
       # 5 — WRITE: user / family  (_user_profile or _family_profile key)
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'write' and _type in ['user', 'family'] }}"
+          - conditions: "{{ _mode == 'write' and _type in ['user', 'family', 'secondary_user', 'tertiary_user', 'quaternary_user'] }}"
             sequence:
               - variables:
-                  _u_key: "{{ '_user_profile' if _type == 'user' else '_family_profile' }}"
+                  _u_key: "{{ '_family_profile' if _type == 'family' else '_user_profile' }}"
                   _u_raw: "{{ _cab_vars.get(_u_key, {}) }}"
                   _u_cur: "{{ _u_raw.get('value', _u_raw) if _u_raw is mapping else {} }}"
                   _in_name:   "{{ name           | default('') | trim }}"
