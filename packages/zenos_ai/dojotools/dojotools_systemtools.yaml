@@ -818,6 +818,14 @@ script:
               {%- if _monk_status in ['error','timeout','none','null','unknown'] -%}
                 {%- set _ns.issues = _ns.issues + ['supersummary monk status: ' ~ _monk_status] -%}
               {%- endif -%}
+              {%- set _agent_st = states('sensor.zen_agent_health') -%}
+              {%- if _agent_st in ['warn','error','critical'] -%}
+                {%- set _flynn_blocking = state_attr('sensor.zen_flynn_health', 'blocking') | default('none') -%}
+                {%- set _roster_raw = state_attr('sensor.zen_agent_health', 'roster') | default('[]') -%}
+                {%- set _roster = _roster_raw | from_json if _roster_raw is string else _roster_raw -%}
+                {%- set _notes = _roster | map(attribute='note') | list | join(', ') if _roster is iterable else '' -%}
+                {%- set _ns.issues = _ns.issues + ['Agent health ' ~ _agent_st ~ ' — Flynn blocking: ' ~ _flynn_blocking ~ (' | agents: ' ~ _notes if _notes else '')] -%}
+              {%- endif -%}
               {%- if _ns.issues | count == 0 -%}
                 All gates nominal.
               {%- else -%}
