@@ -13,8 +13,12 @@ Provides mapping of slots to names
         'default_family':    'Zen Default Family Cabinet',
         'user':              'Zen User Cabinet',
         'default_user':      'Zen Default User Cabinet',
+        'secondary_user':    'Zen Secondary User Cabinet',
+        'tertiary_user':     'Zen Tertiary User Cabinet',
+        'quaternary_user':   'Zen Quaternary User Cabinet',
         'ai_user':           'Zen AI User Cabinet',
         'default_ai_user':   'Zen Default AI User Cabinet',
+        'secondary_ai_user': 'Zen Secondary AI User Cabinet',
         'history':           'Zen History Cabinet',
         'index':             'Zen Index Cabinet'
     }
@@ -62,8 +66,11 @@ Provides mapping of slots to default entities
         'Zen Default User Cabinet','Zen Default AI User Cabinet',
         'Zen Household Cabinet','Zen Family Cabinet',
         'Zen User Cabinet','Zen AI User Cabinet',
+        'Zen Secondary User Cabinet','Zen Tertiary User Cabinet',
+        'Zen Quaternary User Cabinet','Zen Secondary AI User Cabinet',
         'Zen History Cabinet','Zen Index Cabinet',
-        'Kung Fu System Switch'
+        'Kung Fu System Switch',
+        'Zen Vault Cabinet'
     ] -%}
     {{- required | to_json(pretty_print=true) -}}
 {%- endmacro -%}
@@ -175,7 +182,9 @@ Provides mapping of slots to default entities
         'household','default_household',
         'family','default_family',
         'user','default_user',
+        'secondary_user','tertiary_user','quaternary_user',
         'ai_user','default_ai_user',
+        'secondary_ai_user',
         'history','index'
     ] | to_json(pretty_print=true) -}}
 {%- endmacro -%}
@@ -194,6 +203,8 @@ Provides mapping of slots to default entities
     {{- [
         'household','family',
         'user','ai_user',
+        'secondary_user','tertiary_user','quaternary_user',
+        'secondary_ai_user',
         'history','index'
     ] | to_json(pretty_print=true) -}}
 {%- endmacro -%}
