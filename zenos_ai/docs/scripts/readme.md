@@ -45,7 +45,7 @@ Ring-2 administrative tools for component registration, cabinet repair, template
 * `zen_admintools_reset_template` — Press zen_template and kfc_template into cabinets (Flynn gate-3)
 * `zen_admintools_reset_labels` — **Nuclear.** Delete all `zen_` labels and assignments; Flynn auto-rebuilds via Gate 0/1
 * `zen_admintools_cabinetadmin` — Inspect, restore, reset, hammer, init, or `reset_all` Ring-0 cabinets
-* `zen_admintools_cabinetadmin_backup` — Factory-stamp or repair a cabinet's VolumeInfo header
+* `zen_admintools_cabinetadmin_stamp` — Factory-stamp or repair a cabinet's VolumeInfo header
 * `zen_admintools_kfc_migration_press` — One-time migration: seed KF4 scheduling fields into existing drawers
 * `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose (v29/latest = GA Ninja Fusion, v30 = Living Index opt-in, v27 = RC2)
 

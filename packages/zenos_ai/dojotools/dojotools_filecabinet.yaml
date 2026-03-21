@@ -35,6 +35,7 @@ script:
         expires_after: '{{ expires_after | default('''') | trim }}'
         no_autoexpire: '{{ no_autoexpire | default(false) }}'
         no_autorecycle: '{{ no_autorecycle | default(false) }}'
+        caller_token: '{{ caller_token | trim }}'
         target_guid: '{{ target_guid | default('''') | trim }}'
         drawer_acl: "{% set _acl = acl | default('') %}\n{% if _acl is mapping %}\n
           \ {{ _acl }}\n{% elif _acl is string and _acl | trim | length > 0 %}\n  {{
@@ -471,6 +472,7 @@ script:
                 %}\n  There was a problem reading from the volume.\n{% else %}\n  Read
                 succeeded.\n{% endif %}"
               result: '{{ read_payload }}'
+              caller_token: '{{ caller_token }}'
         - stop: Read complete
           response_variable: final_response
       - conditions:
@@ -536,6 +538,7 @@ script:
                 %}\n  There was a problem reading drawers in the volume.\n{% else %}\n
                 \ Directory read succeeded.\n{% endif %}"
               result: '{{ read_payload }}'
+              caller_token: '{{ caller_token }}'
         - stop: Volume directory read complete
           response_variable: final_response
       - conditions:
@@ -581,6 +584,7 @@ script:
                 %}\n  There was a problem reading from the volume.\n{% else %}\n  Read
                 succeeded.\n{% endif %}"
               result: '{{ read_payload }}'
+              caller_token: '{{ caller_token }}'
         - stop: Read complete
           response_variable: final_response
       - conditions:
@@ -662,6 +666,7 @@ script:
               warnings: "{% if dropped_labels | length > 0 %}\n  Warning: {{ dropped_labels
                 | length }} ignored label(s): {{ dropped_labels }}\n{% else %}\n  None\n{%
                 endif %}"
+              caller_token: '{{ caller_token }}'
         - stop: Create fired
           response_variable: final_response
       - conditions:
@@ -733,6 +738,7 @@ script:
               warnings: "{% if dropped_labels | length > 0 %}\n  Warning: {{ dropped_labels
                 | length }} ignored label(s): {{ dropped_labels }}\n{% else %}\n  None\n{%
                 endif %}"
+              caller_token: '{{ caller_token }}'
         - stop: Update fired
           response_variable: final_response
       - conditions:
@@ -829,6 +835,7 @@ script:
                 confirmed).\n{% else %}\n  Delete requested for '{{ key }}' (verification
                 not confirmed — key still present or state not yet updated).\n{% endif
                 %}"
+              caller_token: '{{ caller_token }}'
         - stop: Delete fired
           response_variable: final_response
       - conditions:
@@ -1513,4 +1520,14 @@ script:
         description: Cabinet volume GUID to mount. REQUIRED for set_mount. Must match
           AI_Cabinet_VolumeInfo.value.id on an existing cabinet sensor.
         required: false
+      caller_token:
+        name: Caller Token
+        description: >-
+          Optional. Caller identity token. When provided, echoed in response
+          to confirm receipt. Reserved for SP1 access control enforcement —
+          no behavior change in current version. Defaults to '' (anonymous/guest).
+        required: false
+        default: ''
+        selector:
+          text:
     icon: mdi:folder-key

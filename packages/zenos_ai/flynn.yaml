@@ -149,6 +149,11 @@ automation:
     triggers:
       - trigger: homeassistant
         event: start
+      # Recovery net: re-evaluates every 5 min so sentinel self-heals after
+      # ha_reload_all kills in-flight runs without a health state change.
+      # Fast early-exit (was_green check) makes this cheap when system is ok.
+      - trigger: time_pattern
+        minutes: /5
     # ---------------------------------------------------------
     # Only trigger on state change of health cabinets (enum) - not on attributes
     # @todo - might be able to use. not_to: unavailable
@@ -330,13 +335,10 @@ automation:
             {{ state_attr(_g35_ai_cab, 'variables') | default({}, true)
                if _g35_ai_cab != '' else {} }}
           _g35_complete: "{{ '_oobe_complete' in _g35_cab_vars }}"
-          _g35_essence_raw: "{{ _g35_cab_vars.get('zenai_essence', {}) }}"
-          _g35_essence_val: >-
-            {{ _g35_essence_raw.get('value', _g35_essence_raw)
-               if _g35_essence_raw is mapping else {} }}
           _g35_name: >-
-            {{ (_g35_essence_val.get('identity', {}).get('name', '') | trim)
-               if _g35_essence_val is mapping else '' }}
+            {%- import 'zenos_ai/zenos_health.jinja' as health -%}
+            {%- set _probe = health.essence_probe(_g35_ai_cab) | from_json -%}
+            {{ (_probe.get('name', '') | trim) if _probe is mapping else '' }}
           _g35_input_name: "{{ states('input_text.zenos_persona_name') | trim }}"
       - choose:
           # Case 1: placeholder in cabinet but input_text has a name → write it and dismiss
@@ -510,6 +512,10 @@ script:
             default_family: "Family Cabinet"
             default_user: "User Cabinet"
             default_ai_user: "AI User Cabinet"
+            secondary_user: "User Cabinet"
+            tertiary_user: "User Cabinet"
+            quaternary_user: "User Cabinet"
+            secondary_ai_user: "AI User Cabinet"
             history: "History Cabinet"
             index: "Index Cabinet"
 
