@@ -8,7 +8,18 @@ ZenOS-AI is a cabinet-centric AI framework for deterministic, inspectable househ
 
 ## Current Status
 
-**4.1.0 RC2 — Complete**
+**Meridian — Shipped (2026-03-21)**
+
+Hardening and governance batch. `caller_token` SP1 §4a stub wired to all 15 AI-accessible
+DojoTools scripts. Cortex 31 cabinet state visibility. KFC schema 1.2.0. Labels UPDATE
+patch semantics (pre-read, confirm gate, no data-loss path). Scheduler, summarizer, and
+history bug fixes. UAT passed on live install 2026-03-21.
+
+See: [Release Notes — Meridian](releases/meridian.md)
+
+---
+
+**Previous: 4.1.0 RC2 — Complete**
 
 KF4 RC2 has shipped. The Kung Fu Component architecture is fully Dojo-driven — drawer IS the spec, label IS the scope, HyperIndex IS the data layer. The Scheduler is data-driven; no hardcoded branches. 12 components stamped and running. UAT passed on live install 2026-03-11. The next milestone is GA.
 
