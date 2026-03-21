@@ -188,8 +188,9 @@ template:
 
           #####################################################################
           # CABINET OPERATIONAL STATE (init / online per slot)
-          # Reads the HA state of each resolved cabinet sensor.
-          # init  = sensor exists but not yet stamped with AI_Cabinet_VolumeInfo
+          # Computed here — NOT in cabinet sensor state: field (asyncio race,
+          # see HALMark FG: this-in-state-trigger-template).
+          # init   = cabinet exists but AI_Cabinet_VolumeInfo not yet stamped
           # online = stamped and operational
           # absent = no entity with this slot's label
           #####################################################################
@@ -205,9 +206,10 @@ template:
               {%- if ents | count == 0 -%}
                 {%- set ns.m = ns.m | combine({ slot: 'absent' }) -%}
               {%- else -%}
-                {%- set e = ents | first -%}
-                {%- set cab_state = states(e.entity_id) -%}
-                {%- set ns.m = ns.m | combine({ slot: (cab_state if cab_state in ['init','online','unavailable','unknown'] else 'init') }) -%}
+                {%- set eid = (ents | first).entity_id -%}
+                {%- set _v = state_attr(eid, 'variables') -%}
+                {%- set cab_state = 'online' if (_v is mapping and 'AI_Cabinet_VolumeInfo' in _v) else 'init' -%}
+                {%- set ns.m = ns.m | combine({ slot: cab_state }) -%}
               {%- endif -%}
             {%- endfor -%}
             {{ ns.m | tojson }}
