@@ -167,13 +167,76 @@ script:
                 value: '{{ kfc_template_seed | tojson }}'
                 set_timestamp: true
                 label_input: kfc, dojo, zen
+        - alias: Upconvert KFC drawers 1.1.0 → 1.2.0
+          if:
+            - condition: template
+              value_template: "{{ _rtt_dojo_version == '1.1.0' }}"
+          then:
+            - variables:
+                _dojo_all: >-
+                  {{ state_attr(_rtt_dojo, 'variables') | default({}, true) }}
+            - repeat:
+                for_each: >-
+                  {{ _dojo_all.keys() | reject('in', ['AI_Cabinet_VolumeInfo', 'kfc_template']) | list }}
+                sequence:
+                  - variables:
+                      _kfc_key: "{{ repeat.item }}"
+                      _kfc_raw: "{{ _dojo_all.get(repeat.item, {}) }}"
+                      _kfc_v1: >-
+                        {%- set _r = _kfc_raw -%}
+                        {%- set _v1 = _r.get('value', _r) if _r is mapping else {} -%}
+                        {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
+                        {{ _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) }}
+                  - if:
+                      - condition: template
+                        value_template: "{{ _kfc_v1 is mapping and _kfc_v1.get('kata_key', '') != '' }}"
+                    then:
+                      - variables:
+                          _kfc_existing_meta: >-
+                            {%- set m = _kfc_v1.get('meta', {}) -%}
+                            {{ m if m is mapping else {} }}
+                          _kfc_existing_req: >-
+                            {%- set r = _kfc_existing_meta.get('requires', {}) -%}
+                            {{ r if r is mapping else {} }}
+                          _kfc_meta: >-
+                            {{
+                              _kfc_existing_meta | combine({
+                                'enabled': _kfc_existing_meta.get('enabled', true),
+                                'requires': _kfc_existing_req | combine({
+                                  'cert':  _kfc_existing_req.get('cert', ''),
+                                  'level': _kfc_existing_req.get('level', 0)
+                                })
+                              })
+                            }}
+                          _kfc_updated: >-
+                            {{ _kfc_v1 | combine({'meta': _kfc_meta}) | tojson }}
+                          _kfc_ms: "{{ _kfc_v1.get('master_switch', '') | trim }}"
+                      - action: script.zen_dojotools_filecabinet
+                        data:
+                          action_type: update
+                          show_hidden_volumes: false
+                          force_action: true
+                          set_timestamp: false
+                          volume_entity_id:
+                            - "{{ _rtt_dojo }}"
+                          key: "{{ _kfc_key }}"
+                          value: "{{ _kfc_updated }}"
+                      - alias: Tag master switch with kung_fu_system_switch label
+                        if:
+                          - condition: template
+                            value_template: "{{ _kfc_ms != '' }}"
+                        then:
+                          - action: homeassistant.add_label_to_entity
+                            data:
+                              entity_id: "{{ _kfc_ms }}"
+                              label_id: kung_fu_system_switch
     alias: Zen AdminTools Reset Template
     description: >-
       Zen AdminTools Reset Templates (1.2.0). Presses zen_template into the Kata
       cabinet and kfc_template into the Dojo cabinet. Called by Flynn gate-3 if
-      either template is missing or version is outdated. Safe to re-run —
-      force_action overwrites in place. KFC drawer upconvert (1.1.0 → 1.2.0)
-      is a separate tool: zen_admintools_kfc_upconvert.
+      either template is missing or version is outdated. On upgrade from 1.1.0:
+      adds meta.enabled + meta.requires to all existing KFC drawers and applies
+      kung_fu_system_switch label to master switch entities. Idempotent.
 
   ###########################################################################
   # KFC MIGRATION — one-time press of trigger_subscriptions + delay_seconds
