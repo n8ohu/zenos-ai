@@ -261,6 +261,12 @@ script:
         default: true
         selector:
           boolean:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
     sequence:
     - variables:
         _dry_run: "{{ dry_run | default(true) | bool }}"
@@ -373,6 +379,7 @@ script:
           dojo_cab: "{{ _dojo_cab }}"
           components: "{{ _kfc_configs | map(attribute='kata_key') | list | tojson }}"
           stamp_config: "{{ _kfc_configs | tojson }}"
+          caller_token: '{{ caller_token | default('''') }}'
     - stop: Migration complete
       response_variable: _result
 
@@ -406,6 +413,12 @@ script:
         default: false
         selector:
           boolean:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
 
     sequence:
     - if:
@@ -450,6 +463,8 @@ script:
           Nuclear label reset complete. {{ zen_labels | length }} zen_ label(s)
           deleted. zen_resolver_refresh fired. Flynn will recreate and reassign
           on next sentinel cycle.
+    - variables:
+        result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
     - stop: reset labels complete
       response_variable: result
 
@@ -503,6 +518,12 @@ script:
         default: false
         selector:
           boolean:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
     sequence:
     - variables:
         canon_ring0_cabinets:
@@ -537,6 +558,8 @@ script:
         sequence:
         - variables:
             result: 'Hammer mode requires hammer_ok: true'
+        - variables:
+            result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
         - stop: hammer blocked
           response_variable: result
     - repeat:
@@ -619,6 +642,8 @@ script:
       - condition: template
         value_template: '{{ op == ''inspect'' }}'
       then:
+      - variables:
+          inspect_acc: "{{ inspect_acc | combine({'caller_token': caller_token | default('')}) if inspect_acc is mapping else inspect_acc }}"
       - stop: inspect complete
         response_variable: inspect_acc
     # ── reset_all — nuclear cabinet wipe + reseed + Flynn bootstrap ──────────
@@ -635,6 +660,8 @@ script:
               reset_all refused — confirm: true required. This wipes all ring-0
               canonical cabinets, reseeds schemas, and triggers Flynn bootstrap.
               No undo. Set confirm: true to proceed.
+        - variables:
+            result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
         - stop: confirm required
           response_variable: result
       # Step 1 — wipe all ring-0 cabinets
@@ -656,11 +683,15 @@ script:
             cabinet(s) wiped. Schemas reseeded via reset_template.
             zen_resolver_refresh fired. Flynn will bootstrap on next sentinel
             cycle. User cabinets were not touched.
+      - variables:
+          result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
       - stop: reset_all complete
         response_variable: result
 
     - variables:
         result: 'AdminTools completed ''{{ op }}'' on {{ effective_targets | length }} cabinet(s).'
+    - variables:
+        result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
     - stop: complete
       response_variable: result
 
@@ -831,6 +862,12 @@ script:
         default: false
         selector:
           boolean:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
     sequence:
 
     - variables:
@@ -976,6 +1013,8 @@ script:
                 }
               }}
 
+    - variables:
+        result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
     - stop: Return Result
       response_variable: result
 
@@ -992,6 +1031,7 @@ script:
             response:
               status: error
               message: 'Confirmation required — set confirm_action: true.'
+              caller_token: '{{ caller_token | default('''') }}'
         - stop: Confirmation required
           response_variable: response
     - variables:
@@ -1076,6 +1116,7 @@ script:
             response:
               status: error
               message: No cabinet_entity provided.
+              caller_token: '{{ caller_token | default('''') }}'
         - stop: Missing entity
           response_variable: response
       - conditions:
@@ -1099,6 +1140,7 @@ script:
                 }}, profile ''{{ flag_profile }}'', and {{ mounts_out | length }} mounts.
 
                 '
+              caller_token: '{{ caller_token | default('''') }}'
         - stop: Init complete
           response_variable: response
       - conditions:
@@ -1132,6 +1174,7 @@ script:
                 %}
 
                 '
+              caller_token: '{{ caller_token | default('''') }}'
         - stop: Repair complete
           response_variable: response
       default:
@@ -1139,8 +1182,11 @@ script:
           response:
             status: error
             message: Unknown cabinet state.
+            caller_token: '{{ caller_token | default('''') }}'
       - stop: Fallback
         response_variable: response
+    - variables:
+        response: "{{ response | combine({'caller_token': caller_token | default('')}) if response is mapping else response }}"
     - stop: complete
       response_variable: response
     alias: Zen AdminTools CabinetAdmin (BACKUP)
@@ -1226,6 +1272,12 @@ script:
         name: Family GUID
         selector:
           text:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
     icon: mdi:database-cog
   # zen_dojotools_ha_api — migrated to packages/zenos_ai/dojotools/dojotools_ha_api.yaml
 
@@ -1256,6 +1308,12 @@ script:
         default: true
         selector:
           boolean:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
     sequence:
     - variables:
         _cv: >-

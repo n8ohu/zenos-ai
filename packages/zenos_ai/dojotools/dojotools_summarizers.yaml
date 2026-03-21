@@ -122,6 +122,12 @@ script:
         description: Extra instructions appended at the end of the summarization prompt.
         selector:
           text:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
 
     sequence:
 
@@ -375,7 +381,8 @@ script:
                 "active_component_ids": active_component_ids | default([]),
                 "monk":                 monk_response | default({}),
                 "post":                 post_to_kata_cabinet | default(false),
-                "filecabinet_write":    filecabinet_response | default({})
+                "filecabinet_write":    filecabinet_response | default({}),
+                "caller_token":         caller_token | default('')
               }
             }}
 
@@ -452,6 +459,12 @@ script:
       supplemental_prompt:
         name: Supplemental Prompt
         description: Additional data or instructions appended to the prompt.
+        selector:
+          text:
+      caller_token:
+        name: Caller Token
+        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
+        required: false
         selector:
           text:
 
@@ -680,7 +693,8 @@ script:
                 "monk":              monk_response | default({}),
                 "post":              post_to_kata_cabinet | default(false),
                 "dojo_drawer":       dojo_drawer | default(''),
-                "filecabinet_write": filecabinet_response | default({})
+                "filecabinet_write": filecabinet_response | default({}),
+                "caller_token":      caller_token | default('')
               }
             }}
 
