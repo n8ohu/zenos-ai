@@ -96,7 +96,9 @@ template:
       - name: "ZenOS System Cabinet"
         unique_id: zenos_system_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -184,7 +186,9 @@ template:
       - name: "ZenOS System History Cabinet"
         unique_id: zenos_system_history_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -272,7 +276,9 @@ template:
       - name: "ZenOS Dojo Cabinet"
         unique_id: zenos_dojo_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -360,7 +366,9 @@ template:
       - name: "ZenOS Kata Cabinet"
         unique_id: zenos_kata_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -448,7 +456,9 @@ template:
       - name: "ZenOS History Cabinet"
         unique_id: zenos_history_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -536,7 +546,9 @@ template:
       - name: "ZenOS Scratchpad Cabinet"
         unique_id: zenos_scratchpad_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -628,7 +640,9 @@ template:
       - name: "ZenOS Default Household Cabinet"
         unique_id: zenos_default_household_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -716,7 +730,9 @@ template:
       - name: "ZenOS Default Household History Cabinet"
         unique_id: zenos_default_household_history_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -808,7 +824,9 @@ template:
       - name: "ZenOS Default Family Cabinet"
         unique_id: zenos_default_family_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -896,7 +914,9 @@ template:
       - name: "ZenOS Default Family History Cabinet"
         unique_id: zenos_default_family_history_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -988,7 +1008,9 @@ template:
       - name: "ZenOS Default User Cabinet"
         unique_id: zenos_default_user_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1076,7 +1098,9 @@ template:
       - name: "ZenOS Default User History Cabinet"
         unique_id: zenos_default_user_history_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1168,7 +1192,9 @@ template:
       - name: "ZenOS Default AI User Cabinet"
         unique_id: zenos_default_ai_user_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1256,7 +1282,9 @@ template:
       - name: "ZenOS Default AI User History Cabinet"
         unique_id: zenos_default_ai_user_history_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1352,7 +1380,9 @@ template:
       - name: "ZenOS Secondary User Cabinet"
         unique_id: zenos_secondary_user_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1439,7 +1469,9 @@ template:
       - name: "ZenOS Tertiary User Cabinet"
         unique_id: zenos_tertiary_user_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1526,7 +1558,9 @@ template:
       - name: "ZenOS Quaternary User Cabinet"
         unique_id: zenos_quaternary_user_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1613,7 +1647,9 @@ template:
       - name: "ZenOS Secondary AI User Cabinet"
         unique_id: zenos_secondary_ai_user_cabinet
         icon: mdi:file-cabinet
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1700,7 +1736,9 @@ template:
       - name: "ZenOS Vault Cabinet"
         unique_id: zenos_vault_cabinet
         icon: mdi:safe-square
-        state: Variables
+        state: >-
+          {%- set v = this.attributes.get('variables', {}) -%}
+          {%- if v is mapping and 'AI_Cabinet_VolumeInfo' in v -%}online{%- else -%}init{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
