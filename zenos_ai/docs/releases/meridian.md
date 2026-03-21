@@ -115,6 +115,12 @@ blocks. Functional parity maintained. Cortex 31 prompt primitives added alongsid
   correct slot-to-type map. Vault intentionally excluded from auto-init.
 - `flynn_onboarding.jinja` relocated from `custom_templates/` root to
   `custom_templates/zenos_ai/` namespace.
+- **Gate 3 — `gc_eligible` stamp:** Flynn B3 provisioner now stamps `gc_eligible` into
+  `AI_Cabinet_VolumeInfo.flags` for all canonical cabinets at bootstrap.
+  Kata gets `gc_eligible: true` (runtime churn cabinet); all others default to `false`
+  (operator opt-in). `force_action: false` throughout — existing values honored.
+  Fresh installs get the correct flag from day 1; existing installs are covered by the
+  GC self-heal path.
 
 ---
 

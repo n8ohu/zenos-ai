@@ -783,6 +783,47 @@ script:
       - action: script.zen_admintools_zenos_prompt_loader
         data: {}
 
+      # Stamp gc_eligible flag into AI_Cabinet_VolumeInfo for all canonical cabinets.
+      # force_action: false — only writes if drawer absent (fresh install path).
+      # Existing installs already have this field via GC self-heal; skip is correct.
+      # If gc_eligible is already true on a cabinet, force_action: false honors it —
+      # the drawer exists, so the write is skipped entirely.
+      # Kata gets gc_eligible: true — runtime churn cabinet, GC should run by default.
+      # All others default to false — operator opt-in.
+      # force_action: false honors any existing value (e.g. operator already set true).
+      - variables:
+          _b3_all_cabs: >-
+            {{ [
+              states('sensor.zen_dojo_cabinet_resolved'),
+              states('sensor.zen_default_household_cabinet_resolved'),
+              states('sensor.zen_default_family_cabinet_resolved'),
+              states('sensor.zen_default_user_cabinet_resolved'),
+              states('sensor.zen_default_ai_user_cabinet_resolved')
+            ] | reject('in', ['', 'unknown', 'unavailable']) | list }}
+      - repeat:
+          for_each: "{{ _b3_all_cabs }}"
+          sequence:
+            - action: script.zen_dojotools_filecabinet
+              data:
+                action_type: create
+                force_action: false
+                set_timestamp: false
+                show_hidden_volumes: false
+                volume_entity_id:
+                  - "{{ repeat.item }}"
+                key: AI_Cabinet_VolumeInfo
+                value: '{"flags": {"gc_eligible": false}}'
+      - action: script.zen_dojotools_filecabinet
+        data:
+          action_type: create
+          force_action: false
+          set_timestamp: false
+          show_hidden_volumes: false
+          volume_entity_id:
+            - "{{ states('sensor.zen_kata_cabinet_resolved') }}"
+          key: AI_Cabinet_VolumeInfo
+          value: '{"flags": {"gc_eligible": true}}'
+
       # Write _onboarding flag
       - action: script.flynn_unified_engine
         data:
