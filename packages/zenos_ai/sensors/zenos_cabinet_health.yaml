@@ -215,6 +215,34 @@ template:
             {{ ns.m | tojson }}
 
           #####################################################################
+          # CABINET OPERATIONAL STATE (init / online per slot)
+          # Computed here — NOT in cabinet sensor state: field.
+          # See HALMark FG: this-in-state-trigger-template for why.
+          # init   = cabinet exists but AI_Cabinet_VolumeInfo not yet stamped
+          # online = stamped and operational
+          # absent = no entity with this slot's label
+          #####################################################################
+          cabinet_states: >-
+            {%- import 'zenos_ai/zenos_health.jinja' as HEALTH -%}
+            {%- set slots = HEALTH.slots_all() | from_json() -%}
+            {%- set slot_to_label = HEALTH.slot_to_label() | from_json() -%}
+            {%- set all_cabs = label_entities('Zen Cabinet' | slugify) | list -%}
+            {%- set ns = namespace(m={}) -%}
+            {%- for slot in slots -%}
+              {%- set label_slug = slot_to_label[slot] | slugify -%}
+              {%- set ents = intersect(all_cabs, label_entities(label_slug) or []) | list -%}
+              {%- if ents | count == 0 -%}
+                {%- set ns.m = ns.m | combine({ slot: 'absent' }) -%}
+              {%- else -%}
+                {%- set eid = (ents | first).entity_id -%}
+                {%- set _v = state_attr(eid, 'variables') -%}
+                {%- set cab_state = 'online' if (_v is mapping and 'AI_Cabinet_VolumeInfo' in _v) else 'init' -%}
+                {%- set ns.m = ns.m | combine({ slot: cab_state }) -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ ns.m | tojson }}
+
+          #####################################################################
           # SLOT → LABEL MAPPING (single source of truth for Flynn)
           #####################################################################
           slot_to_label: >
