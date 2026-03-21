@@ -355,11 +355,9 @@ script:
         - variables:
             _upd_name: '{{ user_labels[0] }}'
             _upd_id: '{{ user_labels[0] | slugify(separator=''_'') }}'
-            _upd_desc: '{{ new_description | default('''', true) }}'
-            _upd_icon: '{{ new_icon | default('''', true) }}'
-            _upd_color: '{{ new_color | default(''primary'', true) }}'
             _has_change: '{{ new_description | default('''', true) != '''' or new_icon
               | default('''', true) != '''' or new_color | default('''', true) != '''' }}'
+            _force_rewrite: '{{ force_rewrite | default(false) | bool }}'
         - choose:
           - conditions:
             - condition: template
@@ -371,6 +369,31 @@ script:
                   error: Update requires at least one of new_description, new_icon, new_color.
             - stop: pass var scope
               response_variable: response
+        - alias: Pre-read existing label metadata via HA REST API
+          if:
+            - condition: template
+              value_template: '{{ not _force_rewrite }}'
+          then:
+            - action: rest_command.ha_api_get
+              data:
+                path: labels
+              response_variable: _labels_r
+        - variables:
+            _labels_ok: '{{ not _force_rewrite and (_labels_r.status | default(0) | int == 200) }}'
+            _labels_all: >-
+              {{ _labels_r.content if _labels_ok and _labels_r.content is iterable else [] }}
+            _existing: >-
+              {%- set found = _labels_all | selectattr('label_id', 'eq', _upd_id) | list -%}
+              {{ found | first | default({}) }}
+            _upd_desc: >-
+              {{ new_description if new_description | default('', true) != ''
+                 else _existing.get('description', '') | default('', true) }}
+            _upd_icon: >-
+              {{ new_icon if new_icon | default('', true) != ''
+                 else _existing.get('icon', '') | default('', true) }}
+            _upd_color: >-
+              {{ new_color if new_color | default('', true) != ''
+                 else _existing.get('color', 'primary') | default('primary', true) }}
         - if:
           - condition: template
             value_template: '{{ not confirm }}'
@@ -384,8 +407,7 @@ script:
                 new_description: '{{ _upd_desc }}'
                 new_icon: '{{ _upd_icon }}'
                 new_color: '{{ _upd_color }}'
-                warning: Delete and recreate — icon not preserved if omitted. Color
-                  defaults to primary if not provided.
+                preserved_from_existing: '{{ _labels_ok }}'
                 message: Confirmation required. Update will delete and recreate the
                   label then restore all entity associations.
           - stop: confirm required
@@ -426,7 +448,11 @@ script:
               label: '{{ _upd_name }}'
               label_id: '{{ _upd_id }}'
               retagged_count: '{{ _upd_entities | length }}'
-              message: "Update complete. {{ _upd_entities | length }} entity association(s) restored."
+              preserved_from_existing: '{{ _labels_ok }}'
+              message: >-
+                Update complete. {{ _upd_entities | length }} entity association(s) restored.
+                {% if _labels_ok %}Icon/color/description preserved from existing where not provided.
+                {% else %}REST pre-read unavailable — only caller-provided fields applied.{% endif %}
         - stop: pass var scope
           response_variable: response
         alias: UPDATE
@@ -493,6 +519,14 @@ script:
         required: false
         selector:
           text:
+      force_rewrite:
+        description: >-
+          UPDATE only. If true, skip the pre-read and overwrite — unprovided
+          fields revert to HA defaults. Default false (patch semantics).
+        required: false
+        default: false
+        selector:
+          boolean:
       confirm:
         description: Required for writable / destructive actions, Function will alert
           when Confirmation is required - expect it for Create, Delete, Update.  Confirms
