@@ -45,6 +45,14 @@ script:
           index, health detail). Default: compact (entity_id, friendly_name, id, drawer
           count, capacity %, status, writeable).'
         default: false
+      caller_token:
+        name: Caller Token
+        required: false
+        default: ''
+        selector:
+          text:
+        description: 'Reserved. Governance stub — echoed in response. SP1 enforcement
+          not yet active.'
     sequence:
     - variables:
         zen_default_house_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
@@ -139,6 +147,8 @@ script:
         value: '{{ manifest }}'
         set_timestamp: true
         volume_entity: '{{ zen_default_house_cab }}'
+    - variables:
+        manifest: "{{ manifest | combine({'caller_token': caller_token | default('')}) if manifest is mapping else manifest }}"
     - alias: Return Manifest Data
       stop: Pass variable to response
       response_variable: manifest
