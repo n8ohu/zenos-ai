@@ -203,5 +203,3 @@ on those installs.
 
 - **KFC 1.1 / `meta.enabled` full enforcement** — queued for SP1.
 - **SP1 caller_token enforcement** — plumbing complete; activation deferred to SP1.
-- **RC1 B3 provisioner: `reset_template` call** — not yet wired into the provisioner
-  sequence. Manual press required after upgrade until wired.
