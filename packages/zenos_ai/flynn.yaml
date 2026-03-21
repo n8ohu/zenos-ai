@@ -330,13 +330,10 @@ automation:
             {{ state_attr(_g35_ai_cab, 'variables') | default({}, true)
                if _g35_ai_cab != '' else {} }}
           _g35_complete: "{{ '_oobe_complete' in _g35_cab_vars }}"
-          _g35_essence_raw: "{{ _g35_cab_vars.get('zenai_essence', {}) }}"
-          _g35_essence_val: >-
-            {{ _g35_essence_raw.get('value', _g35_essence_raw)
-               if _g35_essence_raw is mapping else {} }}
           _g35_name: >-
-            {{ (_g35_essence_val.get('identity', {}).get('name', '') | trim)
-               if _g35_essence_val is mapping else '' }}
+            {%- import 'zenos_ai/zenos_health.jinja' as health -%}
+            {%- set _probe = health.essence_probe(_g35_ai_cab) | from_json -%}
+            {{ (_probe.get('name', '') | trim) if _probe is mapping else '' }}
           _g35_input_name: "{{ states('input_text.zenos_persona_name') | trim }}"
       - choose:
           # Case 1: placeholder in cabinet but input_text has a name → write it and dismiss
