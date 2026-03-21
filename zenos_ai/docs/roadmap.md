@@ -119,6 +119,44 @@ Where RC2 proves deployability, GA proves durability, clean boundaries, and main
 
 ## GA Stability Gates — Delivered
 
+### Prompt Finalization — Final GA Feature (planned)
+
+Final polish pass before gold candidate lock. Three work streams:
+
+**1. Template structure pass + rename**
+
+`zen_os_1rc.jinja` renamed to `zenos.jinja` for release. Full ref sweep across
+all packages, templates, and docs. `custom_templates/zenos_ai/` layout finalized
+and locked.
+
+**2. Prompt instrumentation + collapse**
+
+Each major prompt section (cortex, home overview, active components, zen_summary,
+etc.) gets a dedicated sensor — observable at runtime, traceable by Nyx, and
+auditable by Flynn. Once all sections are instrumented and validated individually,
+the full prompt collapses behind a single `zen.prompt('ai_user')` call. Persona-aware,
+data-layer driven, no hardcoded structure in the surface API.
+
+The "exploded" dev-era template layout disappears from the surface. The structure
+is still there — it's just behind a clean interface.
+
+**3. Flynn prompt shunt**
+
+Pre-boot and degraded-state path: agent receives Flynn-only context (who Flynn is,
+what tools he has) instead of an incomplete or errored full prompt. Shunt condition
+derived from existing health sensors — resolver unsettled, essence missing, Gate 3
+incomplete. No full prompt rendered until the system is ready to render it correctly.
+
+**Stuffiness gauge:** token pressure per prompt section surfaced as a first-class
+observable. Flynn can see which sections are consuming context budget, flag pressure
+before it degrades agent quality, and recommend or trigger remediation (trim, collapse,
+raise abstraction level). Context stuffiness goes from invisible to instrumented.
+
+**Sequence:** instrument first → Nyx validates each sensor → collapse behind
+`zen.prompt()` → Flynn shunt wired last.
+
+---
+
 ### Highlander Resolver Architecture (2026-03-19)
 
 Boss Add. Support team demand. Shipped in `fix/ga-batch-1`, UAT-passed on live install.
