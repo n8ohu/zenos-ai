@@ -153,6 +153,8 @@ script:
         sequence:
         - variables:
             history_result: '{{ help_text }}'
+        - variables:
+            history_result: "{{ history_result | combine({'caller_token': caller_token | default('')}) }}"
         - stop: 'Read error: Required fields missing'
           response_variable: history_result
       - conditions:
@@ -163,6 +165,8 @@ script:
         - action: recorder.get_statistics
           data: '{{ query_payload }}'
           response_variable: history_result
+        - variables:
+            history_result: "{{ history_result | combine({'caller_token': caller_token | default('')}) if history_result is mapping else history_result }}"
         - stop: Read complete
           response_variable: history_result
       - conditions:
@@ -176,6 +180,7 @@ script:
               code: H-0001
               reason: Temporal Paradox
               detail: You cannot create history. You are not the Doctor.
+              caller_token: '{{ caller_token | default('''') }}'
         - stop: Create complete
           response_variable: history_result
       - conditions:
@@ -189,6 +194,7 @@ script:
               code: H-0002
               reason: Redaction Denied
               detail: This isn’t a reality show. You don’t get to delete the past.
+              caller_token: ‘{{ caller_token | default(‘’’’) }}’
         - stop: Delete complete
           response_variable: history_result
       - conditions:
@@ -203,8 +209,9 @@ script:
               reason: Zen Violation
               detail: 'You cannot rewrite history. You can, however, learn from it.
                 See: https://www.goodreads.com/quotes/tag/change
-  
+
                 '
+              caller_token: '{{ caller_token | default('''') }}'
         - stop: Update complete
           response_variable: history_result
       - conditions:
@@ -214,6 +221,8 @@ script:
         sequence:
         - variables:
             history_result: '{{help_text}}'
+        - variables:
+            history_result: "{{ history_result | combine({'caller_token': caller_token | default('')}) }}"
         - stop: Help complete
           response_variable: history_result
     alias: Zen DojoTools History
@@ -280,6 +289,14 @@ script:
         description: Optional label for trace/logging
         selector:
           text:
+      caller_token:
+        name: Caller Token
+        required: false
+        default: ''
+        selector:
+          text:
+        description: 'Reserved. Governance stub — echoed in response. SP1 enforcement
+          not yet active.'
     description: "Zen DojoTools History (4.0.0 RC2)\nHistory Stats for Homeassistant.\nUses
       recorder.get_statistics for current entity stats.\nCRITICAL:\n  Read HELP for
       detailed use, including information on targeting.\n  Read HELP - cheat_sheet for
