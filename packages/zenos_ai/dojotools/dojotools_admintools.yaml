@@ -1970,8 +1970,13 @@ script:
                 schema_note: All writes to dojo or kata drawers MUST conform to cabinet schema.
               scratchpad:
                 label: scratchpad
-                paths: {main: /cabinets/{ai_entity_cabinet}/scratchpad, sandbox: /cabinets/{ai_entity_cabinet}/scratchpad/sandbox}
-                permissions: {modify_anytime: true, use_as_cache: true, allow_unschematized: true}
+                paths:
+                  main: "/cabinets/{ai_entity_cabinet}/scratchpad"
+                  sandbox: "/cabinets/{ai_entity_cabinet}/scratchpad/sandbox"
+                permissions:
+                  modify_anytime: true
+                  use_as_cache: true
+                  allow_unschematized: true
               advanced_intents:
                 rules:
                 - Prefer DojoTools when available; fallback safely when not
