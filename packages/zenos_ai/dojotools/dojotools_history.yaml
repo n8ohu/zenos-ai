@@ -165,8 +165,6 @@ script:
         - action: recorder.get_statistics
           data: '{{ query_payload }}'
           response_variable: history_result
-        - variables:
-            history_result: "{{ history_result | combine({'caller_token': caller_token | default('')}) if history_result is mapping else history_result }}"
         - stop: Read complete
           response_variable: history_result
       - conditions:
