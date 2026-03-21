@@ -149,6 +149,11 @@ automation:
     triggers:
       - trigger: homeassistant
         event: start
+      # Recovery net: re-evaluates every 5 min so sentinel self-heals after
+      # ha_reload_all kills in-flight runs without a health state change.
+      # Fast early-exit (was_green check) makes this cheap when system is ok.
+      - trigger: time_pattern
+        minutes: /5
     # ---------------------------------------------------------
     # Only trigger on state change of health cabinets (enum) - not on attributes
     # @todo - might be able to use. not_to: unavailable
@@ -507,6 +512,10 @@ script:
             default_family: "Family Cabinet"
             default_user: "User Cabinet"
             default_ai_user: "AI User Cabinet"
+            secondary_user: "User Cabinet"
+            tertiary_user: "User Cabinet"
+            quaternary_user: "User Cabinet"
+            secondary_ai_user: "AI User Cabinet"
             history: "History Cabinet"
             index: "Index Cabinet"
 
