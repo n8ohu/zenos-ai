@@ -434,6 +434,40 @@ script:
                   _in_pov:    "{{ pov           | default('') | trim }}"
                   _in_patch:  "{{ essence_patch | default('') | trim }}"
 
+              # Step A.5 — resolve principal chain (stamp once, preserve always)
+              - variables:
+                  _hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+                  _hh_vars: >-
+                    {{ state_attr(_hh_cab, 'variables') | default({}, true) if _hh_cab != '' else {} }}
+                  _hh_vi: >-
+                    {%- set _vi = _hh_vars.get('AI_Cabinet_VolumeInfo', {}) if _hh_vars is mapping else {} -%}
+                    {%- set _v1 = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                    {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
+                    {{ _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) }}
+                  _household_id: "{{ _hh_vi.get('id', '') if _hh_vi is mapping else '' }}"
+                  _puser_entity: >-
+                    {{ _in_puser if _in_puser.startswith('person.') else
+                       (states.person | selectattr('name', 'eq', _in_puser) | map(attribute='entity_id') | first | default(''))
+                       if _in_puser != '' else '' }}
+                  _ha_user_sid: >-
+                    {{ state_attr(_puser_entity, 'user_id') | default('', true)
+                       if _puser_entity != '' else
+                       _cur_ev.get('identity', {}).get('ha_user_sid', '') | default('', true) }}
+                  _existing_guid: >-
+                    {{ _cur_ev.get('identity', {}).get('guid', '') | default('', true)
+                       if _cur_ev is mapping else '' }}
+                  _new_guid: >-
+                    {%- if _existing_guid != '' -%}
+                      {{ _existing_guid }}
+                    {%- else -%}
+                      {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(
+                        range(0, 65536) | random, range(0, 65536) | random,
+                        range(0, 65536) | random, range(0, 65536) | random,
+                        range(0, 65536) | random, range(0, 65536) | random,
+                        range(0, 65536) | random, range(0, 65536) | random
+                      ) }}
+                    {%- endif -%}
+
               # Step B — import defaults + patch all sections + assemble in one template.
               # essence_defaults() | from_json stays as a Python dict in Jinja scope —
               # never serialized to a string between steps, no single-quote repr trap.
@@ -455,6 +489,14 @@ script:
                         {%- set ns_id.d = dict(ns_id.d.items()|list+[(k,v)]) -%}
                       {%- endif -%}
                     {%- endfor -%}
+                    {# Principal chain — stamp once, preserve always #}
+                    {%- set ns_id.d = dict(ns_id.d.items()|list+[('guid', _new_guid)]) -%}
+                    {%- if _ha_user_sid != '' and (_force or ns_id.d.get('ha_user_sid','') == '') -%}
+                      {%- set ns_id.d = dict(ns_id.d.items()|list+[('ha_user_sid', _ha_user_sid)]) -%}
+                    {%- endif -%}
+                    {%- if _household_id != '' and (_force or ns_id.d.get('household_id','') == '') -%}
+                      {%- set ns_id.d = dict(ns_id.d.items()|list+[('household_id', _household_id)]) -%}
+                    {%- endif -%}
                     {%- set ns_ar = namespace(d=_cur_ev.get('archetype', {})) -%}
                     {%- if _in_vibe != '' and (_force or ns_ar.d.get('vibe','') in ['', def_ar.get('vibe','')]) -%}
                       {%- set ns_ar.d = dict(ns_ar.d.items()|list+[('vibe',_in_vibe)]) -%}
