@@ -350,7 +350,7 @@ script:
                   final_response:
                     status: error
                     message: "No cabinet resolved for target_type '{{ _type }}'. Ensure the default cabinet is initialized."
-                    caller_token: '{{ caller_token | default('''') }}'
+                    caller_token: '{{ caller_token }}'
               - stop: "Profile: no target resolved"
                 response_variable: final_response
 
@@ -460,7 +460,7 @@ script:
                     target_type: "{{ _type }}"
                     target: "{{ _target }}"
                     profile: "{{ _r_profile }}"
-                    caller_token: '{{ caller_token | default('''') }}'
+                    caller_token: '{{ caller_token }}'
               - stop: Profile read complete
                 response_variable: final_response
 
@@ -627,7 +627,7 @@ script:
                     target_type: ai_user
                     target: "{{ _target }}"
                     message: Essence written.
-                    caller_token: '{{ caller_token | default('''') }}'
+                    caller_token: '{{ caller_token }}'
               - stop: ai_user write complete
                 response_variable: final_response
 
@@ -681,7 +681,7 @@ script:
                     - "{{ _target }}"
                   key: _household_profile
                   value: "{{ _h_new }}"
-                  caller_token: '{{ caller_token | default('''') }}'
+                  caller_token: '{{ caller_token }}'
 
               - variables:
                   final_response:
@@ -690,7 +690,7 @@ script:
                     target_type: household
                     target: "{{ _target }}"
                     message: Household profile written.
-                    caller_token: '{{ caller_token | default('''') }}'
+                    caller_token: '{{ caller_token }}'
               - stop: household write complete
                 response_variable: final_response
 
@@ -753,7 +753,7 @@ script:
                     - "{{ _target }}"
                   key: "{{ _u_key }}"
                   value: "{{ _u_new }}"
-                  caller_token: '{{ caller_token | default('''') }}'
+                  caller_token: '{{ caller_token }}'
 
               - variables:
                   final_response:
@@ -762,7 +762,7 @@ script:
                     target_type: "{{ _type }}"
                     target: "{{ _target }}"
                     message: "{{ _type | capitalize }} profile written."
-                    caller_token: '{{ caller_token | default('''') }}'
+                    caller_token: '{{ caller_token }}'
               - stop: user/family write complete
                 response_variable: final_response
 
@@ -773,6 +773,6 @@ script:
           final_response:
             status: error
             message: "No matching mode/target_type. mode='{{ _mode }}' target_type='{{ _type }}'."
-            caller_token: '{{ caller_token | default('''') }}'
+            caller_token: '{{ caller_token }}'
       - stop: No matching branch
         response_variable: final_response

@@ -490,7 +490,7 @@ script:
         _wait_response:
           status: success
           message: '{{ duration }} second wait complete'
-          caller_token: '{{ caller_token | default('''') }}'
+          caller_token: '{{ caller_token }}'
     - stop: done
       response_variable: _wait_response
     fields:
@@ -616,7 +616,7 @@ script:
           status: success
           message: Volume audit complete
           result: '{{ _report }}'
-          caller_token: '{{ caller_token | default('''') }}'
+          caller_token: '{{ caller_token }}'
     - stop: done
       response_variable: final_response
 

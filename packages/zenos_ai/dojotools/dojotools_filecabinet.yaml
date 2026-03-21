@@ -35,7 +35,7 @@ script:
         expires_after: '{{ expires_after | default('''') | trim }}'
         no_autoexpire: '{{ no_autoexpire | default(false) }}'
         no_autorecycle: '{{ no_autorecycle | default(false) }}'
-        caller_token: '{{ caller_token | default('''') | trim }}'
+        caller_token: '{{ caller_token | trim }}'
         target_guid: '{{ target_guid | default('''') | trim }}'
         drawer_acl: "{% set _acl = acl | default('') %}\n{% if _acl is mapping %}\n
           \ {{ _acl }}\n{% elif _acl is string and _acl | trim | length > 0 %}\n  {{

@@ -193,7 +193,7 @@ script:
                 drawer: "{{ target_key }}"
                 hidden_as: ".{{ target_key }}"
                 expires_after: "{{ expiry_ts }}"
-                caller_token: '{{ caller_token | default('''') }}'
+                caller_token: '{{ caller_token }}'
           - stop: recycle_complete
             response_variable: final
 
@@ -225,7 +225,7 @@ script:
                 action: hide
                 drawer: "{{ target_key }}"
                 hidden_as: ".{{ target_key }}"
-                caller_token: '{{ caller_token | default('''') }}'
+                caller_token: '{{ caller_token }}'
           - stop: hide_complete
             response_variable: final
 
@@ -258,7 +258,7 @@ script:
                 action: unhide
                 drawer: "{{ target_key }}"
                 restored_from: ".{{ target_key }}"
-                caller_token: '{{ caller_token | default('''') }}'
+                caller_token: '{{ caller_token }}'
           - stop: unhide_complete
             response_variable: final
 
@@ -438,7 +438,7 @@ script:
           - action: script.zen_dojotools_supersummary
             data:
               post_to_kata_cabinet: true
-              caller_token: '{{ caller_token | default('''') }}'
+              caller_token: '{{ caller_token }}'
               supplemental_prompt: >-
                 {{
                   {
@@ -457,7 +457,7 @@ script:
             max_age_hours: "{{ max_age_hours }}"
             dry_run: "{{ dry_run }}"
             supersummary_triggered: "{{ gc_action == 'gc' and post_supersummary and not dry_run }}"
-            caller_token: '{{ caller_token | default('''') }}'
+            caller_token: '{{ caller_token }}'
 
       - stop: filecabinet_gc_complete
         response_variable: final

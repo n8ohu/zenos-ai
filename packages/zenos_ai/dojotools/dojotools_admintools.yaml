@@ -886,7 +886,7 @@ script:
             response:
               status: error
               message: 'Confirmation required — set confirm_action: true.'
-              caller_token: '{{ caller_token | default('''') }}'
+              caller_token: '{{ caller_token }}'
         - stop: Confirmation required
           response_variable: response
     - variables:
@@ -971,7 +971,7 @@ script:
             response:
               status: error
               message: No cabinet_entity provided.
-              caller_token: '{{ caller_token | default('''') }}'
+              caller_token: '{{ caller_token }}'
         - stop: Missing entity
           response_variable: response
       - conditions:
@@ -995,7 +995,7 @@ script:
                 }}, profile ''{{ flag_profile }}'', and {{ mounts_out | length }} mounts.
 
                 '
-              caller_token: '{{ caller_token | default('''') }}'
+              caller_token: '{{ caller_token }}'
         - stop: Init complete
           response_variable: response
       - conditions:
@@ -1029,7 +1029,7 @@ script:
                 %}
 
                 '
-              caller_token: '{{ caller_token | default('''') }}'
+              caller_token: '{{ caller_token }}'
         - stop: Repair complete
           response_variable: response
       default:
@@ -1037,7 +1037,7 @@ script:
           response:
             status: error
             message: Unknown cabinet state.
-            caller_token: '{{ caller_token | default('''') }}'
+            caller_token: '{{ caller_token }}'
       - stop: Fallback
         response_variable: response
     - variables:

@@ -422,7 +422,7 @@ script:
             action_type: read
             volume_entity_id: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
             label_targets: '{{ label_targets_input | join('','') }}'
-            caller_token: '{{ caller_token | default('''') }}'
+            caller_token: '{{ caller_token }}'
           response_variable: _fc_label_response
         - variables:
             _fc_raw: "{{ _fc_label_response.result | default('{}') }}"
@@ -440,7 +440,7 @@ script:
             extended: '{{ extended_mode }}'
             infer: '{{ infer_mode }}'
             timeout: '{{ timeout_s }}'
-          caller_token: '{{ caller_token | default('''') }}'
+          caller_token: '{{ caller_token }}'
           error:
     - stop: Inspect complete
       response_variable: inspect_result
@@ -520,7 +520,7 @@ script:
           data:
             mode: help
             filter_json: '{} '
-            caller_token: '{{ caller_token | default('''') }}'
+            caller_token: '{{ caller_token }}'
           response_variable: zen_query_help
         - variables:
             query_help: '{{ zen_query_help | default({}) | tojson }}'
@@ -760,7 +760,7 @@ script:
           mode: query
           filter_json: '{{ filter_json | default(''{}'') }}'
           target_entities: '{{ entities_base }}'
-          caller_token: '{{ caller_token | default('''') }}'
+          caller_token: '{{ caller_token }}'
         response_variable: response_zen_query
       - variables:
           response_entities: "{{ (response_zen_query.result | from_json) if response_zen_query.result is string else response_zen_query.result | default([]) }}"
@@ -782,7 +782,7 @@ script:
             label_targets: "{% set _l1 = label_1 | default('') | trim %}\n{% set _l2
               = label_2 | default('') | trim %}\n{{ ([_l1] if _l1 else []) + ([_l2]
               if _l2 else []) }}"
-            caller_token: '{{ caller_token | default('''') }}'
+            caller_token: '{{ caller_token }}'
           response_variable: response
         - variables:
             expanded_entities: '{{ response.results | default([]) }}'
