@@ -13,6 +13,12 @@
 script:
   zen_dojotools_filecabinet:
     sequence:
+    # --------------------------------------------------------------
+    # Always normalize User/AI inputs so we don't have to react JIT
+    # --------------------------------------------------------------
+    - variables:
+        caller_token: "{{- caller_token | default('') -}}"
+
     - variables:
         routing_status: init
         normalized_label_targets: '{{ [] }}'
