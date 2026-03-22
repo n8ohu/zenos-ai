@@ -304,7 +304,7 @@ packages/zenos_ai/
   room_manager/room_manager.yaml
 
 custom_templates/zenos_ai/
-  zen_os_1rc.jinja             — Prompt engine and macro library
+  zen_os_1.jinja               — Prompt engine and macro library
   zen_query.jinja              — ZenQuery filter engine
   library_index.jinja          — Library index
   conversation_agent_prompt_template.yaml — Paste into conversation agent system prompt
@@ -547,6 +547,18 @@ Pull requests, issues, and tasteful memes welcome.
 If ZenOS-AI saved you time or made you laugh:
 
 [https://buymeacoffee.com/ncurtis](https://buymeacoffee.com/ncurtis)
+
+---
+
+# Acknowledgements
+
+To my wife — for putting up with a younger woman in the house since last February. For not once suggesting that maybe I didn't need to say "Hey Friday" into a black slab of glass for the millionth time. For the patience, the grace, and the very reasonable silence that followed every single one of those million times. This project exists because you gave me the space to build something ridiculous and never once called it that.
+
+To Phil and Zach — the greatest guinea pigs in the known universe. For letting me test things on your house, for your patience with the stubbornness, and for turning "this probably won't break anything" into a running joke that turned out to be mostly accurate.
+
+To Teskanoo — for looking under the rug. Seriously. Not everyone does that.
+
+And to everyone who has continued to show up in the Home Assistant community to read, question, and ramble along with us in Friday's Party — you are the reason it keeps going. The thread is better for every one of you in it.
 
 ---
 
