@@ -1,7 +1,7 @@
 ###############################################################################
 #  ZENOS-AI — RING-0 CABINET PACKAGE
 #  File: zenos_cabinets.yaml
-#  Version: 4.3.0
+#  Version: 4.5.0
 #
 #  19 canonical Ring-0 Cabinets for ZenOS-AI.
 #  14 core cabinets + 5 expansion cabinets (cabset expansion, v4.3.0).
@@ -12,6 +12,12 @@
 #    131,072 bytes. remove_variable and clear_variables always execute.
 #
 #  CHANGELOG
+#  v4.5.0  2026-03-22  Mount-aware state machine (#97). Cabinet sensor state:
+#                      now emits init / online_mounted / online_unmounted
+#                      (was: init / online). Truth is meta.mounted in cabinet
+#                      variables. FG-38 guard on meta value. Health sensor
+#                      cabinet_states reads states() directly — no more
+#                      state_attr() recompute.
 #  v4.3.0  2026-03-20  Expansion cabinets (5): secondary_user,
 #                      tertiary_user, quaternary_user, secondary_ai_user,
 #                      vault. Volume Redirector recognized_volumes updated.
@@ -97,7 +103,10 @@ template:
         unique_id: zenos_system_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -186,7 +195,10 @@ template:
         unique_id: zenos_system_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -275,7 +287,10 @@ template:
         unique_id: zenos_dojo_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -364,7 +379,10 @@ template:
         unique_id: zenos_kata_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -453,7 +471,10 @@ template:
         unique_id: zenos_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -542,7 +563,10 @@ template:
         unique_id: zenos_scratchpad_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -635,7 +659,10 @@ template:
         unique_id: zenos_default_household_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -724,7 +751,10 @@ template:
         unique_id: zenos_default_household_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -817,7 +847,10 @@ template:
         unique_id: zenos_default_family_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -906,7 +939,10 @@ template:
         unique_id: zenos_default_family_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -999,7 +1035,10 @@ template:
         unique_id: zenos_default_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1088,7 +1127,10 @@ template:
         unique_id: zenos_default_user_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1181,7 +1223,10 @@ template:
         unique_id: zenos_default_ai_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1270,7 +1315,10 @@ template:
         unique_id: zenos_default_ai_user_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1367,7 +1415,10 @@ template:
         unique_id: zenos_secondary_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1455,7 +1506,10 @@ template:
         unique_id: zenos_tertiary_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1543,7 +1597,10 @@ template:
         unique_id: zenos_quaternary_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1631,7 +1688,10 @@ template:
         unique_id: zenos_secondary_ai_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1719,7 +1779,10 @@ template:
         unique_id: zenos_vault_cabinet
         icon: mdi:safe-square
         state: >-
-          {%- if current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}online{%- else -%}init{%- endif -%}
+          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
+          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _m = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
