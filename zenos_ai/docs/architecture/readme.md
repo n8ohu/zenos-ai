@@ -43,7 +43,10 @@ Due to implementation complexity across large Cabinet graphs, **full identity en
 ### **Secure Tool-Shunt Model**
 
 Token-gated tool execution and shunted capability routing require deeper privilege separation and interface hardening.
-These components will not ship in 1.0 and are targeted for **v.next**.
+
+> **GA Status (4.5.0 'Meridian'):** A `caller_token` pass-through field is plumbed across all 15 AI-accessible DojoTools scripts at GA. The `security_policy` drawer in the System Cabinet carries the enforcement configuration. Full enforcement (external auth provider, token validation) activates at SP1 when `security_policy.secure` is set to `true`. The policy plane is in place; the switch is off.
+
+Full external-provider token-shunting is targeted for **SP1**.
 
 All other architectural systems — RoomState, the Monastery/Kata pipeline, Cabinet/Drawer memory, the Summarizer, Abbot scheduling, and the Interactive Friday load path — are stable and intended for the 1.0 release.
 
@@ -183,5 +186,5 @@ Version markers appear in each module header.
 
 ## **Next File**
 
-**Next chapter:** `01_foundations_overview.md`
+**Next chapter:** `01_the_monastery_core.md`
 *The Core Cognitive Model and Why ZenOS-AI Works the Way It Does*

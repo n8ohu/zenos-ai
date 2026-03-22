@@ -55,11 +55,13 @@ Highlighted chapters:
 * `06_Scheduler_and_The_Abbot.md` – Task routing
 * `07_Summarizer_Pipelines.md` – Awareness flow
 * `08_Kata_Cabinet.md`
-* `09_Identity_Architecture.md` - Security Model
+* `09_Identity_Architecture.md` – Identity data model spec
 * `11_RoomState_and_Perception.md` – Sensory model
-* `14_Abbot_Scheduler_And_Taskflow.md`
-* `19_Resilience_and_Failure_Model.md`
-* `20_Tool_Invocation_and_Security.md`
+* `14_Abbot_Scheduler_And_Task_Economy.md`
+* `18_Context_Frame_Operational_Cognitive_Surface.md` – Context assembly + prompt loader
+* `19_Resilience_and_Failure_Modes.md` – Highlander resolver, health sensor stack
+* `20_tool_invocation_and_security.md` – Tool ACLs, safety classes, caller_token
+* `security_model_ga.md` – **Operator reference:** what's active at GA vs SP1
 
 If you want to know how the mind works, start here.
 
@@ -148,7 +150,10 @@ Documentation for every Zen DojoTool and script module.
 Includes:
 
 * `zen_dojotools_admintools_readme.md` — AdminTools: KungFu Writer, cabinet repair, template press, prompt loader, nuclear label reset, reset_all cabinet sequence
-* `zen_dojotools_scheduler_readme.md` — Scheduler architecture, trigger IDs, component subscription, hardware trigger pattern
+* `zen_dojotools_scheduler_readme.md` — Scheduler: trigger IDs, Dojo-driven dispatch, component subscription, force events, hardware trigger pattern
+* `zen_dojotools_summarizers_readme.md` — Ninja Summarizer + SuperSummary: kill switches, active component selection, monk pipeline
+* `zen_dojotools_library_readme.md` — Library: command interpreter dispatch, hash_md5, slugify
+* `zen_home_mode_readme.md` — Home Mode: 8-state machine, schedule anchors, quiet/work hours, scheduler trigger IDs
 * `zen_dojotools_filecabinet_readme.md` — Cabinet read/write controller, clone action, Highlander mode
 * `zen_dojotools_manifest_readme.md`
 * `zen_dojotools_inspect_readme.md`
