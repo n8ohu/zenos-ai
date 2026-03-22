@@ -452,7 +452,7 @@ Filtered tags:
 
 Only after these filters apply is graph expansion allowed.
 These filters will be detailed in thier own docs.
-THESE ARE CURRENTLY NOT IMPLEMENTED in v.1.x but plumbed and non blocking in the indexer pipeline v.4.x+.  (Planned for post RC1.)
+These filters are plumbed and non-blocking in the indexer pipeline. Full enforcement is deferred post-GA.
 
 ---
 
