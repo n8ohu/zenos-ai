@@ -1640,7 +1640,7 @@ script:
           timeout: 00:00:05
           continue_on_timeout: true
         - variables:
-            verify_vol: "{{ state_attr(volume_entity, variables') | default({}, true) }}"
+            verify_vol: "{{ state_attr(volume_entity, 'variables') | default({}, true) }}"
             verify_entry: "{{ verify_vol.get(key, {}) if verify_vol is mapping else {} }}"
             mount_write_verified: "{{ verify_entry.get('value', {}).get('mount_point',  false) == true }}"
         - variables:
