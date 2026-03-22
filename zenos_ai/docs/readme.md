@@ -169,7 +169,7 @@ Scripts are the motor cortex. They turn reasoning into action.
 
 Layered health monitoring stack — cabinet resolvers, cognition pipeline, agent bootability.
 
-* `readme.md` — full reference: 7 always-live cabinet resolver sensors + 5 trigger-based health sensors, states, conditions, attributes, troubleshooting quick-reference. Includes `zen_health_report` (full system diagnostic) and `zen_resolver_refresh` (cold-start recovery).
+* `readme.md` — full reference: 7 always-live cabinet resolver sensors + 6 trigger-based health sensors (including `sensor.zen_prompt_health` — prompt integrity), states, conditions, attributes, troubleshooting quick-reference. Includes `zen_health_report` (full system diagnostic) and `zen_resolver_refresh` (cold-start recovery).
 
 ---
 

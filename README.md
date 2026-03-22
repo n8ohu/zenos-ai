@@ -176,7 +176,9 @@ You should only need to think about Flynn when something is wrong or when you're
 - Template freshness (`zen_template`, `kfc_template`)
 - Conversation agent liveness
 - Essence presence (does the AI user know who she is?)
-- Prompt section health — coming in the final GA pass
+- Prompt integrity (`sensor.zen_prompt_health` — schema, signature, manifest)
+
+All 9 health sensors are auto-provisioned with the correct labels by Flynn on a fresh install. No manual tagging.
 
 The prompt finalization pass will wire sensor coverage into every major section of the compiled AI context. Flynn will be able to see not just *whether* the system is running but *how cleanly it is thinking* — which sections rendered, which fell back to defaults, and how much of the context window each one consumed. The stuffiness gauge makes token pressure visible before it degrades agent quality.
 
@@ -431,6 +433,7 @@ ZenOS-AI includes a layered health monitoring system.
 | `sensor.zen_agent_health`      | agent bootability roster + Flynn     |
 | `sensor.zen_summarizer_health` | scheduler heartbeat + AI task status |
 | `sensor.zen_supersummary_health` | supersummary pipeline status       |
+| `sensor.zen_prompt_health`     | prompt integrity — schema, signature, manifest |
 
 **Diagnostic tools:** `zen_health_report` — one call returns all 7 resolver states, all health sensors, kill switches, timestamps, and plain-English diagnosis. `zen_resolver_refresh` — post-reload cold-start recovery.
 
