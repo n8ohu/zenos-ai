@@ -476,6 +476,43 @@ script:
                 label_id: "{{ repeat.item.label | slugify }}"
                 entity_id: "{{ repeat.item.entity }}"
 
+      # Step 4: Tag static health sensor entities
+      # These are not in the slot system — must be stamped explicitly on every provision.
+      # add_label_to_entity is idempotent — safe to re-run on existing installs.
+      - variables:
+          health_sensor_labels:
+            - entity: sensor.zen_label_health
+              labels: [zen_health, system_status, zen, labels]
+            - entity: sensor.zen_cabinet_health
+              labels: [zen_health, system_status, zen, cabinet]
+            - entity: sensor.zen_monastery_health
+              labels: [zen_health, system_status, zen, monastery, zen_system]
+            - entity: sensor.zen_summarizer_health
+              labels: [zen_health, system_status, zen, zen_system, ninja_summarizer]
+            - entity: sensor.zen_supersummary_health
+              labels: [zen_health, system_status, zen, zen_system, zen_summary]
+            - entity: sensor.zen_flynn_health
+              labels: [zen_health, system_status, zen_flynn]
+            - entity: binary_sensor.flynn_system_ready
+              labels: [zen_health, system_status, zen_flynn]
+            - entity: sensor.zen_agent_health
+              labels: [zen_health, system_status, agent]
+            - entity: sensor.zen_prompt_health
+              labels: [zen_health, system_status, zen]
+      - repeat:
+          for_each: "{{ health_sensor_labels }}"
+          sequence:
+            - variables:
+                _hs_entity: "{{ repeat.item.entity }}"
+                _hs_labels: "{{ repeat.item.labels }}"
+            - repeat:
+                for_each: "{{ _hs_labels }}"
+                sequence:
+                  - action: homeassistant.add_label_to_entity
+                    data:
+                      entity_id: "{{ _hs_entity }}"
+                      label_id: "{{ repeat.item }}"
+
       - event: flynn_stepgate_event
         event_data:
           gate: 1

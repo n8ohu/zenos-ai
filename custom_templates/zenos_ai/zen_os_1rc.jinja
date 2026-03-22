@@ -1800,3 +1800,93 @@ AutoContext:
 
 {% endmacro %}
 
+{# ==============================
+   Prompt Health Check
+   Single call — returns full prompt integrity + construct health for the
+   default AI user as a JSON dict. Template sensor surfaces the output.
+
+   Output keys:
+     state              — ok | warn | error
+     persona_name       — construct name
+     cabinet            — resolved cabinet entity_id
+     schema             — three_layer | legacy | missing
+     signature_status   — signed | pending | unsigned
+     core_hash          — core.signature
+     jacket_hash        — jacket.signature
+     signed_at          — jacket.signed_at
+     signed_by          — jacket.signed_by
+     halmark_version    — jacket.halmark_version
+     schema_version     — jacket.schema_version
+     familiar_name      — companion name
+     familiar_kfc_ref   — companion KFC binding
+     manifest_present   — household cabinet has zen_library_manifest
+     prev_snapshot_exists — zenai_essence_prev drawer present
+     health_signals     — {schema_ok, sig_ok, manifest_ok, familiar_ok}
+   ============================== #}
+{%- macro prompt_health_check() -%}
+  {%- set cab_ent = states('sensor.zen_default_ai_user_cabinet_resolved') -%}
+  {%- set cab_ok  = cab_ent not in ['', 'unknown', 'unavailable', 'none'] -%}
+  {%- set cv      = state_attr(cab_ent, 'variables') | default({}, true) if cab_ok else {} -%}
+
+  {# Resolve essence via the canonical unwrapper #}
+  {%- set raw_ess = cv.get('zenai_essence', {}) -%}
+  {%- set ev_str  = resolve_zenai_essence(raw_ess) -%}
+  {%- set ev      = ev_str | from_json if ev_str is string else {} -%}
+
+  {# Schema detection #}
+  {%- set is3    = ev.get('core') is mapping and ev.get('jacket') is mapping -%}
+  {%- set schema = 'three_layer' if is3 else ('legacy' if ev | length > 0 else 'missing') -%}
+
+  {# Jacket / core / companion fields #}
+  {%- set j   = ev.get('jacket',    {}) if is3 else {} -%}
+  {%- set co  = ev.get('core',      {}) if is3 else {} -%}
+  {%- set cmp = ev.get('companion', {}) if is3 else {} -%}
+  {%- set j_sig      = j.get('signature', '') | string -%}
+  {%- set c_sig      = co.get('signature', '') | string -%}
+  {%- set sig_status = 'signed' if 'md5:' in j_sig else ('pending' if j_sig == 'pending_x509' else 'unsigned') -%}
+  {%- set pname      = j.get('name', ev.get('identity', {}).get('name', '')) -%}
+
+  {# Familiar / companion #}
+  {%- set fam_src     = cmp if (cmp is mapping and cmp) else ev.get('familiar', {}) -%}
+  {%- set fam_name    = fam_src.get('name',    '') if fam_src is mapping else '' -%}
+  {%- set fam_kfc_ref = fam_src.get('kfc_ref', '') if fam_src is mapping else '' -%}
+
+  {# Household cabinet checks #}
+  {%- set hh    = states('sensor.zen_default_household_cabinet_resolved') -%}
+  {%- set hh_ok = hh not in ['', 'unknown', 'unavailable'] -%}
+  {%- set hcv   = state_attr(hh, 'variables') | default({}, true) if hh_ok else {} -%}
+  {%- set manifest_ok = 'zen_library_manifest' in hcv -%}
+
+  {# Prev snapshot present #}
+  {%- set prev        = cv.get('zenai_essence_prev', {}) -%}
+  {%- set prev_exists = prev is mapping and prev | length > 0 -%}
+
+  {# Rollup state #}
+  {%- set sig_ok = 'md5:' in j_sig -%}
+  {%- set state  = 'error' if not is3 else ('warn' if (not sig_ok or not manifest_ok) else 'ok') -%}
+
+  {{ {
+    'state':               state,
+    'persona_name':        pname,
+    'cabinet':             cab_ent,
+    'schema':              schema,
+    'signature_status':    sig_status,
+    'core_hash':           c_sig,
+    'jacket_hash':         j_sig,
+    'signed_at':           j.get('signed_at', ''),
+    'signed_by':           j.get('signed_by', ''),
+    'halmark_version':     j.get('halmark_version', ''),
+    'schema_version':      j.get('schema_version', ''),
+    'familiar_name':       fam_name,
+    'familiar_kfc_ref':    fam_kfc_ref,
+    'manifest_present':    manifest_ok,
+    'prev_snapshot_exists': prev_exists,
+    'health_signals': {
+      'schema_ok':   is3,
+      'sig_ok':      sig_ok,
+      'manifest_ok': manifest_ok,
+      'familiar_ok': fam_name != ''
+    }
+  } | tojson }}
+{%- endmacro -%}
+
