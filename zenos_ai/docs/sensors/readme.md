@@ -1,4 +1,4 @@
-# ZenOS-AI Health Sensors — 4.3.0 'Meridian'
+# ZenOS-AI Health Sensors — 4.5.0 'Meridian'
 
 *System observability stack — labels, cabinets, cognition, agents*
 

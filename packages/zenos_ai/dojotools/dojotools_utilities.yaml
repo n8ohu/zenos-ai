@@ -2,7 +2,7 @@
 # ZenOS-AI DojoTools: Utilities Bundle
 # Phase 1 migration from scripts.yaml
 #
-# Version: 4.0.0 RC2
+# Version: 4.5.0
 #
 # Scripts:
 #   zen_dojotools_calculator   — math + GUID generator (v4.0.0 RC2)

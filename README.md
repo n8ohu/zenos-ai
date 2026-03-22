@@ -10,7 +10,7 @@ Let's automate everything that isn't nailed down.
 
 And a few things that are.
 
-**Current version: 4.3.0 'Meridian' — pre-release**
+**Current version: 4.5.0 'Meridian' — pre-release**
 
 The codebase as it stands represents the complete planned featureset for 1.0 GA. One final pass remains — prompt finalization, a new health gauge, and Flynn's full onboarding instrumentation — and then the tree locks. Bug bar is now stratospheric. If it isn't catastrophic, it waits for SP1.
 

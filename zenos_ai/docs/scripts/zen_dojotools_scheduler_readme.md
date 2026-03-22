@@ -1,4 +1,4 @@
-# Zen DojoTools Scheduler — 4.3.0 'Meridian'
+# Zen DojoTools Scheduler — 4.5.0 'Meridian'
 
 **File:** `packages/zenos_ai/dojotools/dojotools_scheduler.yaml`
 **Automation:** `automation.zen_dojotools_scheduler`

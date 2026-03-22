@@ -33,7 +33,7 @@ Below is the official documentation index for all ZenOS-AI DojoTools modules.
 
 ---
 
-## **1. Zen DojoTools AdminTools — 4.3.0 'Meridian'**
+## **1. Zen DojoTools AdminTools — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_admintools_readme.md`
 **Type:** Technical Documentation
@@ -53,7 +53,7 @@ KungFu Writer is the only AI-accessible tool here. All others are admin-only and
 
 ---
 
-## **2. Flynn — Stepgate Sentinel & Bootstrap Engine — 4.3.0 'Meridian'**
+## **2. Flynn — Stepgate Sentinel & Bootstrap Engine — 4.5.0 'Meridian'**
 
 **File:** `zen_flynn_readme.md`
 **Type:** Technical Documentation
@@ -72,7 +72,7 @@ If the system isn't coming up clean, Flynn is why — and where to look first.
 
 ---
 
-## **3. Zen DojoTools Profile Editor — 4.3.0 'Meridian'**
+## **3. Zen DojoTools Profile Editor — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_profile_readme.md`
 **Type:** Technical Documentation
@@ -108,7 +108,7 @@ Includes label design guidance: cross-entity labels outperform single-use labels
 
 ---
 
-## **4. Zen DojoTools Identity — 4.3.0 'Meridian'**
+## **4. Zen DojoTools Identity — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_identity_readme.md`
 **Type:** Technical Documentation
@@ -125,7 +125,7 @@ Current scope is resolution only. Privilege enforcement, session tokens, and sec
 
 ---
 
-## **5. Zen DojoTools History — 4.3.0 'Meridian'**
+## **5. Zen DojoTools History — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_history_readme.md`
 **Type:** Technical Documentation
@@ -140,7 +140,7 @@ Recorder statistics query engine. Time-bucketed historical data for sensors with
 
 ---
 
-## **6. Zen DojoTools Utilities — 4.3.0 'Meridian'**
+## **6. Zen DojoTools Utilities — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_utilities_readme.md`
 **Type:** Technical Documentation
@@ -159,7 +159,7 @@ General-purpose utility collection.
 
 ---
 
-## **7. Zen DojoTools Core (FileCabinet GC) — 4.3.0 'Meridian'**
+## **7. Zen DojoTools Core (FileCabinet GC) — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_core_readme.md`
 **Type:** Technical Documentation
@@ -176,7 +176,7 @@ Protected drawers (`_prefix`, VolumeInfo, schema keys) are never touched. Post-e
 
 ---
 
-## **6. Zen DojoTools SystemTools & Home Mode — 4.3.0 'Meridian'**
+## **6. Zen DojoTools SystemTools & Home Mode — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_systemtools_readme.md`
 **Type:** Technical Documentation
@@ -194,7 +194,7 @@ Requires a long-lived HA token in `secrets.yaml` (ha_bearer).
 
 ---
 
-## **4. Zen DojoTools Office — 4.3.0 'Meridian'**
+## **4. Zen DojoTools Office — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_office_readme.md`
 **Type:** Technical Documentation
@@ -215,7 +215,7 @@ This is Friday’s and Veronica’s primary tool for anything date-, event-, or 
 
 ---
 
-## **4. Zen DojoTools Event Emitter — 4.3.0 'Meridian'**
+## **4. Zen DojoTools Event Emitter — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_event_emitter_readme.md`
 **Type:** Technical Documentation
@@ -242,7 +242,7 @@ This is how Friday, Veronica, Kronk, and the High Priestess leave traceable brea
 
 ---
 
-## **5. Zen DojoTools FileCabinet — 4.3.0 'Meridian'**
+## **5. Zen DojoTools FileCabinet — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_filecabinet_readme.md`
 **Type:** Technical Documentation
@@ -266,7 +266,7 @@ If any drawer changes anywhere in ZenOS-AI, it happened through FileCabinet.
 
 ---
 
-## **6. Zen DojoTools Manifest — 4.3.0 'Meridian'**
+## **6. Zen DojoTools Manifest — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_manifest_readme.md`
 **Type:** Technical Documentation
@@ -290,7 +290,7 @@ If Friday trusts a Cabinet, it’s because the Manifest told her it's safe.
 
 ---
 
-## **7. Zen DojoTools Index — 4.3.0 'Meridian'**
+## **7. Zen DojoTools Index — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_index_readme.md`
 **Type:** Technical Documentation
@@ -312,7 +312,7 @@ The Zen Index is Friday’s “graph engine,” letting her understand relations
 
 ---
 
-## **8. Zen DojoTools Inspect — 4.3.0 'Meridian'**
+## **8. Zen DojoTools Inspect — 4.5.0 'Meridian'**
 
 **File:** `zen_dojotools_inspect_readme.md`
 **Type:** Technical Documentation

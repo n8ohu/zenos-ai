@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Summarizers Package
-# Version: 4.0.0 RC2
+# Version: 4.5.0
 #
 # Migrated from scripts.yaml. Fixes applied (v1.0.0):
 #   - supersummary: active_components namespace() fix (Jinja2 scoping — was always {})

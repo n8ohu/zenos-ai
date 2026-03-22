@@ -1,6 +1,6 @@
 # ZenOS-AI Security Model — GA Reference
 
-**Version:** 4.3.0 'Meridian' GA
+**Version:** 4.5.0 'Meridian' GA
 **Status:** Operational reference — describes what is active at GA and what is stubbed for SP1
 
 ---

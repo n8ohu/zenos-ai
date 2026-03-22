@@ -1,4 +1,4 @@
-# Zen DojoTools Profile Editor — 4.3.0 'Meridian'
+# Zen DojoTools Profile Editor — 4.5.0 'Meridian'
 
 *Read and write identity profiles for AI personas, households, users, and families*
 
