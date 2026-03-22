@@ -1971,16 +1971,17 @@ AutoContext:
    Output: complete prompt string (JSON envelope + wake sequence).
    ============================== #}
 {%- macro render_prompt(ai_entity='') -%}
-  {%- set _ai_ent = ai_entity | trim -%}
+  {%- set _ai_ent    = ai_entity | trim -%}
+  {%- set _ai_ent_lc = _ai_ent | lower -%}
 
   {#- ── Pre-resolve Flynn checks ──────────────────────────────────────────
       Check override boolean, blank persona, and explicit 'flynn' label.
       These fire before identity resolution (no cabinet needed).
   ───────────────────────────────────────────────────────────────────────── #}
   {%- set _override     = is_state('input_boolean.zen_flynn_override', 'on') -%}
-  {%- set _blank        = _ai_ent in ['', 'none'] -%}
-  {%- set _sentinel     = _ai_ent in ['unknown', 'unavailable'] -%}
-  {%- set _named_flynn  = _ai_ent | lower | regex_search('flynn') -%}
+  {%- set _blank        = _ai_ent_lc in ['', 'none'] -%}
+  {%- set _sentinel     = _ai_ent_lc in ['unknown', 'unavailable'] -%}
+  {%- set _named_flynn  = _ai_ent_lc | regex_search('flynn') -%}
   {%- set _pre_flynn    = _override or _blank or _named_flynn -%}
 
   {#- ── Flynn reason (surfaces to gate status for diagnostics) ──────────── #}
