@@ -46,7 +46,6 @@ script:
         now_iso: "{{ now().isoformat() }}"
         expires_after: "{{ expires_after | default('') | trim }}"
         no_autoexpire: "{{ no_autoexpire | default(false) }}"
-        caller_token: "{{ caller_token | trim }}"
         no_autorecycle: "{{ no_autorecycle | default(false) }}"
         target_guid: "{{ target_guid | default('') | trim }}"
         drawer_acl: >

@@ -97,6 +97,8 @@ script:
           not yet active.'
 
     sequence:
+
+    # ── Step 1: normalize inputs + target ──────────────────────────────────
     - variables:
         caller_token: "{{- caller_token | default('') -}}"
 

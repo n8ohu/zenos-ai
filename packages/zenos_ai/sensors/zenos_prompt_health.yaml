@@ -104,3 +104,38 @@ template:
             {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
             {%- set r = zen.prompt_health_check() | trim | from_json -%}
             {{ r.get('health_signals', {}) }}
+
+          environment_present: >-
+            {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
+            {%- set r = zen.prompt_health_check() | trim | from_json -%}
+            {{ r.get('environment_present', false) }}
+
+          prompt_chars: >-
+            {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
+            {%- set r = zen.prompt_health_check() | trim | from_json -%}
+            {{ r.get('prompt_chars', {}) }}
+
+  - sensor:
+      - name: Zen Prompt Length
+        unique_id: zen_prompt_length
+        device_class: enum
+        availability: "true"
+        # Heavier sensor — measures all 8 prompt sections stem to stern.
+        # Update interval intentionally slower (managed by HA default scan).
+
+        state: >-
+          {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
+          {%- set r = zen.prompt_length_audit() | trim | from_json -%}
+          {{ r.get('total', 0) }}
+
+        attributes:
+
+          total: >-
+            {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
+            {%- set r = zen.prompt_length_audit() | trim | from_json -%}
+            {{ r.get('total', 0) }}
+
+          sections: >-
+            {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
+            {%- set r = zen.prompt_length_audit() | trim | from_json -%}
+            {{ r.get('sections', {}) }}

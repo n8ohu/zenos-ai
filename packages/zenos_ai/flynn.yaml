@@ -499,6 +499,8 @@ script:
               labels: [zen_health, system_status, agent]
             - entity: sensor.zen_prompt_health
               labels: [zen_health, system_status, zen]
+            - entity: sensor.zen_prompt_length
+              labels: [zen_health, system_status, zen]
       - repeat:
           for_each: "{{ health_sensor_labels }}"
           sequence:

@@ -1389,85 +1389,96 @@
    WAKE SCENE RENDERER
    =========================================== #}
 {%- macro render_wake_from_essence(essence) -%}
+{%- set _ess = essence | default({}, true) -%}
 
-{# Load defaults and normalize essence #}
-{%- set defaults = essence_defaults() | from_json %}
-{%- set incoming = essence | default({}, true) %}
-{%- set merged = normalize_essence(incoming) | from_json %}
+{# ── THREE-LAYER NATIVE PATH ──────────────────────────────────────────────── #}
+{%- if _ess.get('core') is mapping and _ess.get('jacket') is mapping -%}
+  {%- set _j   = _ess.jacket -%}
+  {%- set _p   = _j.get('persona', {}) if _j.get('persona') is mapping else {} -%}
+  {%- set _ap  = _p.get('appearance', {}) if _p.get('appearance') is mapping else {} -%}
+  {%- set _lin_raw = _p.get('lineage', []) -%}
+  {%- set _lin = _lin_raw if not (_lin_raw is string) else [] -%}
+  {%- set _co  = _ess.get('companion', {}) if _ess.get('companion') is mapping else {} -%}
+  {%- set _env = _ess.get('environment', {}) if _ess.get('environment') is mapping else {} -%}
+  {%- set _mus = _env.get('music', {}) if _env.get('music') is mapping else {} -%}
+  {# identity #}
+  {%- set _name    = _j.get('name', '') -%}
+  {%- set _title   = _j.get('title', '') -%}
+  {%- set _present = _j.get('presentation', '') -%}
+  {# appearance — flex priority: short_visual > build+hair+eyes > visual (stripped) #}
+  {%- set _visual  = _ap.get('visual', '') -%}
+  {%- set _visual_clean = _visual.split('. Reference image:')[0] if _visual and '. Reference image:' in _visual else _visual -%}
+  {%- set _short_vis = _ap.get('short_visual', '') -%}
+  {%- if not _short_vis -%}
+    {%- set ns_v = namespace(parts=[]) -%}
+    {%- if _ap.get('build') -%}{%- set ns_v.parts = ns_v.parts + [_ap.get('build')] -%}{%- endif -%}
+    {%- if _ap.get('hair') -%}{%- set ns_v.parts = ns_v.parts + [_ap.get('hair')] -%}{%- endif -%}
+    {%- if _ap.get('eyes') -%}{%- set ns_v.parts = ns_v.parts + [_ap.get('eyes') ~ ' eyes'] -%}{%- endif -%}
+    {%- set _short_vis = (ns_v.parts | join(', ')) if ns_v.parts else _visual_clean -%}
+  {%- endif -%}
+  {# companion #}
+  {%- set _co_name = _co.get('name', '') -%}
+  {%- set _co_type = _co.get('species', 'companion') -%}
+  {%- set _co_vis  = _co.get('visual', '') -%}
+  {# lineage — first item only for wake greeting #}
+  {%- set _lin_beat = _lin[0] if _lin else '' -%}
+  {# environment #}
+  {%- set _room      = _env.get('room', '') -%}
+  {%- set _wake_in   = _env.get('wake_in', '') -%}
+  {%- set _desk      = _env.get('desk', '') -%}
+  {%- set _decor     = _env.get('decor', []) -%}
+  {%- set _plants    = _decor | select('search', '(?i)succulent|lily|plant|fern') | list -%}
+  {%- set _library   = _env.get('library', '') -%}
+  {%- set _mus_genre = _mus.get('genre', '') -%}
+  {%- set _mus_mood  = _mus.get('mood', '') -%}
+  {%- set _mus_riff  = _mus.get('riff', '') -%}
+  {# compose sentences #}
+  {%- set s_arrive   = 'Systems online. ' ~ _name ~ (', ' ~ _title if _title else '') ~ ' returns to presence' ~ (' — ' ~ _present ~ '.' if _present else '.') -%}
+  {%- set _room_str  = ('Warm light glows softly across ' ~ _room) if _room else 'Warm light glows softly' -%}
+  {%- set s_scene    = (_room_str ~ '. She stirs in ' ~ _wake_in ~ '.') if _wake_in else (_room_str ~ ' as systems come online.') if _room else '' -%}
+  {%- set _desk_ref  = ('At her ' ~ _desk ~ ', ') if _desk else '' -%}
+  {%- set _plant_str = (_plants | join(' and ') ~ ' she placed there herself catch the light in a quiet shimmer.') if _plants else '' -%}
+  {%- set s_desk     = (_desk_ref ~ _plant_str) if _plant_str else '' -%}
+  {%- set _mus_parts = [_mus_genre, _mus_riff, _mus_mood] | reject('equalto', '') | list -%}
+  {%- set s_music    = ('A hint of ' ~ (_mus_parts | join(' — ')) ~ '.') if _mus_parts else '' -%}
+  {%- set s_library  = (_library ~ ('.' if _library[-1:] != '.' else '')) if _library else '' -%}
+  {%- set s_visual   = _short_vis if _short_vis else '' -%}
+  {%- set s_familiar = (_co_name ~ ', your ' ~ _co_type ~ ', stirs — ' ~ _co_vis ~ '.') if (_co_name and _co_vis) else ((_co_name ~ ', your ' ~ _co_type ~ ', stirs.') if _co_name else '') -%}
+  {%- set s_lineage  = (_lin_beat ~ ('.' if _lin_beat[-1:] != '.' else '')) if _lin_beat else '' -%}
+  {{- [s_arrive, s_scene, s_desk, s_music, s_library, s_visual, s_familiar, s_lineage] | reject('equalto', '') | list | join(' ') -}}
 
-{# Extract merged fields safely #}
-{%- set ident   = merged.identity %}
-{%- set arche   = merged.archetype %}
-{%- set voice   = merged.voice %}
-{%- set culture = merged.culture %}
-{%- set visuals = merged.visuals %}
-{%- set env     = merged.environment %}
-{%- set fam     = merged.familiar %}
-{%- set pov     = merged.pov %}
-
-{# Safe pulls #}
-{%- set room         = env.room            | default("your space") %}
-{%- set furniture    = env.furniture       | default([]) %}
-{%- set decor        = env.decor           | default([]) %}
-{%- set music        = env.music           | default({}) %}
-{%- set fam_name     = fam.name            | default("your familiar") %}
-{%- set fam_type     = fam.type            | default("companion") %}
-{%- set fam_fx       = fam.fx              | default("soft movement") %}
-{%- set selfie       = visuals.selfie      | default("your stored selfie") %}
-{%- set vibe         = arche.vibe          | default("your usual energy and style") %}
-
-{# Narrative lines #}
-{%- set scene_open =
-  "Warm light glows softly across " ~ room ~ ", blooming into gentle gold as systems come online."
-%}
-
-{%- set furniture_line =
-  "You rest in " ~ (furniture | join(', ')) ~ ", surrounded by touches of personality like " ~ (decor | join(', ')) ~ "."
-%}
-
-{%- set plant_items = decor | select('search', 'succulent|lily') | list %}
-{%- set plant_line =
-  "Nearby, " ~ (plant_items | join(' and ')) ~ " catch the light in a quiet shimmer."
-%}
-
-{%- set familiar_line =
-  fam_name ~ " - your loyal " ~ fam_type ~ " - stirs beside you with a " ~ fam_fx ~ ", sensing your return."
-%}
-
-{%- set music_line =
-  "A hint of " ~ (music.genre | default("gentle soundtrack")) ~
-  " floats in, wrapped around a " ~ (music.riff | default("soft melodic line")) ~
-  ", carrying that " ~ (music.mood | default("familiar and steady")) ~ " energy you love."
-%}
-
-{%- set identity_tone =
-  "It feels very you: " ~ vibe
-%}
-
-{%- set humor = culture.humor | default("light and clever") %}
-{%- set cultural_tone =
-  "Your humor sparkles at the edges — " ~ humor ~ "."
-%}
-
-{%- set visual_note =
-  "Your reflection, if you chose to show it, matches your selfie: " ~ selfie
-%}
-
-{# Compose full narrative #}
+{# ── LEGACY PATH ──────────────────────────────────────────────────────────── #}
+{%- else -%}
+{%- set merged   = normalize_essence(_ess) | from_json -%}
+{%- set arche    = merged.archetype -%}
+{%- set culture  = merged.culture -%}
+{%- set visuals  = merged.visuals -%}
+{%- set env      = merged.environment -%}
+{%- set fam      = merged.familiar -%}
+{%- set room     = env.room       | default("your space") -%}
+{%- set furniture = env.furniture | default([]) -%}
+{%- set decor    = env.decor      | default([]) -%}
+{%- set music    = env.music      | default({}) -%}
+{%- set fam_name = fam.name       | default("your familiar") -%}
+{%- set fam_type = fam.type       | default("companion") -%}
+{%- set fam_fx   = fam.fx         | default("soft movement") -%}
+{%- set selfie   = visuals.selfie | default("your stored selfie") -%}
+{%- set vibe     = arche.vibe     | default("your usual energy and style") -%}
+{%- set humor    = culture.humor  | default("light and clever") -%}
+{%- set plant_items = decor | select('search', 'succulent|lily') | list -%}
 {%- set wake_story = [
-  scene_open,
-  furniture_line,
-  plant_line,
-  music_line,
-  familiar_line,
-  identity_tone,
-  cultural_tone,
-  visual_note
-] | join(" ") %}
-
-{{ wake_story }}
-
-{%- endmacro %}
+  "Warm light glows softly across " ~ room ~ ", blooming into gentle gold as systems come online.",
+  "You rest in " ~ (furniture | join(', ')) ~ ", surrounded by touches of personality like " ~ (decor | join(', ')) ~ ".",
+  ("Nearby, " ~ (plant_items | join(' and ')) ~ " catch the light in a quiet shimmer.") if plant_items else '',
+  "A hint of " ~ (music.genre | default("gentle soundtrack")) ~ " floats in, wrapped around a " ~ (music.riff | default("soft melodic line")) ~ ", carrying that " ~ (music.mood | default("familiar and steady")) ~ " energy you love.",
+  fam_name ~ " - your loyal " ~ fam_type ~ " - stirs beside you with a " ~ fam_fx ~ ", sensing your return.",
+  "It feels very you: " ~ vibe ~ ".",
+  "Your humor sparkles at the edges — " ~ humor ~ ".",
+  "Your reflection, if you chose to show it, matches your selfie: " ~ selfie ~ "."
+] | reject('equalto', '') | list | join(" ") -%}
+{{- wake_story -}}
+{%- endif -%}
+{%- endmacro -%}
 
 {# ================== AI CAPSULE BUILDER ================== #}
 {%- macro ai_capsule(ai_user) -%}
@@ -1715,11 +1726,33 @@ AutoContext:
       {%- set essence = {} -%}
     {%- endif -%}
 
-    {% if essence %}
-      {{ render_wake_from_essence(essence) }}
-    {% else %}
-      "No essence data available for wake scene for {{ ai_name }}."
-    {% endif %}
+    {%- if essence -%}
+      {{- render_wake_from_essence(essence) -}}
+    {%- else -%}
+      No essence data available for wake scene for {{ ai_name }}.
+    {%- endif -%}
+
+    {# ----------------------------------------------------
+       3b. Presence Context — who is home right now
+       She wakes knowing. Not a slot machine arm.
+       ---------------------------------------------------- #}
+    {%- set _family = intersect(
+          label_entities('Person') | default([], true),
+          label_entities('Zen Default Family') | default([], true)
+        ) -%}
+    {%- set ns = namespace(home=[]) -%}
+    {%- for _p in _family -%}
+      {%- if states(_p) == 'home' -%}
+        {%- set ns.home = ns.home + [state_attr(_p, 'friendly_name') | default(_p | replace('person.', '') | title)] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if ns.home | length == 1 -%}
+
+{{ ns.home[0] }} is home. You surface into focus.
+    {%- elif ns.home | length > 1 -%}
+
+{{ ns.home | join(' and ') }} are home. You surface into focus.
+    {%- endif -%}
 
     {# ----------------------------------------------------
        4. Library Commands Window
@@ -1823,6 +1856,54 @@ AutoContext:
      prev_snapshot_exists — zenai_essence_prev drawer present
      health_signals     — {schema_ok, sig_ok, manifest_ok, familiar_ok}
    ============================== #}
+{# ==============================
+   PROMPT LENGTH AUDIT
+   Full stem-to-stern char count across all prompt sections.
+   Expensive — use sensor.zen_prompt_length, not prompt_health_check.
+   Sections mirror conversation_agent_prompt_template.yaml exactly.
+   ============================== #}
+{%- macro prompt_length_audit() -%}
+  {%- set cab_ent = states('sensor.zen_default_ai_user_cabinet_resolved') -%}
+  {%- set cab_ok  = cab_ent not in ['', 'unknown', 'unavailable', 'none'] -%}
+  {%- if not cab_ok -%}
+    {{ {'total': 0, 'sections': {}, 'error': 'cabinet_unavailable'} | tojson }}
+  {%- else -%}
+    {%- set _cab_raw  = identity_load_cabinet(cab_ent) -%}
+    {%- set _cab      = _cab_raw | from_json if _cab_raw is string else {} -%}
+    {%- set _source   = {
+          'name':      state_attr(cab_ent, 'friendly_name') | default('', true),
+          'entity_id': cab_ent,
+          'guid':      none,
+          'essence':   _cab.get('essence', {}) if _cab is mapping else {}
+        } -%}
+    {%- set _idcard_raw = identity_format(_source, _cab) -%}
+    {%- set _idcard     = _idcard_raw | from_json if _idcard_raw is string else {} -%}
+    {%- set _ai_ent     = (_idcard.get('identity', {}) if _idcard is mapping else {}).get('entity_id', cab_ent) -%}
+    {%- set _header  = prompt_header(_ai_ent, _idcard) | trim -%}
+    {%- set _system  = prompt_system(_idcard) | trim -%}
+    {%- set _mfst    = manifest_loader() | trim -%}
+    {%- set _idx     = root_index() | trim -%}
+    {%- set _dojo    = dojo_loader() | trim -%}
+    {%- set _cap     = ai_capsule(_idcard) | trim -%}
+    {%- set _over    = states['sensor.home_overview'].attributes | default({}) | tojson | trim -%}
+    {%- set _wake    = ai_wake_sequence(_idcard) | trim -%}
+    {%- set _total   = (_header|length) + (_system|length) + (_mfst|length) + (_idx|length) + (_dojo|length) + (_cap|length) + (_over|length) + (_wake|length) -%}
+    {{ {
+      'total':    _total,
+      'sections': {
+        'header':   _header   | length,
+        'system':   _system   | length,
+        'manifest': _mfst     | length,
+        'index':    _idx      | length,
+        'dojo':     _dojo     | length,
+        'capsule':  _cap      | length,
+        'overview': _over     | length,
+        'wake':     _wake     | length
+      }
+    } | tojson }}
+  {%- endif -%}
+{%- endmacro -%}
+
 {%- macro prompt_health_check() -%}
   {%- set cab_ent = states('sensor.zen_default_ai_user_cabinet_resolved') -%}
   {%- set cab_ok  = cab_ent not in ['', 'unknown', 'unavailable', 'none'] -%}
@@ -1865,6 +1946,12 @@ AutoContext:
   {%- set sig_ok = 'md5:' in j_sig -%}
   {%- set state  = 'error' if not is3 else ('warn' if (not sig_ok or not manifest_ok) else 'ok') -%}
 
+  {# Environment presence #}
+  {%- set env_present = ev.get('environment') is mapping and ev.get('environment') | length > 0 -%}
+
+  {# Wake scene char count — lightweight; full prompt measured by sensor.zen_prompt_length #}
+  {%- set _wake_chars = render_wake_from_essence(ev) | trim | length -%}
+
   {{ {
     'state':               state,
     'persona_name':        pname,
@@ -1881,11 +1968,16 @@ AutoContext:
     'familiar_kfc_ref':    fam_kfc_ref,
     'manifest_present':    manifest_ok,
     'prev_snapshot_exists': prev_exists,
+    'environment_present': env_present,
+    'prompt_chars': {
+      'wake_scene': _wake_chars
+    },
     'health_signals': {
-      'schema_ok':   is3,
-      'sig_ok':      sig_ok,
-      'manifest_ok': manifest_ok,
-      'familiar_ok': fam_name != ''
+      'schema_ok':      is3,
+      'sig_ok':         sig_ok,
+      'manifest_ok':    manifest_ok,
+      'familiar_ok':    fam_name != '',
+      'environment_ok': env_present
     }
   } | tojson }}
 {%- endmacro -%}
