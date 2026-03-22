@@ -125,8 +125,8 @@ Final polish pass before gold candidate lock. Three work streams:
 
 **1. Template structure pass + rename**
 
-`zen_os_1rc.jinja` renamed to `zenos.jinja` for release. Full ref sweep across
-all packages, templates, and docs. `custom_templates/zenos_ai/` layout finalized
+`zen_os_1rc.jinja` renamed to `zen_os_1.jinja` for release. Full ref sweep across
+all packages, templates, and docs completed. `custom_templates/zenos_ai/` layout finalized
 and locked.
 
 **2. Prompt instrumentation + collapse**

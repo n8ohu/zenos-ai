@@ -119,7 +119,7 @@ Identity resolver for ZenOS-AI household members and AI constructs. Stateless, r
 * No target → full redacted roster
 * Target (label, person entity, cabinet entity, or GUID) → single identity record
 * Normalizes and validates all input forms before lookup
-* Delegates resolution to `zen_cabinets()` macro in zen_os_1rc.jinja
+* Delegates resolution to `zen_cabinets()` macro in zen_os_1.jinja
 
 Current scope is resolution only. Privilege enforcement, session tokens, and security masking are planned post-GA.
 

@@ -53,7 +53,7 @@ Every AI user cabinet has a prompt health sensor that reports:
 | `warn` | Signature pending or manifest missing |
 | `error` | Legacy schema, missing essence, or cabinet unavailable |
 
-The `prompt_health_check()` macro (in `zen_os_1rc.jinja`) is the single source of truth.
+The `prompt_health_check()` macro (in `zen_os_1.jinja`) is the single source of truth.
 The sensor and the identity tool's `mode: prompt` both surface from it.
 
 ### Delegation and Nesting Hard Rules
