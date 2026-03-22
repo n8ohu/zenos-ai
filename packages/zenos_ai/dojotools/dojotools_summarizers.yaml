@@ -186,7 +186,7 @@ script:
       - alias: Build prompt context
         variables:
           prompt_context: >-
-            {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
+            {%- import 'zenos_ai/zen_os_1.jinja' as zen -%}
             {%- set _persona = states('input_text.zenos_persona_name') | trim -%}
             {%- set cab_result = zen.zen_cabinets(_persona) -%}
             {%- set idcard_raw = zen.identity_cab_to_id_card(cab_result) | from_json -%}

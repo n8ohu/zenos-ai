@@ -591,7 +591,7 @@ script:
                   _read_ev: "{{ _read_raw.get('value', _read_raw) if _read_raw is mapping else {} }}"
               - variables:
                   _wake_preview: >-
-                    {%- import 'zenos_ai/zen_os_1rc.jinja' as zen -%}
+                    {%- import 'zenos_ai/zen_os_1.jinja' as zen -%}
                     {%- set _ess = _read_ev if _read_ev is mapping else (_read_ev | from_json if _read_ev is string else {}) -%}
                     {{- zen.render_wake_from_essence(_ess) | trim -}}
                   final_response:
