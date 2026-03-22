@@ -15,6 +15,8 @@ And a few things that are.
 HALMark pre-GA footgun sweep completed 2026-03-22 — clean against all Ratified and Candidate FGs.
 Full review: [Release Notes — Meridian](zenos_ai/docs/releases/meridian.md#halmark-pre-ga-review)
 
+UAT passed 2026-03-22 — identity roster, manifest, prompt health, prompt render, Flynn override, health report, supersummary, and scheduler all green on live H:\ install. 16 active KFCs, 15 cabinets ready.
+
 ---
 
 ## Getting Started
