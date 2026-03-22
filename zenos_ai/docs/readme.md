@@ -210,23 +210,24 @@ This is Friday’s working memory engine.
 
 ## 🔐 **11. Identity & Security Model**
 
-**Folder:** `docs/architecture/09_Identity_Architecture.md`
+**Folder:** `docs/architecture/`
 
 The Identity subsystem defines:
 
  * who a construct is allowed to be
  * what it may see
  * where its authority begins and ends
- 
-It formalizes:
 
- * GUIDs, identity hashes, provenance chains
- * Essence Capsules and persona metadata
- * People, Families, Households, Constructs
- * ACL roots, owner/partner authority
- * SecuritySafe, ContentSafe, and SquirrelSafe redaction
- * Cognitive boundaries and hypergraph gating
- * Session tokens, visas, and delegated capability (v1.5)
+Two documents cover this:
+
+* `09_Identity_Architecture.md` — full identity data model spec: GUIDs, identity hashes,
+  provenance chains, essence capsules, ACL rules, Squirrel Safe / Content Safe filters,
+  session tokens, visas, delegated capability (v1.5). The authoritative structural spec.
+
+* `security_model_ga.md` — **start here if you’re an operator.** What is active at GA,
+  what is stubbed for SP1, the `security_policy` syscab drawer, caller_token plumbing,
+  prompt integrity sensor (`zen_prompt_health`), delegation and nesting hard rules, and
+  the SP1 claims engine architecture. No jargon — written for someone deploying the system.
 
 This is Friday’s trust spine — the system that decides which parts of the world are even visible before reasoning begins.
 
