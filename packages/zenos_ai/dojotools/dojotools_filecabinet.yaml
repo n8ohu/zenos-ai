@@ -1047,15 +1047,20 @@ script:
                 set_timestamp: true
                 volume_entity: "{{ volume_entity }}"
         - alias: Read after Write Verification (update)
+          # Wait for the NEW value specifically — not just "entry exists".
+          # Old: entry is mapping → fires immediately for updates (old value satisfies it).
+          # Fix: entry.get('value') == new_entry.value waits for the updated value.
+          # Timeout 10s: post-reload propagation can exceed 5s.
+          # See: bug_filecabinet_confirmed_false_negative.md, incident 2026-03-23.
           wait_template: >
             {%- set vol = state_attr(volume_entity, 'variables') -%}
             {%- if vol is mapping -%}
-              {%- set entry = vol.get(key) -%}
-              {{ entry is mapping }}
+              {%- set entry = vol.get(key, {}) -%}
+              {{ entry.get('value') == new_entry.value }}
             {%- else -%}
               false
             {%- endif -%}
-          timeout: 00:00:05
+          timeout: 00:00:10
           continue_on_timeout: true
         - variables:
             verify_volume: "{{ state_attr(volume_entity, 'variables') | default({}, true) }}"

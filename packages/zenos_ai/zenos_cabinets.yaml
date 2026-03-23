@@ -68,7 +68,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -181,7 +188,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -294,7 +308,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -407,7 +428,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -520,7 +548,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -633,7 +668,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -750,7 +792,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -863,7 +912,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -980,7 +1036,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1093,7 +1156,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1210,7 +1280,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1323,7 +1400,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1440,7 +1524,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1553,7 +1644,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1676,7 +1774,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1788,7 +1893,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1900,7 +2012,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2012,7 +2131,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2124,7 +2250,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2236,7 +2369,14 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- this.attributes.get('variables', none) -}}"
+          # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
+          # 'this' is undefined in action: variables of trigger-based template sensors
+          # (TemplateError: UndefinedError crashes every trigger silently).
+          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
+          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
+          current: >-
+            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2338,6 +2478,9 @@ automation:
     DojoTools Volume Redirector — ZENOS Edition (v4.0.0 RC2)
     Clean switchboard redirector for canonical Ring-0 ZENOS cabinets only.
     No legacy handling. No cross-namespace routing. Strict ZENOS core volumes.
+
+  mode: queued
+  max: 40
 
   triggers:
     - trigger: event
