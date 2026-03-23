@@ -152,7 +152,10 @@ script:
               {% set try_json = true %}
             {% endif %}
             {% if try_json %}
-              {% set parsed = temp | from_json %}
+              {# from_json(none) — returns none on invalid JSON instead of raising ValueError.
+                 Without the default, embedded markdown/newlines in a JSON blob crash the
+                 entire scheduler run (incident: 2026-03-23 zen_system ha_start deadlock). #}
+              {% set parsed = temp | from_json(none) %}
               {% if parsed is none %}
                 {% set error = "Write failed: Input value is not valid JSON. Please reformat using proper JSON syntax (e.g., escaped quotes, valid brackets)." %}
               {% endif %}
@@ -165,7 +168,7 @@ script:
                 | replace('\\t', '\\\\t')
               %}
               {% set wrapped = '"' ~ js ~ '"' %}
-              {% set parsed = wrapped | from_json %}
+              {% set parsed = wrapped | from_json(none) %}
               {% if parsed is none %}
                 {% set error = "Write failed: Could not coerce string to JSON—possibly invalid input or encoding." %}
               {% endif %}
@@ -1231,8 +1234,8 @@ script:
             src_drawer_value: >-
               {%- set ns = namespace(d=src_drawer_data) -%}
               {%- if ns.d is string and (ns.d | trim)[:1] in ['{', '['] -%}
-                {%- set _parsed = ns.d | from_json -%}
-                {%- if _parsed is not string -%}
+                {%- set _parsed = ns.d | from_json(none) -%}
+                {%- if _parsed is not none and _parsed is not string -%}
                   {%- set ns.d = _parsed -%}
                 {%- endif -%}
               {%- endif -%}
@@ -1519,8 +1522,8 @@ script:
                   {%- set src = initial_volume.get(repeat.item) -%}
                   {%- set ns = namespace(d=src) -%}
                   {%- if ns.d is string and (ns.d | trim)[:1] in ['{', '['] -%}
-                    {%- set _parsed = ns.d | from_json -%}
-                    {%- if _parsed is not string -%}
+                    {%- set _parsed = ns.d | from_json(none) -%}
+                    {%- if _parsed is not none and _parsed is not string -%}
                       {%- set ns.d = _parsed -%}
                     {%- endif -%}
                   {%- endif -%}
