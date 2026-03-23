@@ -1,8 +1,7 @@
 ###############################################################################
 # ZenOS-AI — System Health Package
-# v2.4.0 — Active component detection: master_switch gate removed. Aligned
-#           with supersummary: components now gated by meta.enabled (default
-#           true) instead of kung_fu_system_switch input_boolean state.
+# v4.5.1 — Expansion slot rename: secondary/tertiary/quaternary_user +
+#           secondary_ai_user → expansion_1-4. expansion_5 added.
 #
 # Changelog:
 #   v2.4.0 (2026-03-22) — master_switch gate removed from active component
@@ -13,7 +12,7 @@
 #                          (secondary_user, tertiary_user, quaternary_user,
 #                          secondary_ai_user). Vault cabinet: label only, no
 #                          resolver, no knowledge-pipeline traversal ever.
-#   v2.4.0 (2026-03-23) — Expansion slot rename: secondary/tertiary/quaternary_user
+#   v4.5.1 (2026-03-23) — Expansion slot rename: secondary/tertiary/quaternary_user
 #                          + secondary_ai_user → expansion_1-4. expansion_5 added.
 #   v2.2.0 (2026-03-19) — zen_system_cabinet_resolved added (7th resolver).
 #                          FG-38 v3 three-round normalization applied to

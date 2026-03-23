@@ -1,10 +1,10 @@
 ###############################################################################
 #  ZENOS-AI — RING-0 CABINET PACKAGE
 #  File: zenos_cabinets.yaml
-#  Version: 4.5.0
+#  Version: 4.5.1
 #
-#  19 canonical Ring-0 Cabinets for ZenOS-AI.
-#  14 core cabinets + 5 expansion cabinets (cabset expansion, v4.3.0).
+#  20 canonical Ring-0 Cabinets for ZenOS-AI.
+#  14 core cabinets + 6 expansion slots (v4.3.0 cabset + v4.5.1 rename/add).
 #  - Fully depersonalized
 #  - zenos_ namespace
 #  - Deterministic unique_ids
@@ -12,7 +12,7 @@
 #    131,072 bytes. remove_variable and clear_variables always execute.
 #
 #  CHANGELOG
-#  v4.5.1  2026-03-22  Startup re-evaluation fix. All 19 cabinet sensors now
+#  v4.5.1  2026-03-22  Startup re-evaluation fix. All 20 cabinet sensors now
 #                      listen for zen_event kind: cabinet_boot_touch (fired by
 #                      scheduler on ha_start). Forces state re-derivation on
 #                      reload so pre-RP2 cabs with no meta drawer correctly
@@ -26,7 +26,7 @@
 #  v4.3.0  2026-03-20  Expansion cabinets (5): secondary_user,
 #                      tertiary_user, quaternary_user, secondary_ai_user,
 #                      vault. Volume Redirector recognized_volumes updated.
-#  v4.4.0  2026-03-23  Rename expansion slots: secondary/tertiary/quaternary_user +
+#  v4.5.1  2026-03-23  Rename expansion slots: secondary/tertiary/quaternary_user +
 #                      secondary_ai_user → expansion_1-4. Add expansion_5.
 #                      State template sync fix (one-write-behind bug, all 20 cabs).
 #                      Redirector routes expansion_1-5; recognized_volumes updated.
@@ -114,6 +114,7 @@ template:
       - name: "ZenOS System Cabinet"
         unique_id: zenos_system_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -226,6 +227,7 @@ template:
       - name: "ZenOS System History Cabinet"
         unique_id: zenos_system_history_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -338,6 +340,7 @@ template:
       - name: "ZenOS Dojo Cabinet"
         unique_id: zenos_dojo_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -450,6 +453,7 @@ template:
       - name: "ZenOS Kata Cabinet"
         unique_id: zenos_kata_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -562,6 +566,7 @@ template:
       - name: "ZenOS History Cabinet"
         unique_id: zenos_history_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -674,6 +679,7 @@ template:
       - name: "ZenOS Scratchpad Cabinet"
         unique_id: zenos_scratchpad_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -790,6 +796,7 @@ template:
       - name: "ZenOS Default Household Cabinet"
         unique_id: zenos_default_household_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -902,6 +909,7 @@ template:
       - name: "ZenOS Default Household History Cabinet"
         unique_id: zenos_default_household_history_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1018,6 +1026,7 @@ template:
       - name: "ZenOS Default Family Cabinet"
         unique_id: zenos_default_family_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1130,6 +1139,7 @@ template:
       - name: "ZenOS Default Family History Cabinet"
         unique_id: zenos_default_family_history_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1246,6 +1256,7 @@ template:
       - name: "ZenOS Default User Cabinet"
         unique_id: zenos_default_user_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1358,6 +1369,7 @@ template:
       - name: "ZenOS Default User History Cabinet"
         unique_id: zenos_default_user_history_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1474,6 +1486,7 @@ template:
       - name: "ZenOS Default AI User Cabinet"
         unique_id: zenos_default_ai_user_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1586,6 +1599,7 @@ template:
       - name: "ZenOS Default AI User History Cabinet"
         unique_id: zenos_default_ai_user_history_cabinet
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1646,17 +1660,17 @@ template:
 
   - trigger:
       - trigger: event
-        event_type: set_variable_zenos_expansion_1_cabinet
-        id: sensor.zenos_expansion_1_cabinet
+        event_type: set_variable_zenos_expansion_cabinet_1
+        id: sensor.zenos_expansion_cabinet_1
       - trigger: event
-        event_type: remove_variable_zenos_expansion_1_cabinet
-        id: sensor.zenos_expansion_1_cabinet
+        event_type: remove_variable_zenos_expansion_cabinet_1
+        id: sensor.zenos_expansion_cabinet_1
       - trigger: event
-        event_type: clear_variables_zenos_expansion_1_cabinet
-        id: sensor.zenos_expansion_1_cabinet
+        event_type: clear_variables_zenos_expansion_cabinet_1
+        id: sensor.zenos_expansion_cabinet_1
       - trigger: homeassistant
         event: started
-        id: sensor.zenos_expansion_1_cabinet
+        id: sensor.zenos_expansion_cabinet_1
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1704,9 +1718,10 @@ template:
               entity_id: "{{- this_entity_id -}}"
               domain: sensor
     sensor:
-      - name: "ZenOS Expansion 1 Cabinet"
-        unique_id: zenos_expansion_1_cabinet
+      - name: "ZenOS Expansion Cabinet 1"
+        unique_id: zenos_expansion_cabinet_1
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1757,17 +1772,17 @@ template:
 
   - trigger:
       - trigger: event
-        event_type: set_variable_zenos_expansion_2_cabinet
-        id: sensor.zenos_expansion_2_cabinet
+        event_type: set_variable_zenos_expansion_cabinet_2
+        id: sensor.zenos_expansion_cabinet_2
       - trigger: event
-        event_type: remove_variable_zenos_expansion_2_cabinet
-        id: sensor.zenos_expansion_2_cabinet
+        event_type: remove_variable_zenos_expansion_cabinet_2
+        id: sensor.zenos_expansion_cabinet_2
       - trigger: event
-        event_type: clear_variables_zenos_expansion_2_cabinet
-        id: sensor.zenos_expansion_2_cabinet
+        event_type: clear_variables_zenos_expansion_cabinet_2
+        id: sensor.zenos_expansion_cabinet_2
       - trigger: homeassistant
         event: started
-        id: sensor.zenos_expansion_2_cabinet
+        id: sensor.zenos_expansion_cabinet_2
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1815,9 +1830,10 @@ template:
               entity_id: "{{- this_entity_id -}}"
               domain: sensor
     sensor:
-      - name: "ZenOS Expansion 2 Cabinet"
-        unique_id: zenos_expansion_2_cabinet
+      - name: "ZenOS Expansion Cabinet 2"
+        unique_id: zenos_expansion_cabinet_2
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1868,17 +1884,17 @@ template:
 
   - trigger:
       - trigger: event
-        event_type: set_variable_zenos_expansion_3_cabinet
-        id: sensor.zenos_expansion_3_cabinet
+        event_type: set_variable_zenos_expansion_cabinet_3
+        id: sensor.zenos_expansion_cabinet_3
       - trigger: event
-        event_type: remove_variable_zenos_expansion_3_cabinet
-        id: sensor.zenos_expansion_3_cabinet
+        event_type: remove_variable_zenos_expansion_cabinet_3
+        id: sensor.zenos_expansion_cabinet_3
       - trigger: event
-        event_type: clear_variables_zenos_expansion_3_cabinet
-        id: sensor.zenos_expansion_3_cabinet
+        event_type: clear_variables_zenos_expansion_cabinet_3
+        id: sensor.zenos_expansion_cabinet_3
       - trigger: homeassistant
         event: started
-        id: sensor.zenos_expansion_3_cabinet
+        id: sensor.zenos_expansion_cabinet_3
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1926,9 +1942,10 @@ template:
               entity_id: "{{- this_entity_id -}}"
               domain: sensor
     sensor:
-      - name: "ZenOS Expansion 3 Cabinet"
-        unique_id: zenos_expansion_3_cabinet
+      - name: "ZenOS Expansion Cabinet 3"
+        unique_id: zenos_expansion_cabinet_3
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -1979,17 +1996,17 @@ template:
 
   - trigger:
       - trigger: event
-        event_type: set_variable_zenos_expansion_4_cabinet
-        id: sensor.zenos_expansion_4_cabinet
+        event_type: set_variable_zenos_expansion_cabinet_4
+        id: sensor.zenos_expansion_cabinet_4
       - trigger: event
-        event_type: remove_variable_zenos_expansion_4_cabinet
-        id: sensor.zenos_expansion_4_cabinet
+        event_type: remove_variable_zenos_expansion_cabinet_4
+        id: sensor.zenos_expansion_cabinet_4
       - trigger: event
-        event_type: clear_variables_zenos_expansion_4_cabinet
-        id: sensor.zenos_expansion_4_cabinet
+        event_type: clear_variables_zenos_expansion_cabinet_4
+        id: sensor.zenos_expansion_cabinet_4
       - trigger: homeassistant
         event: started
-        id: sensor.zenos_expansion_4_cabinet
+        id: sensor.zenos_expansion_cabinet_4
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -2037,9 +2054,10 @@ template:
               entity_id: "{{- this_entity_id -}}"
               domain: sensor
     sensor:
-      - name: "ZenOS Expansion 4 Cabinet"
-        unique_id: zenos_expansion_4_cabinet
+      - name: "ZenOS Expansion Cabinet 4"
+        unique_id: zenos_expansion_cabinet_4
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -2090,17 +2108,17 @@ template:
 
   - trigger:
       - trigger: event
-        event_type: set_variable_zenos_expansion_5_cabinet
-        id: sensor.zenos_expansion_5_cabinet
+        event_type: set_variable_zenos_expansion_cabinet_5
+        id: sensor.zenos_expansion_cabinet_5
       - trigger: event
-        event_type: remove_variable_zenos_expansion_5_cabinet
-        id: sensor.zenos_expansion_5_cabinet
+        event_type: remove_variable_zenos_expansion_cabinet_5
+        id: sensor.zenos_expansion_cabinet_5
       - trigger: event
-        event_type: clear_variables_zenos_expansion_5_cabinet
-        id: sensor.zenos_expansion_5_cabinet
+        event_type: clear_variables_zenos_expansion_cabinet_5
+        id: sensor.zenos_expansion_cabinet_5
       - trigger: homeassistant
         event: started
-        id: sensor.zenos_expansion_5_cabinet
+        id: sensor.zenos_expansion_cabinet_5
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -2148,9 +2166,10 @@ template:
               entity_id: "{{- this_entity_id -}}"
               domain: sensor
     sensor:
-      - name: "ZenOS Expansion 5 Cabinet"
-        unique_id: zenos_expansion_5_cabinet
+      - name: "ZenOS Expansion Cabinet 5"
+        unique_id: zenos_expansion_cabinet_5
         icon: mdi:file-cabinet
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -2262,6 +2281,7 @@ template:
       - name: "ZenOS Vault Cabinet"
         unique_id: zenos_vault_cabinet
         icon: mdi:safe-square
+        restore: true
         state: >-
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
@@ -2366,11 +2386,11 @@ automation:
         vol_ai_user_history: sensor.zenos_default_ai_user_history_cabinet
 
         # EXPANSION CABINETS (6)
-        vol_expansion_1: sensor.zenos_expansion_1_cabinet
-        vol_expansion_2: sensor.zenos_expansion_2_cabinet
-        vol_expansion_3: sensor.zenos_expansion_3_cabinet
-        vol_expansion_4: sensor.zenos_expansion_4_cabinet
-        vol_expansion_5: sensor.zenos_expansion_5_cabinet
+        vol_expansion_1: sensor.zenos_expansion_cabinet_1
+        vol_expansion_2: sensor.zenos_expansion_cabinet_2
+        vol_expansion_3: sensor.zenos_expansion_cabinet_3
+        vol_expansion_4: sensor.zenos_expansion_cabinet_4
+        vol_expansion_5: sensor.zenos_expansion_cabinet_5
         vol_vault: sensor.zenos_vault_cabinet
 
         # RECOGNIZED RING-0 ZENOS VOLUMES
@@ -3004,19 +3024,19 @@ automation:
             - choose:
                 - conditions: "{{ trigger.id == 'set' }}"
                   sequence:
-                    - event: set_variable_zenos_expansion_1_cabinet
+                    - event: set_variable_zenos_expansion_cabinet_1
                       event_data:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
-                    - event: remove_variable_zenos_expansion_1_cabinet
+                    - event: remove_variable_zenos_expansion_cabinet_1
                       event_data:
                         key: "{{ key }}"
                 - conditions: "{{ trigger.id == 'clear' }}"
                   sequence:
-                    - event: clear_variables_zenos_expansion_1_cabinet
+                    - event: clear_variables_zenos_expansion_cabinet_1
                       event_data:
                         key: "{{ key }}"
             - variables:
@@ -3029,19 +3049,19 @@ automation:
             - choose:
                 - conditions: "{{ trigger.id == 'set' }}"
                   sequence:
-                    - event: set_variable_zenos_expansion_2_cabinet
+                    - event: set_variable_zenos_expansion_cabinet_2
                       event_data:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
-                    - event: remove_variable_zenos_expansion_2_cabinet
+                    - event: remove_variable_zenos_expansion_cabinet_2
                       event_data:
                         key: "{{ key }}"
                 - conditions: "{{ trigger.id == 'clear' }}"
                   sequence:
-                    - event: clear_variables_zenos_expansion_2_cabinet
+                    - event: clear_variables_zenos_expansion_cabinet_2
                       event_data:
                         key: "{{ key }}"
             - variables:
@@ -3054,19 +3074,19 @@ automation:
             - choose:
                 - conditions: "{{ trigger.id == 'set' }}"
                   sequence:
-                    - event: set_variable_zenos_expansion_3_cabinet
+                    - event: set_variable_zenos_expansion_cabinet_3
                       event_data:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
-                    - event: remove_variable_zenos_expansion_3_cabinet
+                    - event: remove_variable_zenos_expansion_cabinet_3
                       event_data:
                         key: "{{ key }}"
                 - conditions: "{{ trigger.id == 'clear' }}"
                   sequence:
-                    - event: clear_variables_zenos_expansion_3_cabinet
+                    - event: clear_variables_zenos_expansion_cabinet_3
                       event_data:
                         key: "{{ key }}"
             - variables:
@@ -3079,19 +3099,19 @@ automation:
             - choose:
                 - conditions: "{{ trigger.id == 'set' }}"
                   sequence:
-                    - event: set_variable_zenos_expansion_4_cabinet
+                    - event: set_variable_zenos_expansion_cabinet_4
                       event_data:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
-                    - event: remove_variable_zenos_expansion_4_cabinet
+                    - event: remove_variable_zenos_expansion_cabinet_4
                       event_data:
                         key: "{{ key }}"
                 - conditions: "{{ trigger.id == 'clear' }}"
                   sequence:
-                    - event: clear_variables_zenos_expansion_4_cabinet
+                    - event: clear_variables_zenos_expansion_cabinet_4
                       event_data:
                         key: "{{ key }}"
             - variables:
@@ -3104,19 +3124,19 @@ automation:
             - choose:
                 - conditions: "{{ trigger.id == 'set' }}"
                   sequence:
-                    - event: set_variable_zenos_expansion_5_cabinet
+                    - event: set_variable_zenos_expansion_cabinet_5
                       event_data:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
-                    - event: remove_variable_zenos_expansion_5_cabinet
+                    - event: remove_variable_zenos_expansion_cabinet_5
                       event_data:
                         key: "{{ key }}"
                 - conditions: "{{ trigger.id == 'clear' }}"
                   sequence:
-                    - event: clear_variables_zenos_expansion_5_cabinet
+                    - event: clear_variables_zenos_expansion_cabinet_5
                       event_data:
                         key: "{{ key }}"
             - variables:

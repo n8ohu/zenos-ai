@@ -1,7 +1,7 @@
 #####################################################################
 # zen_dojotool_dispatcher — Event-driven dojotool dispatch layer
 #
-# v1.0.0 — feat/ready-player-2
+# v1.0.0 — feat/ready-player-2 (ZenOS-AI 4.5.1)
 #
 # Listens for zen_event(kind: dojotool_call), routes to the registered
 # script, fires correlated zen_event(kind: dojotool_return).
@@ -31,7 +31,7 @@
 #       correlation_id: <uuid>
 #       payload:
 #         mode: provision
-#         target_cabinet: sensor.zenos_expansion_1_cabinet
+#         target_cabinet: sensor.zenos_expansion_cabinet_1
 #         cab_type: ai_user
 #         caller_token: "{{ caller_token }}"
 #
