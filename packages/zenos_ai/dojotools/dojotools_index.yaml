@@ -81,6 +81,15 @@ script:
           text:
         description: 'Reserved. No-op in current version — Query returns entity IDs
           only.'
+      dry_run:
+        name: Dry Run
+        description: >-
+          If true, returns count and char estimate after filtering without
+          returning the full entity list. Use before committing to a large call.
+        required: false
+        default: false
+        selector:
+          boolean:
       caller_token:
         name: Caller Token
         required: false
@@ -203,6 +212,20 @@ script:
     - variables:
         result: '{% import ''zenos_ai/zen_query.jinja'' as zen %} {{ zen.zen_filter(filter_json,
           auto_base_list) }}'
+    - if:
+      - condition: template
+        value_template: "{{ dry_run | default(false) }}"
+      then:
+      - variables:
+          _dr_list: "{{ result | from_json if result is string else result | default([]) }}"
+          final:
+            status: dry_run
+            count: "{{ _dr_list | count }}"
+            result_chars: "{{ _dr_list | tojson | length }}"
+            sample: "{{ _dr_list[:5] }}"
+            caller_token: "{{ caller_token }}"
+      - stop: dry_run
+        response_variable: final
     - choose:
       - conditions:
         - condition: template
@@ -282,6 +305,7 @@ script:
         _show_volume: "{{ '-volume' not in output_fields_input }}"
         _show_attributes: "{{ '+attributes' in output_fields_input }}"
         _show_statistics: "{{ '+statistics' in output_fields_input }}"
+        _show_history: "{{ '+history' in output_fields_input }}"
     - repeat:
         for_each: '{{ entity_list }}'
         sequence:
@@ -423,6 +447,49 @@ script:
               %}\n{% endif %}\n{% if drawer_result is not none and drawer_result != 'none'
               %}\n  {% set ns.out = ns.out | combine({'drawer': drawer_result}) %}\n{%
               endif %}\n{{ ns.out }}"
+        - if:
+          - condition: template
+            value_template: "{{ _show_history and stats_eligible }}"
+          then:
+          - action: recorder.get_statistics
+            data:
+              statistic_ids:
+                - "{{ current_entity }}"
+              period: hour
+              start_time: "{{ (now() - timedelta(hours=24)).isoformat() }}"
+            response_variable: _entity_stats
+          - variables:
+              _hs_raw: "{{ _entity_stats.get('statistics', _entity_stats) if _entity_stats is mapping else {} }}"
+              _hs_buckets: "{{ _hs_raw.get(current_entity, []) }}"
+              history_result: >-
+                {%- if _hs_buckets | count > 0 -%}
+                  {{ {'eligible': true, 'state_class': stat_class, 'unit': stat_uom, 'last_24h': _hs_buckets} }}
+                {%- else -%}
+                  {{ {'eligible': true, 'state_class': stat_class, 'unit': stat_uom, 'reason': 'No recorder data — check state_class and recorder config'} }}
+                {%- endif -%}
+          else:
+          - variables:
+              history_result:
+                eligible: "{{ stats_eligible }}"
+                state_class: "{{ stat_class }}"
+                reason: "{{ stats_reason }}"
+        - variables:
+            entity_result: "{% set ns = namespace(out={\n  'entity_id': current_entity,\n\
+              \  'friendly_name': friendly_name,\n  'domain': domain,\n  'state': state_str,\n\
+              \  'labels': label_details\n}) %}\n{% if _show_timestamps %}\n  {% set ns.out\
+              \ = ns.out | combine({'last_changed': last_changed, 'last_updated': last_updated})\
+              \ %}\n{% endif %}\n{% if _show_device and device_block is not none and device_block\
+              \ is mapping %}\n  {% set ns.out = ns.out | combine({'device': device_block})\
+              \ %}\n{% endif %}\n{% if _show_volume and is_cabinet_sensor %}\n  {% set ns.out\
+              \ = ns.out | combine({'volume': volume_result}) %}\n{% endif %}\n{% if _show_attributes\
+              \ %}\n  {% set ns.out = ns.out | combine({'attributes': safe_attributes}) %}\n\
+              {% endif %}\n{% if _show_statistics %}\n  {% set ns.out = ns.out | combine({'statistics':\
+              \ statistics_result}) %}\n{% endif %}\n{% if _show_history %}\n  {% set ns.out\
+              \ = ns.out | combine({'history': history_result}) %}\n{% endif %}\n{% if extended_mode\
+              \ and device_tree is not none and device_tree is mapping %}\n  {% set ns.out\
+              \ = ns.out | combine({'device_tree': device_tree}) %}\n{% endif %}\n{% if\
+              \ drawer_result is not none and drawer_result != 'none' %}\n  {% set ns.out\
+              \ = ns.out | combine({'drawer': drawer_result}) %}\n{% endif %}\n{{ ns.out }}"
             results: '{{ (results + [entity_result]) | list }}'
     - alias: Read drawer blurbs by label_targets
       choose:
@@ -480,8 +547,9 @@ script:
         selector:
           text:
         description: "Field selection. Defaults on: timestamps, device, volume. Opt-in:
-          +attributes, +statistics. Suppress defaults: -timestamps, -device, -volume.
-          Comma-separated string or list."
+          +attributes, +statistics, +history (24h recorder stats per entity — use
+          ZQ-1 stats_eligible filter first). Suppress defaults: -timestamps, -device,
+          -volume. Comma-separated string or list."
       label_targets:
         required: false
         default: []
@@ -789,6 +857,19 @@ script:
           entities_base: "{% if strict_mode %}\n  {{ response_entities }}\n{% else %}\n
             \ {{ response_entities if response_entities else fallback_entities_base
             }}\n{% endif %}"
+    - if:
+      - condition: template
+        value_template: "{{ dry_run | default(false) }}"
+      then:
+      - variables:
+          final_response:
+            status: dry_run
+            entity_count: "{{ entities_base | count }}"
+            will_expand: "{{ expand_entities | default(false) }}"
+            sample: "{{ entities_base[:5] }}"
+            caller_token: "{{ caller_token }}"
+      - stop: dry_run
+        response_variable: final_response
     - choose:
       - conditions:
         - condition: template
@@ -967,8 +1048,17 @@ script:
         selector:
           text:
         description: "Passed to Inspect when expand_entities=true. Defaults on: timestamps,
-          device, volume. Opt-in: +attributes, +statistics. Suppress: -timestamps,
+          device, volume. Opt-in: +attributes, +statistics, +history. Suppress: -timestamps,
           -device, -volume."
+      dry_run:
+        name: Dry Run
+        description: >-
+          If true, returns entity_count and expand flag after set resolution without
+          calling Inspect. Use to gauge scope before a full expand_entities=true call.
+        required: false
+        default: false
+        selector:
+          boolean:
       caller_token:
         name: Caller Token
         required: false

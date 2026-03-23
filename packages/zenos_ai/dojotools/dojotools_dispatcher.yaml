@@ -169,6 +169,57 @@ automation:
                   caller_token:        "{{ _payload.get('caller_token', '') }}"
                 response_variable: _result
 
+          # ── zen_dojotools_inspect v1 ─────────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_inspect' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_inspect
+                data:
+                  entity_id:     "{{ _payload.get('entity_id', []) }}"
+                  extended:      "{{ _payload.get('extended', false) }}"
+                  output_fields: "{{ _payload.get('output_fields', []) }}"
+                  label_targets: "{{ _payload.get('label_targets', []) }}"
+                  infer:         "{{ _payload.get('infer', false) }}"
+                  drawer_key:    "{{ _payload.get('drawer_key', '') }}"
+                  timeout:       "{{ _payload.get('timeout', 60) }}"
+                  caller_token:  "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_dojotools_query v1 ───────────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_query' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_query
+                data:
+                  mode:            "{{ _payload.get('mode', 'query') }}"
+                  log_result:      "{{ _payload.get('log_result', false) }}"
+                  emit_event:      "{{ _payload.get('emit_event', false) }}"
+                  target_entities: "{{ _payload.get('target_entities', []) }}"
+                  filter_json:     "{{ _payload.get('filter_json', '{}') }}"
+                  output_fields:   "{{ _payload.get('output_fields', []) }}"
+                  dry_run:         "{{ _payload.get('dry_run', false) }}"
+                  caller_token:    "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_dojotools_index v1 ───────────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_index' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_index
+                data:
+                  mode:            "{{ _payload.get('mode', 'normal') }}"
+                  index_command:   "{{ _payload.get('index_command', '') }}"
+                  entities_1:      "{{ _payload.get('entities_1', []) }}"
+                  label_1:         "{{ _payload.get('label_1', '') }}"
+                  entities_2:      "{{ _payload.get('entities_2', []) }}"
+                  label_2:         "{{ _payload.get('label_2', '') }}"
+                  operator:        "{{ _payload.get('operator', 'AND') }}"
+                  timeout:         "{{ _payload.get('timeout', 2) }}"
+                  filter_json:     "{{ _payload.get('filter_json', '{}') }}"
+                  strict:          "{{ _payload.get('strict', false) }}"
+                  expand_entities: "{{ _payload.get('expand_entities', false) }}"
+                  output_fields:   "{{ _payload.get('output_fields', []) }}"
+                  dry_run:         "{{ _payload.get('dry_run', false) }}"
+                  caller_token:    "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
           # ── zen_dojotools_manifest v1 ────────────────────────────────────
           - conditions: "{{ _tool == 'zen_dojotools_manifest' and _ver == '1' }}"
             sequence:
