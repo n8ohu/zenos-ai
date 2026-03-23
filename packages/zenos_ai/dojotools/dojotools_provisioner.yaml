@@ -327,10 +327,18 @@ script:
         - stop: guid collision
           response_variable: result
 
-      # ── Apply type label ─────────────────────────────────────────────────
+      # ── Apply type label + Zen Cabinet parent ────────────────────────────
+      # zen_cabinet is the universal parent label required by all cabinet
+      # health sensors, scroll_count, slot_entities, and label_entities()
+      # enumerations. Without it, provisioned expansion cabs are invisible
+      # to intersect(all_cabs, label_entities(type_slug)) queries.
       - action: homeassistant.add_label_to_entity
         data:
           label_id: "{{ _type_label_id }}"
+          entity_id: "{{ _target }}"
+      - action: homeassistant.add_label_to_entity
+        data:
+          label_id: zen_cabinet
           entity_id: "{{ _target }}"
 
       # ── Mount ────────────────────────────────────────────────────────────
@@ -475,7 +483,7 @@ script:
         - stop: default label gate
           response_variable: result
 
-      # ── Strip type label ─────────────────────────────────────────────────
+      # ── Strip type label + Zen Cabinet parent ────────────────────────────
       - variables:
           _deprov_type_label: >-
             {%- set ent_labels = labels(_deprov_target) -%}
@@ -491,6 +499,10 @@ script:
           data:
             label_id: "{{ _deprov_type_label }}"
             entity_id: "{{ _deprov_target }}"
+      - action: homeassistant.remove_label_from_entity
+        data:
+          label_id: zen_cabinet
+          entity_id: "{{ _deprov_target }}"
 
       # ── Dismount ──────────────────────────────────────────────────────────
       - event: set_variable_legacy
