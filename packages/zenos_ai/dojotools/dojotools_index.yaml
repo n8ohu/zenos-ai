@@ -274,12 +274,92 @@ script:
 
   zen_dojotools_inspect:
     sequence:
-    # --------------------------------------------------------------
-    # Always normalize User/AI inputs so we don't have to react JIT
-    # --------------------------------------------------------------
     - variables:
         caller_token: "{{- caller_token | default('') -}}"
 
+    - alias: Show Help
+      choose:
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('') == 'help' }}"
+        sequence:
+        - variables:
+            help_json: |-
+              {{
+                {
+                  "tool": "Zen DojoTools Inspect",
+                  "version": "4.5.1",
+                  "intent": "Deep entity inspection. Returns state, labels, device metadata, cabinet volume info, and optional recorder statistics for one or more entities. Called directly or via Index when expand_entities=true.",
+                  "inputs": {
+                    "entity_id": "Required for inspection. Single entity_id or list. Not required when mode=help.",
+                    "output_fields": "Field selector. Comma-separated string or list. Controls which blocks appear per entity. See output_fields_reference.",
+                    "extended": "Boolean (default false). Adds device_tree: via_device_id, parent_name, siblings, config_entries.",
+                    "label_targets": "Label names — resolves drawer blurbs from Dojo cabinet. Injected by Index; usable in direct calls.",
+                    "drawer_key": "Cabinet sensors only. Inspects a specific drawer key — value truncated to 64 chars.",
+                    "timeout": "Seconds (default 60, max 300).",
+                    "caller_token": "Governance stub. Echoed in response.",
+                    "mode": "inspect (default) — run inspection. help — return this schema."
+                  },
+                  "output_fields_reference": {
+                    "_note": "Prefix - to suppress a default. Prefix + to opt in. Comma-separated string or list.",
+                    "defaults_on": {
+                      "timestamps": "last_changed, last_updated. Suppress: -timestamps.",
+                      "device": "device_id, name, manufacturer, model, area_id, integration. Suppress: -device.",
+                      "volume": "Cabinet header (cabinet sensors only): id, version, friendly_name, flags. Suppress: -volume."
+                    },
+                    "opt_in": {
+                      "+attributes": "Full sanitized attribute dict. Key-scanned for safety. Suppressed for cabinet sensors.",
+                      "+statistics": "Eligibility gate only: {eligible, reason}. Does not fetch recorder data.",
+                      "+history": "24h hourly recorder stats. Fires only for stats_eligible entities. See history_result_schema."
+                    },
+                    "example": "+history,-device,-volume,-timestamps"
+                  },
+                  "history_result_schema": {
+                    "eligible_with_data": {"eligible": true, "state_class": "measurement", "unit": "W", "last_24h": [{"start": "<ISO UTC>", "end": "<ISO UTC>", "mean": 0.0, "min": 0.0, "max": 0.0}]},
+                    "eligible_no_data": {"eligible": true, "state_class": "measurement", "unit": "W", "reason": "No recorder data — check state_class and recorder config"},
+                    "ineligible": {"eligible": false, "state_class": "", "reason": "<missing state_class or unit_of_measurement>"},
+                    "traps": [
+                      "last_24h is an array of hourly buckets — NOT flat mean/min/max at history root.",
+                      "eligible=true with no last_24h key means entity has no recorder data yet.",
+                      "Run stats_eligible filter via Index BEFORE +history to avoid fetching ineligible entities."
+                    ]
+                  },
+                  "per_entity_output_structure": {
+                    "always": ["entity_id", "friendly_name", "domain", "state", "labels"],
+                    "default_on": ["last_changed", "last_updated", "device", "volume (cabinet only)"],
+                    "opt_in": ["+attributes", "+statistics", "+history"],
+                    "extended_only": ["device_tree"],
+                    "drawer_key_only": ["drawer"]
+                  },
+                  "top_level_output": {
+                    "results": "Array of per-entity result objects.",
+                    "drawers": "Drawer blurbs from Dojo cabinet keyed by label. Empty dict if no label_targets.",
+                    "inputs": "Echo of entity_id, extended, infer, timeout.",
+                    "error": "null on success."
+                  },
+                  "usage_examples": {
+                    "Example 1 — Basic inspect": {"entity_id": "sensor.kitchen_temperature"},
+                    "Example 2 — Attributes and device tree": {"entity_id": "sensor.kitchen_temperature", "output_fields": "+attributes", "extended": true},
+                    "Example 3 — 24h stats lean": {"entity_id": ["sensor.span_total_power", "sensor.dryer_power"], "output_fields": "+history,-device,-volume,-timestamps"},
+                    "Example 4 — Eligibility check only": {"entity_id": "sensor.span_total_power", "output_fields": "+statistics,-device,-volume,-timestamps"},
+                    "Example 5 — Cabinet drawer peek": {"entity_id": "sensor.zenos_dojo_cabinet", "drawer_key": "zen_summary"}
+                  },
+                  "ai_user_guidance": [
+                    "Use mode: help to retrieve this schema.",
+                    "+history fires only for stats_eligible entities (state_class + unit_of_measurement set). Run stats_eligible filter first.",
+                    "History data is at results[N].history.last_24h — hourly array. There is NO history.mean at the root.",
+                    "+statistics is a cheap eligibility check. +history fetches actual recorder data. They are independent.",
+                    "Inspect is called automatically by Index when expand_entities=true — output_fields passes through.",
+                    "Cabinet sensors suppress attributes. Use FileCabinet tools for drawer data."
+                  ]
+                }
+              }}
+        - stop: Return help JSON
+          response_variable: help_json
+
+    # --------------------------------------------------------------
+    # Always normalize User/AI inputs so we don't have to react JIT
+    # --------------------------------------------------------------
     - variables:
         entity_list: "{% if entity_id is iterable and (entity_id is not string) %}\n
           \ {{ entity_id }}\n{% else %}\n  [{{ entity_id }}]\n{% endif %}"
@@ -530,7 +610,7 @@ script:
       response_variable: inspect_result
     alias: Zen DojoTOOLS Inspect
     mode: parallel
-    description: Inspect (4.2.1). Deep dive on one or more entities. Attributes
+    description: Inspect (4.5.1). Deep dive on one or more entities. Attributes
       are key-scanned for safety. Cabinet sensors expose header metadata only; use cabinet
       tools for full volume access.
     fields:
@@ -582,6 +662,15 @@ script:
         name: Timeout
         default: 60
         required: false
+      mode:
+        required: false
+        default: inspect
+        selector:
+          select:
+            options:
+            - inspect
+            - help
+        description: "inspect (default) — run inspection and return entity results. help — return full output_fields reference and result schema."
       caller_token:
         name: Caller Token
         required: false
@@ -614,10 +703,16 @@ script:
             filter_json: '{} '
             caller_token: '{{ caller_token }}'
           response_variable: zen_query_help
+        - action: script.zen_dojotools_inspect
+          data:
+            mode: help
+            caller_token: '{{ caller_token }}'
+          response_variable: zen_inspect_help
         - variables:
             query_help: '{{ zen_query_help | default({}) | tojson }}'
+            inspect_contract: '{{ zen_inspect_help | default({}) }}'
             help_json: "{{\n  {\n    \"tool\": \"Zen DojoTools Index\",\n    \"version\":
-              \"4.2.1\",\n    \"intent\": \"High-resolution reasoning. Convert
+              \"4.5.1\",\n    \"intent\": \"High-resolution reasoning. Convert
               arbitrary entity + label sets into a unified hypergraph suitable for fusion,
               summarization, planning, and contextual inference.\",\n    \"you_should_use_this_tool_when\":
               [\n      \"You need to combine labels, entities, or both into a logical
@@ -700,7 +795,7 @@ script:
               not just lists.\",\n      \"Use filter_json to stay efficient and avoid
               overwhelming context.\",\n      \"Before writing a kata or fusion output,
               get a fresh HyperIndex snapshot.\",\n      \"If a result is empty unexpectedly,
-              re-run in normal mode to debug.\",\n      \"Use filter_json stats_eligible:true BEFORE +history to avoid fetching stats for ineligible entities — it is a pre-flight filter, not optional.\",\n      \"History data lives at result.expanded[N].history.last_24h — array of hourly buckets, NOT flat mean/min/max fields. Ineligible entities return {eligible: false, reason: ...}.\"\n    ]\n  }\n}}\n"
+              re-run in normal mode to debug.\",\n      \"Use filter_json stats_eligible:true BEFORE +history to avoid fetching stats for ineligible entities — it is a pre-flight filter, not optional.\",\n      \"History data lives at result.expanded[N].history.last_24h — array of hourly buckets, NOT flat mean/min/max fields. Ineligible entities return {eligible: false, reason: ...}.\"\n    ],\n    \"inspect_passthrough_contract\": inspect_contract\n  }\n}}\n"
         - stop: Return help JSON
           response_variable: help_json
     - variables:
