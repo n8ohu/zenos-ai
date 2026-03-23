@@ -643,7 +643,8 @@ script:
               \"Single label or text token resolved by label_entities().\",\n      \"entities_2\":
               \"Second entity list.\",\n      \"label_2\": \"Second label or token.\",\n
               \     \"operator\": \"AND | OR | NOT | XOR | * (full label graph).\",\n
-              \     \"expand_entities\": \"true/false — expands metadata, drawers, attributes.\",\n
+              \     \"expand_entities\": \"true/false — expands metadata, drawers, attributes. MUST be true for output_fields to have any effect.\",\n
+              \     \"output_fields\": \"Passed to Inspect when expand_entities=true. Defaults on: timestamps, device, volume. Opt-in: +history (24h recorder stats per entity). Suppress: -timestamps, -device, -volume. Example: '+history,-device,-volume,-timestamps'. Has no effect if expand_entities=false.\",\n
               \     \"filter_json\": \"Optional dict following ZenQuery schema.\",\n
               \     \"mode\": \"normal | hypergraph\",\n      \"timeout\": \"Indexer
               callback timeout in seconds.\"\n    },\n    \"filter_json\": {\n      \"overview\":
@@ -683,7 +684,7 @@ script:
               \">\", \"state_value\": 60}\n      },\n      \"Example 5 — Build a root
               graph for Summarizer or Fusion\": {\n        \"label_1\": \"climate\",\n
               \       \"expand_entities\": true,\n        \"mode\": \"hypergraph\"\n
-              \     }\n    },\n    \"best_practices\": [\n      \"Use (Hyper)Index before
+              \     },\n      \"Example 6 — 24h recorder stats for energy entities\": {\n        \"label_1\": \"energy_manager\",\n        \"expand_entities\": true,\n        \"filter_json\": {\"shortcuts\": {\"stats_eligible\": true}},\n        \"output_fields\": \"+history,-device,-volume,-timestamps\",\n        \"_note\": \"History data at result.expanded[N].history.last_24h — array of hourly buckets {start,end,min,max,mean}. Run stats_eligible filter first to skip ineligible entities.\"\n      }\n    },\n    \"quick_recipes\": {\n      \"history_stats\": {\n        \"label_1\": \"<your_label>\",\n        \"expand_entities\": true,\n        \"filter_json\": {\"shortcuts\": {\"stats_eligible\": true}},\n        \"output_fields\": \"+history,-device,-volume,-timestamps\",\n        \"_NOTE\": \"expand_entities MUST be true or output_fields is ignored.\",\n        \"_result_path\": \"result.expanded[N].history.last_24h → [{start, end, min, max, mean}]\",\n        \"_trap\": \"stats_eligible filter BEFORE +history — avoids fetching stats for sensors with no recorder data.\"\n      }\n    },\n    \"best_practices\": [\n      \"Use (Hyper)Index before
               any fusion or summarization to avoid bloated context.\",\n      \"Prefer
               labels as the primary driver, entities only when needed.\",\n      \"Use
               expand_entities sparingly — hypergraph mode is already powerful.\",\n
@@ -699,7 +700,7 @@ script:
               not just lists.\",\n      \"Use filter_json to stay efficient and avoid
               overwhelming context.\",\n      \"Before writing a kata or fusion output,
               get a fresh HyperIndex snapshot.\",\n      \"If a result is empty unexpectedly,
-              re-run in normal mode to debug.\"\n    ]\n  }\n}}\n"
+              re-run in normal mode to debug.\",\n      \"Use filter_json stats_eligible:true BEFORE +history to avoid fetching stats for ineligible entities — it is a pre-flight filter, not optional.\",\n      \"History data lives at result.expanded[N].history.last_24h — array of hourly buckets, NOT flat mean/min/max fields. Ineligible entities return {eligible: false, reason: ...}.\"\n    ]\n  }\n}}\n"
         - stop: Return help JSON
           response_variable: help_json
     - variables:
