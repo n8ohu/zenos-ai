@@ -475,6 +475,31 @@ template:
             {%- endif %}
           {%- endif %}
         attributes:
+          reason: >-
+            {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') %}
+            {%- if not is_state('input_boolean.zen_ninja_summarizer_enabled', 'on') %}
+              Ninja Summarizer disabled via zen_ninja_summarizer_enabled helper.
+            {%- elif kata_cab in ['unknown','unavailable','none'] %}
+              Kata cabinet resolver is {{ kata_cab }} — labels may not be assigned.
+            {%- else %}
+              {%- set kata = state_attr(kata_cab,'variables') or {} %}
+              {%- set _drawer_raw = kata.get('zen_scheduler', {}) %}
+              {%- set drawer = _drawer_raw if _drawer_raw is mapping else (_drawer_raw | from_json(none) if _drawer_raw is string else {}) %}
+              {%- set ts = drawer.get('timestamp') if drawer is mapping else none %}
+              {%- set stale = ts and (now() - as_datetime(ts) >= timedelta(minutes=20)) %}
+              {%- set ai_task_set = states('input_text.zenos_ai_task_entity') | trim not in ['', 'unknown', 'unavailable'] %}
+              {%- set _age_min = ((now() - as_datetime(ts)).total_seconds() / 60) | int if ts else 0 %}
+              {%- if not ai_task_set %}
+                AI task entity not configured — input_text.zenos_ai_task_entity is blank.
+              {%- elif not drawer %}
+                zen_scheduler drawer missing from kata — Ninja Summarizer has never run.
+              {%- elif stale %}
+                zen_scheduler last run {{ _age_min }} min ago (threshold: 20 min) — pipeline may be stalled.
+              {%- else %}
+                All checks passed.
+              {%- endif %}
+            {%- endif %}
+
           kata_cabinet: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
           ai_task_entity: "{{ states('input_text.zenos_ai_task_entity') | trim }}"
           last_timestamp: >-
@@ -530,6 +555,35 @@ template:
             {%- endif %}
           {%- endif %}
         attributes:
+          reason: >-
+            {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') %}
+            {%- if not is_state('input_boolean.zen_supersummarizer_enabled', 'on') %}
+              SuperSummary disabled via zen_supersummarizer_enabled helper.
+            {%- elif kata_cab in ['unknown','unavailable','none'] %}
+              Kata cabinet resolver is {{ kata_cab }} — labels may not be assigned.
+            {%- else %}
+              {%- set kata = state_attr(kata_cab,'variables') or {} %}
+              {%- set _ss_d = kata.get('zen_supersummary_status', {}) %}
+              {%- set _ss_v = _ss_d.get('value', {}) if _ss_d is mapping else {} %}
+              {%- set _ss_v = _ss_v if _ss_v is mapping else (_ss_v | from_json(none) if _ss_v is string else {}) %}
+              {%- set monk = (_ss_v.get('status', 'unknown') if _ss_v is mapping else 'unknown') %}
+              {%- set _sum_raw = kata.get('zen_summary', {}) %}
+              {%- set summary = _sum_raw if _sum_raw is mapping else (_sum_raw | from_json(none) if _sum_raw is string else {}) %}
+              {%- set ts = (summary.get('timestamp') if summary is mapping else none) %}
+              {%- set _age_min = ((now() - as_datetime(ts)).total_seconds() / 60) | int if ts else 0 %}
+              {%- set crit_stale = ts and (now() - as_datetime(ts) >= timedelta(minutes=30)) %}
+              {%- set stale = ts and (now() - as_datetime(ts) >= timedelta(minutes=15)) %}
+              {%- if monk in ['error','timeout','none','null'] %}
+                SuperSummary status is {{ monk }} — no successful run recorded in kata (zen_supersummary_status drawer).
+              {%- elif crit_stale %}
+                zen_summary is {{ _age_min }} min old (threshold: 30 min) — fire summary_force to refresh.
+              {%- elif stale %}
+                zen_summary is {{ _age_min }} min old (threshold: 15 min) — awaiting next Ninja run.
+              {%- else %}
+                All checks passed.
+              {%- endif %}
+            {%- endif %}
+
           kata_cabinet: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
           monk_status: >-
             {%- set _vars = state_attr(states('sensor.zen_kata_cabinet_resolved'),'variables') or {} %}

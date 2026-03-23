@@ -78,6 +78,22 @@ template:
         #######################################################################
         attributes:
 
+          reason: >-
+            {%- set label_st = states('sensor.zen_label_health') %}
+            {%- set cab_st   = states('sensor.zen_cabinet_health') %}
+            {%- set mon_st   = states('sensor.zen_monastery_health') %}
+            {%- if label_st == 'critical' %}
+              {{ state_attr('sensor.zen_label_health', 'reason') | default('Labels critical — see zen_label_health.') }}
+            {%- elif label_st != 'ok' %}
+              {{ state_attr('sensor.zen_label_health', 'reason') | default('Labels ' ~ label_st ~ ' — see zen_label_health.') }}
+            {%- elif cab_st != 'ok' %}
+              {{ state_attr('sensor.zen_cabinet_health', 'reason') | default('Cabinets ' ~ cab_st ~ ' — see zen_cabinet_health.') }}
+            {%- elif mon_st != 'ok' %}
+              {{ state_attr('sensor.zen_monastery_health', 'reason') | default('Monastery ' ~ mon_st ~ ' — see zen_monastery_health.') }}
+            {%- else %}
+              All gates green.
+            {%- endif %}
+
           system_ready: >-
             {{ states('binary_sensor.flynn_system_ready') }}
 
@@ -208,6 +224,36 @@ template:
         # ATTRIBUTES
         #######################################################################
         attributes:
+
+          reason: >-
+            {%- set label_st = states('sensor.zen_label_health') %}
+            {%- set cab_st   = states('sensor.zen_cabinet_health') %}
+            {%- set mon_st   = states('sensor.zen_monastery_health') %}
+            {%- if label_st in ['critical','error'] or cab_st in ['critical','error'] %}
+              {{ state_attr('sensor.zen_flynn_health', 'reason') | default('Infrastructure critical — see zen_flynn_health.') }}
+            {%- elif label_st == 'warn' or cab_st == 'warn' %}
+              {{ state_attr('sensor.zen_flynn_health', 'reason') | default('Infrastructure warn — see zen_flynn_health.') }}
+            {%- else %}
+              {%- set conv_eid = states('input_text.zenos_conversation_agent') | trim %}
+              {%- set conv_avail = conv_eid != '' and conv_eid not in ['unknown','unavailable','none'] and states(conv_eid) not in ['unknown','unavailable'] %}
+              {%- set all_ai_cabs = label_entities('zen_ai_user_cabinet') | select('match', 'sensor\\.') | list %}
+              {%- set def_cab = states('sensor.zen_default_ai_user_cabinet_resolved') %}
+              {%- set ns = namespace(ok_count=0) %}
+              {%- for ag_cab in all_ai_cabs %}
+                {%- if states(ag_cab) not in ['unknown','unavailable'] and conv_avail and ag_cab == def_cab %}
+                  {%- set ns.ok_count = ns.ok_count + 1 %}
+                {%- endif %}
+              {%- endfor %}
+              {%- if ns.ok_count == 0 and not conv_avail %}
+                Conversation agent not configured or unavailable (input_text.zenos_conversation_agent).
+              {%- elif ns.ok_count == 0 %}
+                No bootable agent found — default AI user cabinet not assigned or persona missing.
+              {%- elif mon_st != 'ok' %}
+                {{ state_attr('sensor.zen_monastery_health', 'reason') | default('Monastery ' ~ mon_st ~ ' — see zen_monastery_health.') }}
+              {%- else %}
+                All checks passed.
+              {%- endif %}
+            {%- endif %}
 
           ##################################################################
           # FLYNN SUMMARY (infra, not in agent count)

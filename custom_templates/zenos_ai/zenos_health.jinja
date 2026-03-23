@@ -250,6 +250,55 @@ Provides mapping of slots to default entities
 {%- endmacro -%}
 
 {#- ################################################# -#}
+{#-
+#######################################################################
+# ZEN CABINET HEALTH REASON
+# Returns a single plain-language sentence explaining the current state.
+# Same priority order as zen_cabinet_health_state().
+#######################################################################
+-#}
+{%- macro zen_cabinet_health_reason() -%}
+    {%- set required = slots_required() | from_json() -%}
+    {%- set optional = slots_optional() | from_json() -%}
+    {%- set slot_to_label = slot_to_label() | from_json() -%}
+    {%- set parent_slug = 'Zen Cabinet' | slugify -%}
+    {%- set all_cabs = label_entities(parent_slug) | list -%}
+    {%- set label_index = labels() -%}
+    {%- set ns = namespace(missing_req=[], unassigned_req=[], invalid_req=[], unhealthy_req=[], unhealthy_opt=[]) -%}
+    {%- for slot in required -%}
+        {%- set label_slug = slot_to_label[slot] | slugify -%}
+        {%- set label_exists = label_slug in label_index -%}
+        {%- set ents = intersect(all_cabs, label_entities(label_slug) or []) | list -%}
+        {%- set bad = ents | selectattr('state','eq','unavailable') | list -%}
+        {%- if not label_exists -%}{%- set ns.missing_req = ns.missing_req + [slot] -%}
+        {%- elif ents | count == 0 -%}{%- set ns.unassigned_req = ns.unassigned_req + [slot] -%}
+        {%- elif ents | count > 1 -%}{%- set ns.invalid_req = ns.invalid_req + [slot] -%}
+        {%- elif bad | count > 0 -%}{%- set ns.unhealthy_req = ns.unhealthy_req + [slot] -%}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- for slot in optional -%}
+        {%- set label_slug = slot_to_label[slot] | slugify -%}
+        {%- set ents = intersect(all_cabs, label_entities(label_slug) or []) | list -%}
+        {%- if ents | count > 0 -%}
+            {%- set bad = ents | selectattr('state','eq','unavailable') | list -%}
+            {%- if bad | count > 0 -%}{%- set ns.unhealthy_opt = ns.unhealthy_opt + [slot] -%}{%- endif -%}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- if ns.missing_req | count > 0 -%}
+        Required cabinet label(s) missing from HA: {{ ns.missing_req | join(', ') }} — trigger Flynn stepgate to create them.
+    {%- elif ns.invalid_req | count > 0 -%}
+        Multiple entities claim required cabinet slot(s): {{ ns.invalid_req | join(', ') }} — remove duplicate label assignments.
+    {%- elif ns.unhealthy_req | count > 0 -%}
+        Required cabinet sensor(s) unavailable: {{ ns.unhealthy_req | join(', ') }} — check entity configuration.
+    {%- elif ns.unassigned_req | count > 0 -%}
+        Required cabinet label(s) exist but no entity assigned: {{ ns.unassigned_req | join(', ') }} — trigger Flynn stepgate to wire them.
+    {%- elif ns.unhealthy_opt | count > 0 -%}
+        Optional cabinet sensor(s) unavailable: {{ ns.unhealthy_opt | join(', ') }} — check entity configuration.
+    {%- else -%}
+        All required cabinet slots filled and healthy.
+    {%- endif -%}
+{%- endmacro -%}
+
 {%- macro slots_all() -%}
     {{- [
         'system','dojo','kata',
