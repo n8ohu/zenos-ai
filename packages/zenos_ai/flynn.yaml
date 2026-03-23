@@ -47,6 +47,10 @@ input_text:
     max: 255
 
 input_boolean:
+  zenos_cab_init_rearm:
+    name: "ZenOS: Cabinet Init Rearm"
+    icon: mdi:shield-lock-outline
+
   zen_squirrel:
     name: "ZenOS: Secret Squirrel Mode"
     icon: mdi:incognito

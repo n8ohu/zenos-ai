@@ -521,6 +521,19 @@ script:
             - condition: template
               value_template: '{{ op == ''init'' }}'
             sequence:
+            # ── REARM GATE ────────────────────────────────────────────────────
+            # input_boolean.zenos_cab_init_rearm must be ON to proceed.
+            # Any successful init fires turns it back off immediately (double latch).
+            # Prevents accidental or autonomous init. Must be manually rearmed each time.
+            - if:
+              - condition: template
+                value_template: "{{ not is_state('input_boolean.zenos_cab_init_rearm', 'on') }}"
+              then:
+              - stop: "Init blocked — rearm input_boolean.zenos_cab_init_rearm to proceed"
+            - action: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.zenos_cab_init_rearm
+            # ─────────────────────────────────────────────────────────────────
             - if:
               - condition: template
                 value_template: '{{ use_universe }}'
