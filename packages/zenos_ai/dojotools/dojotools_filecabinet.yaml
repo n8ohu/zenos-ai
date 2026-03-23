@@ -339,6 +339,9 @@ script:
             {% if no_autorecycle %}
               {% set meta = meta | combine({'no_autorecycle': true}) %}
             {% endif %}
+            {% if 'zen_scroll' in accepted_entity_labels %}
+              {% set meta = meta | combine({'ro': true}) %}
+            {% endif %}
             {% if drawer_acl is mapping and drawer_acl | length > 0 %}
               {% set meta = meta | combine({'acl': drawer_acl}) %}
             {% endif %}
@@ -382,6 +385,11 @@ script:
           {%- else -%}
           {}
           {%- endif -%}
+        existing_drawer_is_ro: >
+          {%- set _e = initial_volume.get(key, {}) if initial_volume is mapping else {} -%}
+          {%- set _m = _e.get('meta', {}) if _e is mapping else {} -%}
+          {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+          {{ _m.get('ro', false) == true if _m is mapping else false }}
         is_create_new: "{{ action_type == 'create' and key != '' and not key_exists_initial}}"
         is_force_update_new: "{{ action_type == 'update' and key != '' and not key_exists_initial and force_action}}"
         is_force_create_over_existing: "{{ action_type == 'create' and key != '' and key_exists_initial and force_action}}"
@@ -519,6 +527,17 @@ script:
               status: error
               message: "Cannot create: key '{{ key }}' exists. Use Update or retry with override approval using force_action. (Will be logged)"
         - stop: Drawer Exists and not force_action
+          response_variable: final_response
+      - conditions:
+        - condition: template
+          value_template: "{{ action_type in ['create', 'update', 'delete'] and key != '' and key_exists_initial and existing_drawer_is_ro }}"
+          alias: Error - Read-only drawer (zen_scroll)
+        sequence:
+        - variables:
+            final_response:
+              status: error
+              message: "Write blocked: drawer '{{ key }}' is read-only (zen_scroll). Use CabinetAdmin set_ro_flag to clear before writing."
+        - stop: Read-only drawer
           response_variable: final_response
       - conditions:
         - condition: template
@@ -1884,7 +1903,7 @@ script:
       (yes, a list) to scan drawers for subjects. STRONG recommendation to HELP() and
       pull a manifest - READ() immediately.\nIMPORTANT: Read By Label is currently limited
       to ONE cabinet at a time.\nMOUNT OPS: set_mount links a drawer in this volume to another cabinet by GUID (requires key +
-      target_guid). remove_mount unlinks it. Both verify the write and return previous_guid for undo.\nCABINET MOUNT/DISMOUNT: mount_cabinet / dismount_cabinet flip meta.mounted (state: online_mounted / online_unmounted). dismount_cabinet blocked if cabinet holds a zen_default_* label — transfer first. Both fire zen_event on completion.\nCLONE: clone copies all cabinet drawers to destination_cabinet. Default: destination gets a new GUID (source untouched). With transfer_guid+force_action: GUID travels to destination, source is cleared and marked needs_restamp (Highlander mode — one cabinet owns a GUID)."
+      target_guid). remove_mount unlinks it. Both verify the write and return previous_guid for undo.\nCABINET MOUNT/DISMOUNT: mount_cabinet / dismount_cabinet flip meta.mounted (state: online_mounted / online_unmounted). dismount_cabinet blocked if cabinet holds a zen_default_* label — transfer first. Both fire zen_event on completion.\nRO DRAWERS: Include 'zen_scroll' in label_input to make a drawer read-only (one-way — removing the label later does NOT revert ro). ro drawers block all create/update/delete — no force bypass. Use CabinetAdmin set_ro_flag to clear.\nCLONE: clone copies all cabinet drawers to destination_cabinet. Default: destination gets a new GUID (source untouched). With transfer_guid+force_action: GUID travels to destination, source is cleared and marked needs_restamp (Highlander mode — one cabinet owns a GUID)."
     fields:
       action_type:
         description: "'manifest', 'create', 'read', 'update', 'delete', 'move', 'copy', 'clone', 'set_mount', 'remove_mount', 'mount_cabinet', 'dismount_cabinet', 'help' (default: help)"
