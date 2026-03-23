@@ -280,19 +280,6 @@ automation:
         - event: zen_resolver_refresh
         alias: Health Sensor Retrigger
 
-      - conditions:
-        - condition: trigger
-          id:
-          - ha_start
-        sequence:
-        - event: zen_event
-          event_data:
-            event:
-              kind: cabinet_boot_touch
-              component: zen_dojotools_scheduler
-              severity: info
-              summary: Cabinet boot touch — force re-evaluation of mount state on startup.
-        alias: Cabinet Boot Touch
 
     # ── Dojo-driven Ninja Summarizer dispatch ────────────────────────────────
     # Reads all KFC drawers from the Dojo cabinet. Filters to those whose

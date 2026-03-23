@@ -56,11 +56,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_system_cabinet
         id: sensor.zenos_system_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_system_cabinet
     action:
       - variables:
@@ -156,11 +153,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_system_history_cabinet
         id: sensor.zenos_system_history_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_system_history_cabinet
     action:
       - variables:
@@ -256,11 +250,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_dojo_cabinet
         id: sensor.zenos_dojo_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_dojo_cabinet
     action:
       - variables:
@@ -356,11 +347,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_kata_cabinet
         id: sensor.zenos_kata_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_kata_cabinet
     action:
       - variables:
@@ -456,11 +444,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_history_cabinet
         id: sensor.zenos_history_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_history_cabinet
     action:
       - variables:
@@ -556,11 +541,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_scratchpad_cabinet
         id: sensor.zenos_scratchpad_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_scratchpad_cabinet
     action:
       - variables:
@@ -660,11 +642,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_household_cabinet
         id: sensor.zenos_default_household_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_household_cabinet
     action:
       - variables:
@@ -760,11 +739,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_household_history_cabinet
         id: sensor.zenos_default_household_history_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_household_history_cabinet
     action:
       - variables:
@@ -864,11 +840,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_family_cabinet
         id: sensor.zenos_default_family_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_family_cabinet
     action:
       - variables:
@@ -964,11 +937,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_family_history_cabinet
         id: sensor.zenos_default_family_history_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_family_history_cabinet
     action:
       - variables:
@@ -1068,11 +1038,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_user_cabinet
         id: sensor.zenos_default_user_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_user_cabinet
     action:
       - variables:
@@ -1168,11 +1135,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_user_history_cabinet
         id: sensor.zenos_default_user_history_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_user_history_cabinet
     action:
       - variables:
@@ -1272,11 +1236,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_ai_user_cabinet
         id: sensor.zenos_default_ai_user_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_ai_user_cabinet
     action:
       - variables:
@@ -1372,11 +1333,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_ai_user_history_cabinet
         id: sensor.zenos_default_ai_user_history_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_default_ai_user_history_cabinet
     action:
       - variables:
@@ -1481,11 +1439,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_secondary_user_cabinet
         id: sensor.zenos_secondary_user_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_secondary_user_cabinet
     action:
       - variables:
@@ -1580,11 +1535,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_tertiary_user_cabinet
         id: sensor.zenos_tertiary_user_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_tertiary_user_cabinet
     action:
       - variables:
@@ -1679,11 +1631,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_quaternary_user_cabinet
         id: sensor.zenos_quaternary_user_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_quaternary_user_cabinet
     action:
       - variables:
@@ -1778,11 +1727,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_secondary_ai_user_cabinet
         id: sensor.zenos_secondary_ai_user_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_secondary_ai_user_cabinet
     action:
       - variables:
@@ -1877,11 +1823,8 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_vault_cabinet
         id: sensor.zenos_vault_cabinet
-      - trigger: event
-        event_type: zen_event
-        event_data:
-          event:
-            kind: cabinet_boot_touch
+      - trigger: homeassistant
+        event: started
         id: sensor.zenos_vault_cabinet
     action:
       - variables:
@@ -2720,4 +2663,4 @@ automation:
           response_variable: final_response
 
   mode: parallel
-  max: 10
+  max: 30
