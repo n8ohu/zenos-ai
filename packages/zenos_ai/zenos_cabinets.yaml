@@ -111,8 +111,24 @@ template:
         unique_id: zenos_system_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -208,8 +224,24 @@ template:
         unique_id: zenos_system_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -305,8 +337,24 @@ template:
         unique_id: zenos_dojo_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -402,8 +450,24 @@ template:
         unique_id: zenos_kata_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -499,8 +563,24 @@ template:
         unique_id: zenos_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -596,8 +676,24 @@ template:
         unique_id: zenos_scratchpad_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -697,8 +793,24 @@ template:
         unique_id: zenos_default_household_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -794,8 +906,24 @@ template:
         unique_id: zenos_default_household_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -895,8 +1023,24 @@ template:
         unique_id: zenos_default_family_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -992,8 +1136,24 @@ template:
         unique_id: zenos_default_family_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1093,8 +1253,24 @@ template:
         unique_id: zenos_default_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1190,8 +1366,24 @@ template:
         unique_id: zenos_default_user_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1291,8 +1483,24 @@ template:
         unique_id: zenos_default_ai_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1388,8 +1596,24 @@ template:
         unique_id: zenos_default_ai_user_history_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1493,8 +1717,24 @@ template:
         unique_id: zenos_secondary_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1589,8 +1829,24 @@ template:
         unique_id: zenos_tertiary_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1685,8 +1941,24 @@ template:
         unique_id: zenos_quaternary_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1781,8 +2053,24 @@ template:
         unique_id: zenos_secondary_ai_user_cabinet
         icon: mdi:file-cabinet
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
@@ -1877,8 +2165,24 @@ template:
         unique_id: zenos_vault_cabinet
         icon: mdi:safe-square
         state: >-
-          {%- set _vi = current is mapping and 'AI_Cabinet_VolumeInfo' in current -%}
-          {%- set _mr = current.get('meta', {}) if current is mapping else {} -%}
+          {%- set _evt = trigger.event.event_type | default('') -%}
+          {%- set _ekey = trigger.event.data.key | default('') -%}
+          {%- set _eval = trigger.event.data.value | default(none) -%}
+          {%- set _ets = trigger.event.data.get('set_timestamp', this.attributes.get('default_timestamp', false)) -%}
+          {%- set _old = current if current is mapping else {} -%}
+          {%- if _evt.startswith('set_variable') and _ekey != '' and _eval is not none -%}
+            {%- set _evalue = _eval.isoformat() if _eval is datetime else _eval -%}
+            {%- set _enew = {_ekey: {'value': _evalue, 'timestamp': now().isoformat()}} if _ets else {_ekey: _evalue} -%}
+            {%- set _cur = dict(_old, **_enew) -%}
+          {%- elif _evt.startswith('remove_variable') and _ekey != '' -%}
+            {%- set _cur = dict(_old.items() | rejectattr('0', 'eq', _ekey)) -%}
+          {%- elif _evt.startswith('clear_variables') -%}
+            {%- set _cur = {} -%}
+          {%- else -%}
+            {%- set _cur = _old -%}
+          {%- endif -%}
+          {%- set _vi = _cur is mapping and 'AI_Cabinet_VolumeInfo' in _cur -%}
+          {%- set _mr = _cur.get('meta', {}) if _cur is mapping else {} -%}
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
