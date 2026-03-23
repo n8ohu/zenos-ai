@@ -456,6 +456,10 @@ script:
               statistic_ids:
                 - "{{ current_entity }}"
               period: hour
+              types:
+                - mean
+                - min
+                - max
               start_time: "{{ (now() - timedelta(hours=24)).isoformat() }}"
             response_variable: _entity_stats
           - variables:
