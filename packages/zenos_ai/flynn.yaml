@@ -151,12 +151,27 @@ template:
 # Idempotent. Re-engages on health regression.
 ###############################################################################
 automation:
+  - alias: "Flynn: Boot Warmup — Auto Force Summary"
+    id: flynn_boot_warmup_force_summary
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+    conditions: []
+    actions:
+      - delay: "00:00:30"
+      - event: zen_event
+        event_data:
+          event:
+            kind: summary_force
+
   - alias: "Flynn: Stepgate Sentinel"
     id: flynn_stepgate_sentinel
     mode: single
     triggers:
       - trigger: homeassistant
         event: start
+        id: ha_start
       # Recovery net: re-evaluates every 5 min so sentinel self-heals after
       # ha_reload_all kills in-flight runs without a health state change.
       # Fast early-exit (was_green check) makes this cheap when system is ok.
@@ -232,6 +247,16 @@ automation:
         then:
           - stop: "No-op: all gates green, schemas seeded"
       - delay: "00:00:10"
+      - if: "{{ trigger.id == 'ha_start' }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              title: "ZenOS-AI: Warming up"
+              message: >
+                Flynn here. HA just restarted — I'm bringing the monastery online.
+                Summarizer pipeline is running. This notification dismisses
+                automatically when I'm fully ready. Nothing is broken.
+              notification_id: flynn_warmup
       - variables:
           label_health: "{{ states('sensor.zen_label_health') }}"
           cabinet_health: "{{ states('sensor.zen_cabinet_health') }}"
@@ -469,6 +494,9 @@ automation:
       #####################################################################
       # GATE 4: All green — notify on transition only
       #####################################################################
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: flynn_warmup
       - choose:
           - conditions: "{{ not was_green }}"
             sequence:
