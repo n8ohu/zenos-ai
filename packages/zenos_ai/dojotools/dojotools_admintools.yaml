@@ -1101,7 +1101,11 @@ script:
           response_variable: response
       - conditions:
         - condition: template
-          value_template: '{{ state_attr(cabinet_entity,''variables'') is none }}'
+          value_template: >-
+            {{
+              state_attr(cabinet_entity, 'variables') is none
+              or 'AI_Cabinet_VolumeInfo' not in (state_attr(cabinet_entity, 'variables') | default({}))
+            }}
         alias: Initialize New Cabinet
         sequence:
         - repeat:

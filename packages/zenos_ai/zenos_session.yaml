@@ -1,0 +1,78 @@
+###############################################################################
+# ZenOS Session Beacon
+# v0.1.0-experimental — feat/ready-player-2
+#
+# Latches assist_pipeline.run.start, embeds conversation_id in a session
+# beacon drawer in the household cabinet (5-min expiry). The agent retrieves
+# the beacon via FileCabinet and carries the token forward — without knowing
+# what it is.
+#
+# Schrodinger's cat test: if the agent retrieves the beacon and echoes the
+# token in a caller_token, we have confirmed the correlation path end-to-end.
+#
+# EXPERIMENTAL:
+# - Single active beacon slot (household cabinet). Not multi-user safe.
+# - Temporal correlation only — most recent beacon = active session.
+# - assist_pipeline event field paths verified on HA 2024.x; confirm
+#   trigger.event.data.conversation_id on H:\ via Developer Tools if
+#   zen_session_debug shows empty cid.
+# - expires_after unit: seconds (FileCabinet meta). 300 = 5 minutes.
+###############################################################################
+
+input_text:
+  zen_session_debug:
+    name: "ZenOS: Session Debug"
+    icon: mdi:bug-outline
+    max: 255
+    initial: ""
+
+automation:
+
+  - id: zen_session_beacon_writer
+    alias: "ZenOS: Session Beacon Writer"
+    description: >-
+      Experimental. Latches assist_pipeline.run.start, writes session beacon
+      to household cabinet with 5-minute expiry. Token = conversation_id.
+    mode: queued
+    max: 5
+
+    triggers:
+      - trigger: event
+        event_type: assist_pipeline.run.start
+
+    actions:
+      - variables:
+          _cid:    "{{ trigger.event.data.conversation_id | default('') }}"
+          _device: "{{ trigger.event.data.device_id | default('') }}"
+          _user:   "{{ trigger.event.context.user_id | default('') }}"
+          _cab:    "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+
+      # Debug — strip after path verification
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.zen_session_debug
+        data:
+          value: "cid={{ _cid }} | device={{ _device }} | user={{ _user }}"
+
+      - if:
+        - condition: template
+          value_template: "{{ _cid != '' and _cab not in ['', 'unknown', 'unavailable'] }}"
+        then:
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: update
+            volume_entity_id: "{{ _cab }}"
+            key: session_beacon
+            value: >-
+              {{
+                {
+                  'token': _cid,
+                  'device': _device,
+                  'user': _user,
+                  'ts': now().isoformat()
+                } | tojson
+              }}
+            expires_after: "300"
+            set_timestamp: true
+            force_action: true
+            caller_token: zen_session_beacon
