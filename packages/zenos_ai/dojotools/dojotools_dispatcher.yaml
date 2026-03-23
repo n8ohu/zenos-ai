@@ -1,0 +1,235 @@
+#####################################################################
+# zen_dojotool_dispatcher — Event-driven dojotool dispatch layer
+#
+# v1.0.0 — feat/ready-player-2
+#
+# Listens for zen_event(kind: dojotool_call), routes to the registered
+# script, fires correlated zen_event(kind: dojotool_return).
+#
+# WHY:
+#   Direct script calls (action: script.foo) hard-fault if the script
+#   doesn't exist — sequence dies, no recovery. Through the dispatcher,
+#   unknown tools return a structured error on the event bus. Nothing
+#   explodes. Caller handles it.
+#
+#   Additionally: callers reference tool names, not script entity IDs.
+#   Version routing means tools can migrate without touching callers.
+#   All inter-tool calls flow through one place — free observability.
+#
+# CALLER PATTERN:
+#   1. Generate a correlation_id (UUID).
+#   2. Arm wait_for_trigger on dojotool_return filtered by correlation_id.
+#   3. Fire dojotool_call event.
+#   4. Receive correlated return.
+#
+#   event: zen_event
+#   event_data:
+#     event:
+#       kind: dojotool_call
+#       tool: zen_dojotools_provisioner
+#       version: "1"           # optional, defaults to "1"
+#       correlation_id: <uuid>
+#       payload:
+#         mode: provision
+#         target_cabinet: sensor.zenos_secondary_user_cabinet
+#         cab_type: ai_user
+#         caller_token: "{{ caller_token }}"
+#
+#   wait_for_trigger:
+#     - platform: event
+#       event_type: zen_event
+#       event_data:
+#         event:
+#           kind: dojotool_return
+#           correlation_id: <same uuid>
+#   timeout: '00:00:30'
+#
+# NON-BREAKING: existing direct action: script.* calls are unaffected.
+#
+# REGISTRY: add a choose arm per tool. That's the entire API surface.
+# Tools do NOT need to change — dispatcher adapts to their contracts.
+#####################################################################
+
+automation:
+
+  zen_dojotool_dispatcher:
+    alias: Zen DojoTool Dispatcher
+    description: >-
+      Zen DojoTool Dispatcher 1.0.0. Event-driven dispatch layer for dojotool
+      inter-tool communication. Listens for zen_event(kind: dojotool_call),
+      routes to registered scripts, fires correlated dojotool_return events.
+
+      Fault isolation: unknown tools return structured error — no hard fault.
+      Version routing: tool + version resolves to specific script entity.
+      Observability: all inter-tool calls visible on the event bus.
+      Non-breaking: direct script calls unaffected. Migrate opportunistically.
+    mode: parallel
+    max: 20
+
+    trigger:
+      - platform: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: dojotool_call
+
+    variables:
+      _ev:      "{{ trigger.event.data.event }}"
+      _tool:    "{{ _ev.tool | default('') | trim }}"
+      _ver:     "{{ _ev.version | default('1') | string | trim }}"
+      _cid:     "{{ _ev.correlation_id | default('') | trim }}"
+      _payload: "{{ _ev.payload | default({}) }}"
+
+    action:
+
+      # ── Gate: correlation_id required ──────────────────────────────────────
+      - if:
+        - condition: template
+          value_template: "{{ _cid == '' }}"
+        then:
+        - event: zen_event
+          event_data:
+            event:
+              kind: dojotool_dispatch_error
+              tool: "{{ _tool }}"
+              version: "{{ _ver }}"
+              correlation_id: ''
+              error: missing_correlation_id
+              message: "dojotool_call missing correlation_id — cannot route return."
+        - stop: missing correlation_id
+
+      # ── Registry ───────────────────────────────────────────────────────────
+      - choose:
+
+          # ── zen_dojotools_provisioner v1 ─────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_provisioner' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_provisioner
+                data:
+                  mode:            "{{ _payload.get('mode', 'provision') }}"
+                  cab_type:        "{{ _payload.get('cab_type', '') }}"
+                  target_cabinet:  "{{ _payload.get('target_cabinet', '') }}"
+                  replace_cabinet: "{{ _payload.get('replace_cabinet', '') }}"
+                  person_entity:   "{{ _payload.get('person_entity', '') }}"
+                  profile_payload: "{{ _payload.get('profile_payload', '') }}"
+                  caller_token:    "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_admintools_cabinetadmin_stamp v1 ─────────────────────────
+          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin_stamp' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_admintools_cabinetadmin_stamp
+                data:
+                  cabinet_entity: "{{ _payload.get('cabinet_entity', '') }}"
+                  cabinet_type:   "{{ _payload.get('cabinet_type', '') }}"
+                  confirm_action: "{{ _payload.get('confirm_action', false) }}"
+                  caller_token:   "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_admintools_cabinetadmin v1 ───────────────────────────────
+          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_admintools_cabinetadmin
+                data:
+                  mode:           "{{ _payload.get('mode', 'inspect') }}"
+                  cabinet_entity: "{{ _payload.get('cabinet_entity', '') }}"
+                  schema_version: "{{ _payload.get('schema_version', none) }}"
+                  caller_token:   "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_dojotools_filecabinet v1 ─────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_filecabinet' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_filecabinet
+                data:
+                  action_type:         "{{ _payload.get('action_type', 'read') }}"
+                  volume_entity_id:    "{{ _payload.get('volume_entity_id', '') }}"
+                  key:                 "{{ _payload.get('key', '') }}"
+                  value:               "{{ _payload.get('value', '') }}"
+                  set_timestamp:       "{{ _payload.get('set_timestamp', false) }}"
+                  label_input:         "{{ _payload.get('label_input', '') }}"
+                  expires_after:       "{{ _payload.get('expires_after', '') }}"
+                  no_autoexpire:       "{{ _payload.get('no_autoexpire', false) }}"
+                  no_autorecycle:      "{{ _payload.get('no_autorecycle', false) }}"
+                  acl:                 "{{ _payload.get('acl', '') }}"
+                  description:         "{{ _payload.get('description', '') }}"
+                  label_targets:       "{{ _payload.get('label_targets', '') }}"
+                  show_hidden_volumes: "{{ _payload.get('show_hidden_volumes', false) }}"
+                  show_stacks:         "{{ _payload.get('show_stacks', false) }}"
+                  start:               "{{ _payload.get('start', '') }}"
+                  end:                 "{{ _payload.get('end', '') }}"
+                  filter_domain:       "{{ _payload.get('filter_domain', '') }}"
+                  filter_state_operand: "{{ _payload.get('filter_state_operand', '') }}"
+                  filter_op:           "{{ _payload.get('filter_op', '') }}"
+                  force_action:        "{{ _payload.get('force_action', false) }}"
+                  destination_cabinet: "{{ _payload.get('destination_cabinet', '') }}"
+                  destination_drawer:  "{{ _payload.get('destination_drawer', '') }}"
+                  transfer_guid:       "{{ _payload.get('transfer_guid', '') }}"
+                  target_guid:         "{{ _payload.get('target_guid', '') }}"
+                  caller_token:        "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_dojotools_manifest v1 ────────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_manifest' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_manifest
+                data:
+                  show_hidden:  "{{ _payload.get('show_hidden', false) }}"
+                  show_stacks:  "{{ _payload.get('show_stacks', false) }}"
+                  extended:     "{{ _payload.get('extended', false) }}"
+                  caller_token: "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_dojotools_kungfu_writer v1 ───────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_kungfu_writer' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_kungfu_writer
+                data:
+                  action:                "{{ _payload.get('action', 'help') }}"
+                  kata_key:              "{{ _payload.get('kata_key', '') }}"
+                  friendly_name:         "{{ _payload.get('friendly_name', '') }}"
+                  component_summary:     "{{ _payload.get('component_summary', '') }}"
+                  label:                 "{{ _payload.get('label', '') }}"
+                  command:               "{{ _payload.get('command', '') }}"
+                  trigger_subscriptions: "{{ _payload.get('trigger_subscriptions', '') }}"
+                  delay_seconds:         "{{ _payload.get('delay_seconds', 0) }}"
+                  enabled:               "{{ _payload.get('enabled', true) }}"
+                  requires_cert:         "{{ _payload.get('requires_cert', '') }}"
+                  requires_level:        "{{ _payload.get('requires_level', 0) }}"
+                  tool:                  "{{ _payload.get('tool', '') }}"
+                  version:               "{{ _payload.get('version', '') }}"
+                  component_instructions: "{{ _payload.get('component_instructions', '') }}"
+                  more_info:             "{{ _payload.get('more_info', '') }}"
+                  confirm_action:        "{{ _payload.get('confirm_action', false) }}"
+                  caller_token:          "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+        # ── Unknown tool — structured fault, NOT a hard crash ─────────────
+        default:
+          - variables:
+              _result:
+                status: error
+                error: unknown_tool
+                message: "Dispatcher: unknown tool '{{ _tool }}' v{{ _ver }}. Not in registry."
+                tool: "{{ _tool }}"
+                version: "{{ _ver }}"
+                correlation_id: "{{ _cid }}"
+          - event: zen_event
+            event_data:
+              event:
+                kind: dojotool_dispatch_error
+                tool: "{{ _tool }}"
+                version: "{{ _ver }}"
+                correlation_id: "{{ _cid }}"
+                error: unknown_tool
+                message: "Dispatcher: unknown tool '{{ _tool }}' v{{ _ver }}. Not in registry."
+
+      # ── Fire correlated return ─────────────────────────────────────────────
+      - event: zen_event
+        event_data:
+          event:
+            kind: dojotool_return
+            correlation_id: "{{ _cid }}"
+            tool: "{{ _tool }}"
+            version: "{{ _ver }}"
+            result: "{{ _result }}"
