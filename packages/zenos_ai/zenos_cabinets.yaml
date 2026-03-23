@@ -108,7 +108,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -202,7 +202,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -296,7 +296,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -390,7 +390,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -484,7 +484,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -578,7 +578,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -676,7 +676,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -770,7 +770,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -868,7 +868,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -962,7 +962,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1060,7 +1060,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1154,7 +1154,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1252,7 +1252,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1346,7 +1346,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1448,7 +1448,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1541,7 +1541,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1634,7 +1634,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1727,7 +1727,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
@@ -1820,7 +1820,7 @@ template:
           {%- set _mraw = _mr if _mr is mapping else (_mr | from_json if _mr is string else {}) -%}
           {%- set _mv = _mraw.get('value', _mraw) if _mraw is mapping else {} -%}
           {%- set _m = _mv if _mv is mapping else (_mv | from_json if _mv is string else {}) -%}
-          {%- if not _vi -%}init{%- elif _m.get('mounted') == true -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
+          {%- if not _vi -%}init{%- elif _m.get('mounted', true) != false -%}online_mounted{%- else -%}online_unmounted{%- endif -%}
         attributes:
           default_timestamp: true
           log_events: false
