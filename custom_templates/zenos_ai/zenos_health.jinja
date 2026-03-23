@@ -299,11 +299,20 @@ Provides mapping of slots to default entities
     ) -%}
 
     {# REQUIRED SLOTS: strict 1:1, label + cabinet health enforced #}
+    {#
+    BOOT-SAFETY: unknown state is intentionally excluded from 'bad'.
+    Trigger-based cabinet sensors always start 'unknown' at boot — they have not
+    evaluated their homeassistant.start trigger yet. Treating unknown as unhealthy
+    would cause zen_cabinet_health to return 'error' at every boot, which would
+    cause Flynn Gate 2 to fire initialize_cabinets and WIPE live cabinet data.
+    Only 'unavailable' indicates a real hardware / integration failure.
+    DO NOT add 'unknown' back to this filter. See: boot-wipe incident 2026-03-23.
+    #}
     {%- for slot in required -%}
         {%- set label_slug = slot_to_label[slot] | slugify -%}
         {%- set label_exists = label_slug in label_index -%}
         {%- set ents = intersect(all_cabs, label_entities(label_slug) or []) | list -%}
-        {%- set bad = ents | selectattr('state','in',['unavailable','unknown']) | list -%}
+        {%- set bad = ents | selectattr('state','eq','unavailable') | list -%}
 
         {%- if not label_exists -%}
             {%- set ns.missing_req = ns.missing_req + [slot] -%}
@@ -321,7 +330,7 @@ Provides mapping of slots to default entities
         {%- set label_slug = slot_to_label[slot] | slugify -%}
         {%- set ents = intersect(all_cabs, label_entities(label_slug) or []) | list -%}
         {%- if ents | count > 0 -%}
-            {%- set bad = ents | selectattr('state','in',['unavailable','unknown']) | list -%}
+            {%- set bad = ents | selectattr('state','eq','unavailable') | list -%}
             {%- if bad | count > 0 -%}
                 {%- set ns.unhealthy_opt = ns.unhealthy_opt + [slot] -%}
             {%- endif -%}

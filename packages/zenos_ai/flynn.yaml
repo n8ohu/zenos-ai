@@ -286,14 +286,34 @@ automation:
 
       #####################################################################
       # GATE 2: Cabinets not ok
+      #
+      # BOOT-SAFETY: Flynn NEVER auto-initializes cabinets. Doing so at boot
+      # is indistinguishable from wiping live data (incident: 2026-03-23).
+      # If cabinets are missing or damaged, notify the operator and stop.
+      # Initialization requires explicit operator action — never autonomous.
       #####################################################################
       - choose:
           - conditions: "{{ cabinet_health != 'ok' }}"
             sequence:
-              - alias: "Flynn: Initialize required cabinets"
-                action: script.flynn_initialize_cabinets
-                data: {}
-              - stop: "Gate 2: Cabinets initializing"
+              - alias: "Flynn: Notify operator — cabinets need attention"
+                action: persistent_notification.create
+                data:
+                  title: "ZenOS-AI: Cabinets need attention"
+                  message: >
+                    Flynn detected a cabinet health issue ({{ cabinet_health }}).
+                    Missing required slots: {{ state_attr('sensor.zen_cabinet_health', 'missing_cabinets') }}.
+                    This requires manual action. Open a conversation with me and say
+                    "initialize my cabinets" to proceed. Do NOT restart HA — I will not
+                    auto-initialize cabinets at boot.
+                  notification_id: flynn_cabinets_need_attention
+              - action: system_log.write
+                data:
+                  level: warning
+                  message: >-
+                    Flynn Gate 2: cabinet_health={{ cabinet_health }},
+                    missing={{ state_attr('sensor.zen_cabinet_health', 'missing_cabinets') }}.
+                    Auto-initialization is disabled. Operator action required.
+              - stop: "Gate 2: Cabinets need attention — operator action required"
 
       #####################################################################
       # GATE 2.5: Mount-aware mode — core defaults must be online_mounted
@@ -628,16 +648,28 @@ script:
                 slot: "{{ repeat.item | trim }}"
                 entity_id: "{{ slot_to_entity.get(slot, '') }}"
                 cabinet_type: "{{ slot_to_type.get(slot, 'AI Data Storage Cabinet') }}"
-            - choose:
-                - conditions: "{{ entity_id != '' }}"
-                  sequence:
-                    - action: script.zen_admintools_cabinetadmin
-                      data:
-                        mode: initialize
-                        confirm_action: true
-                        cabinet_entity: "{{ entity_id }}"
-                        cabinet_type: "{{ cabinet_type }}"
-                        skip_auto_init: true
+            - if: >-
+                {{ entity_id != ''
+                   and states(entity_id) not in ['online_mounted', 'online_unmounted'] }}
+              # ABSOLUTE BLOCK — NO CODE OVERRIDE EXISTS OR WILL EVER EXIST.
+              # online_mounted / online_unmounted = live cabinet with VolumeInfo.
+              # A cabinet in either of those states is NEVER initialized by code.
+              # If it has data, it does not get wiped. Period.
+              #
+              # Legitimate paths to initialize a cabinet that has data:
+              #   1. Deprovision via state machine: online_mounted → online_unmounted → init
+              #      Then the operator calls cabinetadmin initialize explicitly.
+              #   2. Operator calls zen_admintools_cabinetadmin directly with full intent.
+              # Both require deliberate operator action. Flynn does neither autonomously.
+              # See: boot-wipe incident 2026-03-23.
+              then:
+                - action: script.zen_admintools_cabinetadmin
+                  data:
+                    mode: initialize
+                    confirm_action: true
+                    cabinet_entity: "{{ entity_id }}"
+                    cabinet_type: "{{ cabinet_type }}"
+                    skip_auto_init: true
 
       - event: flynn_stepgate_event
         event_data:
