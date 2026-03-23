@@ -1,7 +1,7 @@
 ###############################################################################
 #  ZENOS-AI — RING-0 CABINET PACKAGE
 #  File: zenos_cabinets.yaml
-#  Version: 4.5.1
+#  Version: 4.5.2
 #
 #  20 canonical Ring-0 Cabinets for ZenOS-AI.
 #  14 core cabinets + 6 expansion slots (v4.3.0 cabset + v4.5.1 rename/add).
@@ -12,6 +12,16 @@
 #    131,072 bytes. remove_variable and clear_variables always execute.
 #
 #  CHANGELOG
+#  v4.5.2  2026-03-23  BOOT WIPE FIX. Three changes applied to all 20 cabinets:
+#                      (1) Boot guard: action block stops on current is none (recorder
+#                      race). Invariant: none=unknown→block, {}=empty→allow. Break-
+#                      glass: force:true in event data bypasses (admin/recovery only).
+#                      (2) variables attributes template: default {} → none + guard
+#                      outputs none at boot for two-layer protection.
+#                      (3) clear_variables requires confirm:true. Unconfirmed clears
+#                      silently dropped. Also: Volume Redirector auto-init block
+#                      REMOVED. No automatic cabinet resets under any conditions.
+#                      See: bug_cabinet_boot_wipe_regression_2026-03-23.md
 #  v4.5.1  2026-03-22  Startup re-evaluation fix. All 20 cabinet sensors now
 #                      listen for zen_event kind: cabinet_boot_touch (fired by
 #                      scheduler on ha_start). Forces state re-derivation on
@@ -76,6 +86,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -133,7 +154,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -148,7 +169,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -164,10 +188,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -196,6 +221,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -253,7 +289,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -268,7 +304,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -284,10 +323,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -316,6 +356,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -373,7 +424,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -388,7 +439,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -404,10 +458,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -436,6 +491,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -493,7 +559,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -508,7 +574,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -524,10 +593,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -556,6 +626,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -613,7 +694,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -628,7 +709,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -644,10 +728,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -676,6 +761,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -733,7 +829,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -748,7 +844,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -764,10 +863,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   ###########################################################################
@@ -800,6 +900,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -857,7 +968,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -872,7 +983,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -888,10 +1002,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -920,6 +1035,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -977,7 +1103,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -992,7 +1118,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1008,10 +1137,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   ###########################################################################
@@ -1044,6 +1174,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1101,7 +1242,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1116,7 +1257,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1132,10 +1276,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -1164,6 +1309,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1221,7 +1377,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1236,7 +1392,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1252,10 +1411,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   ###########################################################################
@@ -1288,6 +1448,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1345,7 +1516,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1360,7 +1531,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1376,10 +1550,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -1408,6 +1583,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1465,7 +1651,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1480,7 +1666,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1496,10 +1685,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   ###########################################################################
@@ -1532,6 +1722,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1589,7 +1790,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1604,7 +1805,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1620,10 +1824,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -1652,6 +1857,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1709,7 +1925,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1724,7 +1940,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1740,10 +1959,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   ###########################################################################
@@ -1782,6 +2002,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1838,7 +2069,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1853,7 +2084,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1869,10 +2103,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -1901,6 +2136,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1957,7 +2203,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -1972,7 +2218,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1988,10 +2237,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -2020,6 +2270,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2076,7 +2337,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -2091,7 +2352,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2107,10 +2371,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -2139,6 +2404,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2195,7 +2471,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -2210,7 +2486,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2226,10 +2505,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -2258,6 +2538,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2314,7 +2605,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -2329,7 +2620,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2345,10 +2639,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
   - trigger:
@@ -2377,6 +2672,17 @@ template:
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
             {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+      # ── BOOT GUARD ────────────────────────────────────────────────────────────
+      # current is none = recorder has not yet restored this cabinet's state.
+      # We do not know what is in it. NEVER write into unknown state.
+      # Blocks all writes: set_variable, remove_variable, clear_variables.
+      # Invariant: none = unknown (block). {} = known empty (allow). {...} = allow.
+      # Break-glass: pass force: true in event data to bypass (admin/recovery only).
+      # See: boot wipe incident 2026-03-23, bug_cabinet_boot_wipe_regression.md
+      - if: "{{ current is none and not trigger.event.data.get('force', false) }}"
+        then:
+          - stop: "Boot guard — state unconfirmed, all writes suppressed"
+      # ──────────────────────────────────────────────────────────────────────────
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2433,7 +2739,7 @@ template:
             {%- set _eff = dict(current, **_snew) -%}
           {%- elif _sevt.startswith('remove_variable') and _sk -%}
             {%- set _eff = dict(current.items() | rejectattr('0', 'eq', _sk)) -%}
-          {%- elif _sevt.startswith('clear_variables') -%}
+          {%- elif _sevt.startswith('clear_variables') and trigger.event.data.get('confirm') == true -%}
             {%- set _eff = {} -%}
           {%- else -%}
             {%- set _eff = current -%}
@@ -2448,7 +2754,10 @@ template:
           default_timestamp: true
           log_events: false
           variables: >
-            {% set current = this.attributes.get('variables', {}) %}
+            {% set current = this.attributes.get('variables', none) %}
+            {% if current is none %}
+              {{ none }}
+            {% else %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2464,10 +2773,11 @@ template:
               {{ current if proposed | tojson | length > 131072 else proposed }}
             {% elif evt.startswith('remove_variable') and key is defined %}
               {{ dict(current.items() | rejectattr('0', 'eq', key)) }}
-            {% elif evt.startswith('clear_variables') %}
+            {% elif evt.startswith('clear_variables') and trigger.event.data.get('confirm') == true %}
               {{ {} }}
             {% else %}
               {{ current }}
+            {% endif %}
             {% endif %}
 
 
@@ -2738,70 +3048,6 @@ automation:
                 volume_entity: "{{ volume_entity }}"
                 volume_name: "{{ canonical_volume_name }}"
             - stop: Validation Failed
-
-    # -------------------------------------------------------------
-    # AUTO-INIT: detect unformatted cabinets and initialize
-    # Only on SET events, only when NOT already a CabinetAdmin init,
-    # and only when VolumeInfo is missing (cabinet is unformatted).
-    #
-    # BOOT-SAFETY guards (see: boot-wipe incident 2026-03-23):
-    #   raw_vars is not none  — state_attr() returns None before HA has restored
-    #                           the entity state from .storage. None means "not yet
-    #                           loaded", NOT "empty". Never auto-init an entity
-    #                           whose state we cannot confirm is actually empty.
-    #   user_drawers == 0     — If ANY non-header drawers are present, the cabinet
-    #                           has real user data. Never wipe it, even if
-    #                           AI_Cabinet_VolumeInfo is absent (e.g. partial wipe).
-    #   Header-only keys that do NOT count as user data:
-    #     AI_Cabinet_VolumeInfo, _label_index, _zen_relationships, meta
-    # -------------------------------------------------------------
-    - variables:
-        cabinet_needs_init: >-
-          {%- set raw_vars = state_attr(volume_entity, 'variables') -%}
-          {%- set vars = raw_vars if raw_vars is mapping else {} -%}
-          {%- set header_keys = ['AI_Cabinet_VolumeInfo', '_label_index', '_zen_relationships', 'meta'] -%}
-          {%- set user_drawers = vars.keys() | reject('in', header_keys) | list -%}
-          {{
-            volume_entity in recognized_volumes
-            and raw_vars is not none
-            and cabinet_info == {}
-            and user_drawers | count == 0
-            and not is_cabinetadmin_init
-            and trigger.id == 'set'
-          }}
-        cabinet_type_for_init: >-
-          {% if volume_entity in [vol_system, vol_system_history] %}System Cabinet
-          {% elif volume_entity in [vol_household, vol_household_history] %}Household Cabinet
-          {% elif volume_entity in [vol_family, vol_family_history] %}Family Cabinet
-          {% elif volume_entity in [vol_user, vol_user_history] %}User Cabinet
-          {% elif volume_entity in [vol_ai_user, vol_ai_user_history] %}AI User Cabinet
-          {% elif volume_entity == vol_dojo %}Zen Dojo Cabinet
-          {% elif volume_entity == vol_kata %}Zen Kata Cabinet
-          {% elif volume_entity == vol_history %}AI Data Storage Cabinet
-          {% elif volume_entity == vol_scratch %}AI Data Storage Cabinet
-          {% else %}AI Data Storage Cabinet{% endif %}
-
-    - alias: Auto-init unformatted cabinet
-      choose:
-        - conditions:
-            - condition: template
-              value_template: "{{ cabinet_needs_init }}"
-          sequence:
-            - action: script.zen_admintools_cabinetadmin
-              data:
-                mode: initialize
-                confirm_action: true
-                cabinet_entity: "{{ volume_entity }}"
-                cabinet_type: "{{ cabinet_type_for_init | trim }}"
-                skip_auto_init: true
-            - event: dojo_volume_redirector_result
-              event_data:
-                status: info
-                action: auto_initialized
-                volume_entity: "{{ volume_entity }}"
-                volume_name: "{{ canonical_volume_name }}"
-                cabinet_type: "{{ cabinet_type_for_init | trim }}"
-                key: "{{ key }}"
 
     # -------------------------------------------------------------
     # ROUTING LOGIC BLOCKS FOR ALL 20 ZENOS CABINETS
