@@ -306,12 +306,14 @@ script:
     - event: zen_resolver_refresh
 
     - variables:
-        result: >-
-          Nuclear label reset complete. {{ zen_labels | length }} zen_ label(s)
-          deleted. zen_resolver_refresh fired. Flynn will recreate and reassign
-          on next sentinel cycle.
-    - variables:
-        result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
+        result:
+          status: success
+          message: >-
+            Nuclear label reset complete. {{ zen_labels | length }} zen_ label(s)
+            deleted. zen_resolver_refresh fired. Flynn will recreate and reassign
+            on next sentinel cycle.
+          deleted_count: "{{ zen_labels | length }}"
+          caller_token: "{{ caller_token }}"
     - stop: reset labels complete
       response_variable: result
 
@@ -409,9 +411,10 @@ script:
           value_template: '{{ op == ''hammer'' and not hammer_ok }}'
         sequence:
         - variables:
-            result: 'Hammer mode requires hammer_ok: true'
-        - variables:
-            result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
+            result:
+              status: error
+              message: 'Hammer mode requires hammer_ok: true'
+              caller_token: "{{ caller_token }}"
         - stop: hammer blocked
           response_variable: result
     - repeat:
@@ -508,12 +511,13 @@ script:
           value_template: '{{ not confirm }}'
         then:
         - variables:
-            result: >-
-              reset_all refused — confirm: true required. This wipes all ring-0
-              canonical cabinets, reseeds schemas, and triggers Flynn bootstrap.
-              No undo. Set confirm: true to proceed.
-        - variables:
-            result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
+            result:
+              status: error
+              message: >-
+                reset_all refused — confirm: true required. This wipes all ring-0
+                canonical cabinets, reseeds schemas, and triggers Flynn bootstrap.
+                No undo. Set confirm: true to proceed.
+              caller_token: "{{ caller_token }}"
         - stop: confirm required
           response_variable: result
       # Step 1 — wipe all ring-0 cabinets
@@ -530,20 +534,25 @@ script:
       # Step 3 — kick resolvers; Flynn sentinel fires from zen_cabinet_health change
       - event: zen_resolver_refresh
       - variables:
-          result: >-
-            reset_all complete. {{ canon_ring0_cabinets | length }} ring-0
-            cabinet(s) wiped. Schemas reseeded via reset_template.
-            zen_resolver_refresh fired. Flynn will bootstrap on next sentinel
-            cycle. User cabinets were not touched.
-      - variables:
-          result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
+          result:
+            status: success
+            message: >-
+              reset_all complete. {{ canon_ring0_cabinets | length }} ring-0
+              cabinet(s) wiped. Schemas reseeded via reset_template.
+              zen_resolver_refresh fired. Flynn will bootstrap on next sentinel
+              cycle. User cabinets were not touched.
+            wiped_count: "{{ canon_ring0_cabinets | length }}"
+            caller_token: "{{ caller_token }}"
       - stop: reset_all complete
         response_variable: result
 
     - variables:
-        result: 'AdminTools completed ''{{ op }}'' on {{ effective_targets | length }} cabinet(s).'
-    - variables:
-        result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
+        result:
+          status: success
+          message: "AdminTools completed '{{ op }}' on {{ effective_targets | length }} cabinet(s)."
+          op: "{{ op }}"
+          target_count: "{{ effective_targets | length }}"
+          caller_token: "{{ caller_token }}"
     - stop: complete
       response_variable: result
 
