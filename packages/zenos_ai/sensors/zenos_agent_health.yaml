@@ -350,6 +350,8 @@ template:
                 {%- elif ag_ess_status != 'ok' %}
                   {%- set _miss = ag_probe.get('missing', []) | join(',') if ag_probe is mapping else '' %}
                   {%- set note = 'essence_' ~ ag_ess_status ~ ':' ~ _miss %}
+                {%- elif mon_st not in ['ok', 'disabled'] %}
+                  {%- set note = 'ready_monastery_' ~ mon_st %}
                 {%- else %}
                   {%- set note = 'ready' %}
                 {%- endif %}
