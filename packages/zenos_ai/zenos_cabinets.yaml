@@ -12,6 +12,11 @@
 #    131,072 bytes. remove_variable and clear_variables always execute.
 #
 #  CHANGELOG
+#  v4.5.1  2026-03-22  Startup re-evaluation fix. All 19 cabinet sensors now
+#                      listen for zen_event kind: cabinet_boot_touch (fired by
+#                      scheduler on ha_start). Forces state re-derivation on
+#                      reload so pre-RP2 cabs with no meta drawer correctly
+#                      surface online_mounted without waiting for a write event.
 #  v4.5.0  2026-03-22  Mount-aware state machine (#97). Cabinet sensor state:
 #                      now emits init / online_mounted / online_unmounted
 #                      (was: init / online). Truth is meta.mounted in cabinet
@@ -50,6 +55,12 @@ template:
         id: sensor.zenos_system_cabinet
       - trigger: event
         event_type: clear_variables_zenos_system_cabinet
+        id: sensor.zenos_system_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_system_cabinet
     action:
       - variables:
@@ -145,6 +156,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_system_history_cabinet
         id: sensor.zenos_system_history_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_system_history_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -238,6 +255,12 @@ template:
         id: sensor.zenos_dojo_cabinet
       - trigger: event
         event_type: clear_variables_zenos_dojo_cabinet
+        id: sensor.zenos_dojo_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_dojo_cabinet
     action:
       - variables:
@@ -333,6 +356,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_kata_cabinet
         id: sensor.zenos_kata_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_kata_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -427,6 +456,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_history_cabinet
         id: sensor.zenos_history_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_history_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -520,6 +555,12 @@ template:
         id: sensor.zenos_scratchpad_cabinet
       - trigger: event
         event_type: clear_variables_zenos_scratchpad_cabinet
+        id: sensor.zenos_scratchpad_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_scratchpad_cabinet
     action:
       - variables:
@@ -619,6 +660,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_household_cabinet
         id: sensor.zenos_default_household_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_default_household_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -712,6 +759,12 @@ template:
         id: sensor.zenos_default_household_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_household_history_cabinet
+        id: sensor.zenos_default_household_history_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_default_household_history_cabinet
     action:
       - variables:
@@ -811,6 +864,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_family_cabinet
         id: sensor.zenos_default_family_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_default_family_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -904,6 +963,12 @@ template:
         id: sensor.zenos_default_family_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_family_history_cabinet
+        id: sensor.zenos_default_family_history_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_default_family_history_cabinet
     action:
       - variables:
@@ -1003,6 +1068,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_user_cabinet
         id: sensor.zenos_default_user_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_default_user_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1096,6 +1167,12 @@ template:
         id: sensor.zenos_default_user_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_user_history_cabinet
+        id: sensor.zenos_default_user_history_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_default_user_history_cabinet
     action:
       - variables:
@@ -1195,6 +1272,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_ai_user_cabinet
         id: sensor.zenos_default_ai_user_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_default_ai_user_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1288,6 +1371,12 @@ template:
         id: sensor.zenos_default_ai_user_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_ai_user_history_cabinet
+        id: sensor.zenos_default_ai_user_history_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_default_ai_user_history_cabinet
     action:
       - variables:
@@ -1392,6 +1481,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_secondary_user_cabinet
         id: sensor.zenos_secondary_user_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_secondary_user_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1484,6 +1579,12 @@ template:
         id: sensor.zenos_tertiary_user_cabinet
       - trigger: event
         event_type: clear_variables_zenos_tertiary_user_cabinet
+        id: sensor.zenos_tertiary_user_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_tertiary_user_cabinet
     action:
       - variables:
@@ -1578,6 +1679,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_quaternary_user_cabinet
         id: sensor.zenos_quaternary_user_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_quaternary_user_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1671,6 +1778,12 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_secondary_ai_user_cabinet
         id: sensor.zenos_secondary_ai_user_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
+        id: sensor.zenos_secondary_ai_user_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1763,6 +1876,12 @@ template:
         id: sensor.zenos_vault_cabinet
       - trigger: event
         event_type: clear_variables_zenos_vault_cabinet
+        id: sensor.zenos_vault_cabinet
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_boot_touch
         id: sensor.zenos_vault_cabinet
     action:
       - variables:
