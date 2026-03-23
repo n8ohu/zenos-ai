@@ -68,7 +68,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -115,6 +115,7 @@ template:
         unique_id: zenos_system_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -180,7 +181,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -227,6 +228,7 @@ template:
         unique_id: zenos_system_history_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -292,7 +294,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -339,6 +341,7 @@ template:
         unique_id: zenos_dojo_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -404,7 +407,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -451,6 +454,7 @@ template:
         unique_id: zenos_kata_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -516,7 +520,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -563,6 +567,7 @@ template:
         unique_id: zenos_history_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -628,7 +633,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -675,6 +680,7 @@ template:
         unique_id: zenos_scratchpad_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -744,7 +750,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -791,6 +797,7 @@ template:
         unique_id: zenos_default_household_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -856,7 +863,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -903,6 +910,7 @@ template:
         unique_id: zenos_default_household_history_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -972,7 +980,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1019,6 +1027,7 @@ template:
         unique_id: zenos_default_family_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1084,7 +1093,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1131,6 +1140,7 @@ template:
         unique_id: zenos_default_family_history_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1200,7 +1210,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1247,6 +1257,7 @@ template:
         unique_id: zenos_default_user_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1312,7 +1323,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1359,6 +1370,7 @@ template:
         unique_id: zenos_default_user_history_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1428,7 +1440,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1475,6 +1487,7 @@ template:
         unique_id: zenos_default_ai_user_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1540,7 +1553,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1587,6 +1600,7 @@ template:
         unique_id: zenos_default_ai_user_history_cabinet
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1662,7 +1676,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1708,6 +1722,7 @@ template:
         unique_id: zenos_expansion_cabinet_1
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1773,7 +1788,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1819,6 +1834,7 @@ template:
         unique_id: zenos_expansion_cabinet_2
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1884,7 +1900,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -1930,6 +1946,7 @@ template:
         unique_id: zenos_expansion_cabinet_3
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -1995,7 +2012,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2041,6 +2058,7 @@ template:
         unique_id: zenos_expansion_cabinet_4
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -2106,7 +2124,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2152,6 +2170,7 @@ template:
         unique_id: zenos_expansion_cabinet_5
         icon: mdi:file-cabinet
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -2217,7 +2236,7 @@ template:
           this_entity_id: "{{- trigger.id -}}"
           log_events: "{{- state_attr(this_entity_id, 'log_events') -}}"
           log_enabled: "{{- (log_events is none) or (log_events==true) -}}"
-          current: "{{- state_attr(this_entity_id, 'variables') or {} -}}"
+          current: "{{- this.attributes.get('variables', none) -}}"
       - if: "{{ log_enabled }}"
         then:
           - action: logbook.log
@@ -2263,6 +2282,7 @@ template:
         unique_id: zenos_vault_cabinet
         icon: mdi:safe-square
         state: >-
+          {%- set current = current if current is mapping else {} -%}
           {%- set _sevt = trigger.event.event_type if trigger.platform == 'event' else '' -%}
           {%- set _sk = trigger.event.data.key | default('') if trigger.platform == 'event' else '' -%}
           {%- set _sv = trigger.event.data.value | default(none) if trigger.platform == 'event' else none -%}
@@ -2580,12 +2600,29 @@ automation:
     # AUTO-INIT: detect unformatted cabinets and initialize
     # Only on SET events, only when NOT already a CabinetAdmin init,
     # and only when VolumeInfo is missing (cabinet is unformatted).
+    #
+    # BOOT-SAFETY guards (see: boot-wipe incident 2026-03-23):
+    #   raw_vars is not none  — state_attr() returns None before HA has restored
+    #                           the entity state from .storage. None means "not yet
+    #                           loaded", NOT "empty". Never auto-init an entity
+    #                           whose state we cannot confirm is actually empty.
+    #   user_drawers == 0     — If ANY non-header drawers are present, the cabinet
+    #                           has real user data. Never wipe it, even if
+    #                           AI_Cabinet_VolumeInfo is absent (e.g. partial wipe).
+    #   Header-only keys that do NOT count as user data:
+    #     AI_Cabinet_VolumeInfo, _label_index, _zen_relationships, meta
     # -------------------------------------------------------------
     - variables:
         cabinet_needs_init: >-
+          {%- set raw_vars = state_attr(volume_entity, 'variables') -%}
+          {%- set vars = raw_vars if raw_vars is mapping else {} -%}
+          {%- set header_keys = ['AI_Cabinet_VolumeInfo', '_label_index', '_zen_relationships', 'meta'] -%}
+          {%- set user_drawers = vars.keys() | reject('in', header_keys) | list -%}
           {{
             volume_entity in recognized_volumes
+            and raw_vars is not none
             and cabinet_info == {}
+            and user_drawers | count == 0
             and not is_cabinetadmin_init
             and trigger.id == 'set'
           }}
