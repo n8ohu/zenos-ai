@@ -39,10 +39,7 @@
 #   - sensor.zen_default_ai_user_cabinet_resolved
 #   - sensor.zen_default_family_cabinet_resolved
 #   - sensor.zen_default_user_cabinet_resolved
-#   - sensor.zen_secondary_user_cabinet_resolved       [optional]
-#   - sensor.zen_tertiary_user_cabinet_resolved        [optional]
-#   - sensor.zen_quaternary_user_cabinet_resolved      [optional]
-#   - sensor.zen_secondary_ai_user_cabinet_resolved    [optional]
+#   (pool user/ai_user cabs enumerated via label_entities, no ordinal resolvers)
 #
 # NOTE: zen_vault_cabinet has NO resolver by design. Vault is structurally
 #   absent from all knowledge-pipeline traversals. Access gated via identity.
@@ -143,52 +140,10 @@ template:
              | select('match', 'sensor\.')
              | list | count > 0 }}
 
-      # ── Optional cabset expansion ─────────────────────────────────────────
-      # Unavailable when the label has no entities — not an error condition.
-
-      - name: Zen Secondary User Cabinet Resolved
-        unique_id: zen_secondary_user_cabinet_resolved
-        state: >-
-          {{ label_entities('zen_secondary_user_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
-        availability: >-
-          {{ label_entities('zen_secondary_user_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
-
-      - name: Zen Tertiary User Cabinet Resolved
-        unique_id: zen_tertiary_user_cabinet_resolved
-        state: >-
-          {{ label_entities('zen_tertiary_user_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
-        availability: >-
-          {{ label_entities('zen_tertiary_user_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
-
-      - name: Zen Quaternary User Cabinet Resolved
-        unique_id: zen_quaternary_user_cabinet_resolved
-        state: >-
-          {{ label_entities('zen_quaternary_user_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
-        availability: >-
-          {{ label_entities('zen_quaternary_user_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
-
-      - name: Zen Secondary AI User Cabinet Resolved
-        unique_id: zen_secondary_ai_user_cabinet_resolved
-        state: >-
-          {{ label_entities('zen_secondary_ai_user_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
-        availability: >-
-          {{ label_entities('zen_secondary_ai_user_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
+      # ── Pool user/ai_user members ───────────────────────────────────────────
+      # No ordinal resolver sensors — pool members enumerated via
+      # label_entities('zen_user_cabinet') and label_entities('zen_ai_user_cabinet').
+      # Explicit entity_id required when targeting a pool member directly.
 
   ###########################################################################
   # 1️⃣ ZEN MONASTERY HEALTH — global cognition rollup

@@ -434,20 +434,12 @@ script:
           _default_target: >-
             {%- if _type == 'ai_user' -%}
               {{ states('sensor.zen_default_ai_user_cabinet_resolved') }}
-            {%- elif _type == 'secondary_ai_user' -%}
-              {{ states('sensor.zen_secondary_ai_user_cabinet_resolved') }}
             {%- elif _type == 'household' -%}
               {{ states('sensor.zen_default_household_cabinet_resolved') }}
             {%- elif _type == 'family' -%}
               {{ states('sensor.zen_default_family_cabinet_resolved') }}
             {%- elif _type == 'user' -%}
               {{ states('sensor.zen_default_user_cabinet_resolved') }}
-            {%- elif _type == 'secondary_user' -%}
-              {{ states('sensor.zen_secondary_user_cabinet_resolved') }}
-            {%- elif _type == 'tertiary_user' -%}
-              {{ states('sensor.zen_tertiary_user_cabinet_resolved') }}
-            {%- elif _type == 'quaternary_user' -%}
-              {{ states('sensor.zen_quaternary_user_cabinet_resolved') }}
             {%- else -%}
             {%- endif -%}
           _target: "{{ _explicit if _explicit != '' else _default_target }}"
