@@ -31,7 +31,7 @@
 #       correlation_id: <uuid>
 #       payload:
 #         mode: provision
-#         target_cabinet: sensor.zenos_secondary_user_cabinet
+#         target_cabinet: sensor.zenos_expansion_1_cabinet
 #         cab_type: ai_user
 #         caller_token: "{{ caller_token }}"
 #

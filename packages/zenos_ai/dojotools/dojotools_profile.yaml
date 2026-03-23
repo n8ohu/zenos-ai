@@ -38,19 +38,20 @@ script:
 
       target_type:
         name: Target Type
-        description: "ai_user | secondary_ai_user | household | user | secondary_user | tertiary_user | quaternary_user | family. Defaults to ai_user."
+        description: "ai_user | household | user | family | expansion_1-5. Defaults to ai_user. Expansion slots are type-agnostic — pass ai_user or user with target: sensor.zenos_expansion_x_cabinet."
         default: ai_user
         selector:
           select:
             options:
               - ai_user
-              - secondary_ai_user
               - household
               - user
-              - secondary_user
-              - tertiary_user
-              - quaternary_user
               - family
+              - expansion_1
+              - expansion_2
+              - expansion_3
+              - expansion_4
+              - expansion_5
 
       target:
         name: Target Entity
@@ -466,7 +467,7 @@ script:
             sequence:
               - variables:
                   _r_profile: >-
-                    {%- if _type in ['ai_user', 'secondary_ai_user'] -%}
+                    {%- if _type in ['ai_user'] -%}
                       {%- set raw = _cab_vars.get('zenai_essence', {}) -%}
                       {%- set ev  = raw.get('value', raw) if raw is mapping else {} -%}
                       {%- set _is_new = ev.get('core') is mapping and ev.get('jacket') is mapping -%}
@@ -608,7 +609,7 @@ script:
       #   Step C — assemble final essence + write
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'write' and _type in ['ai_user', 'secondary_ai_user'] }}"
+          - conditions: "{{ _mode == 'write' and _type in ['ai_user'] }}"
             sequence:
 
               # Step A — current state + inputs
@@ -975,7 +976,7 @@ script:
       # 5 — WRITE: user / family  (_user_profile or _family_profile key)
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'write' and _type in ['user', 'family', 'secondary_user', 'tertiary_user', 'quaternary_user'] }}"
+          - conditions: "{{ _mode == 'write' and _type in ['user', 'family'] }}"
             sequence:
               - variables:
                   _u_key: "{{ '_family_profile' if _type == 'family' else '_user_profile' }}"
@@ -1047,7 +1048,7 @@ script:
       # 6 — CERT_LIST: read zen_ai_certs drawer
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'cert_list' and _type in ['ai_user', 'secondary_ai_user'] }}"
+          - conditions: "{{ _mode == 'cert_list' and _type in ['ai_user'] }}"
             sequence:
               - variables:
                   _craw: "{{ _cab_vars.get('zen_ai_certs', {}) }}"
@@ -1070,7 +1071,7 @@ script:
       # Links back to the signed jacket via jacket_id (jacket.id from zenai_essence).
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'cert_grant' and _type in ['ai_user', 'secondary_ai_user'] }}"
+          - conditions: "{{ _mode == 'cert_grant' and _type in ['ai_user'] }}"
             sequence:
               - variables:
                   _comp:       "{{ cert_component | default('') | trim | lower }}"
@@ -1160,7 +1161,7 @@ script:
       # 8 — CERT_REVOKE: remove one KFC cert from zen_ai_certs
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'cert_revoke' and _type in ['ai_user', 'secondary_ai_user'] }}"
+          - conditions: "{{ _mode == 'cert_revoke' and _type in ['ai_user'] }}"
             sequence:
               - variables:
                   _comp: "{{ cert_component | default('') | trim | lower }}"
@@ -1229,7 +1230,7 @@ script:
       # Upgrade path: swap md5 for OIDC-backed sig in SP1 — schema unchanged.
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'sign' and _type in ['ai_user', 'secondary_ai_user'] }}"
+          - conditions: "{{ _mode == 'sign' and _type in ['ai_user'] }}"
             sequence:
               - variables:
                   _ess_raw: "{{ _cab_vars.get('zenai_essence', {}) }}"
@@ -1336,7 +1337,7 @@ script:
       # the last known good reference until the next write creates a new one.
       ###########################################################################
       - choose:
-          - conditions: "{{ _mode == 'restore' and _type in ['ai_user', 'secondary_ai_user'] }}"
+          - conditions: "{{ _mode == 'restore' and _type in ['ai_user'] }}"
             sequence:
               - variables:
                   _prev_drawer: "{{ _cab_vars.get('zenai_essence_prev', {}) }}"
