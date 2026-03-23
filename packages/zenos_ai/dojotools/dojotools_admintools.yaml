@@ -324,7 +324,19 @@ script:
       mode. All writes routed exclusively through set_variable_legacy /
       clear_variables_legacy for safe cabinet volume routing.
 
-      Ops: inspect, restore, reset, hammer, init, reset_all.
+      Ops: inspect, restore, reset, hammer, init, reset_all, mount_status,
+      repair_mount, repair_dismount, flip_schema_version.
+
+      Mount repair ops (repair_mount, repair_dismount): force-write meta.mounted
+      true/false on stuck cabinets, bypassing normal state guards. Use when a
+      cabinet is stuck in the wrong state after a failed mount/dismount cycle.
+
+      mount_status: read current mount state across all zen_cabinet labeled
+      entities. Returns {entity: {state, mounted}} dict. No target needed.
+
+      flip_schema_version: toggle cab_schema_version in syscab between 0 and 1.
+      Optional schema_version field overrides the auto-flip. Controls whether
+      Flynn runs in legacy mode (0) or mount-aware mode (>=1).
 
       ⚠️  reset_all is NUCLEAR — wipes ALL ring-0 canonical cabinets, reseeds
       schemas, and triggers Flynn bootstrap. No undo. User cabinets are NOT
@@ -347,6 +359,10 @@ script:
             - hammer
             - init
             - reset_all
+            - mount_status
+            - repair_mount
+            - repair_dismount
+            - flip_schema_version
         default: inspect
       target_cabinet:
         name: Target Cabinet
@@ -367,6 +383,17 @@ script:
         default: false
         selector:
           boolean:
+      schema_version:
+        name: Schema Version (flip_schema_version only)
+        description: >-
+          Target cab_schema_version value to write into syscab. If omitted,
+          auto-flips (0→1 or 1→0). Integer. Controls legacy vs mount-aware mode.
+        required: false
+        selector:
+          number:
+            min: 0
+            max: 9
+            mode: box
       caller_token:
         name: Caller Token
         description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
@@ -430,7 +457,26 @@ script:
               value_template: '{{ op == ''inspect'' }}'
             sequence:
             - variables:
-                inspect_acc: '{{ inspect_acc | combine({cab: drawers}) }}'
+                _scroll_keys: >-
+                  {%- set ns = namespace(s=[]) -%}
+                  {%- for key, drawer in vars.items() if key != '_label_index' -%}
+                    {%- set entry = drawer if drawer is mapping else {} -%}
+                    {%- set mt = entry.get('meta', {}) -%}
+                    {%- set mt = mt if mt is mapping else (mt | from_json if mt is string else {}) -%}
+                    {%- if mt.get('ro', false) -%}
+                      {%- set ns.s = ns.s + [key] -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                  {{ ns.s }}
+            - variables:
+                inspect_acc: >-
+                  {{- inspect_acc | combine({
+                    cab: {
+                      'state': states(cab),
+                      'drawers': drawers | reject('in', _scroll_keys) | list,
+                      'scroll': _scroll_keys
+                    }
+                  }) -}}
           - conditions:
             - condition: template
               value_template: '{{ op == ''restore'' }}'
@@ -492,6 +538,48 @@ script:
                       initialized: true
                       timestamp: '{{ now().isoformat() }}'
                   set_timestamp: true
+          # ── repair_mount — force meta.mounted: true (bypass state guards) ──
+          - conditions:
+            - condition: template
+              value_template: '{{ op == ''repair_mount'' }}'
+            sequence:
+            - event: set_variable_legacy
+              event_data:
+                volume_entity: '{{ cab }}'
+                key: meta
+                value: "{{ {'mounted': true} }}"
+                set_timestamp: true
+            - wait_template: "{{ states(cab) == 'online_mounted' }}"
+              timeout: '00:00:05'
+              continue_on_timeout: true
+            - event: zen_event
+              event_data:
+                event:
+                  kind: cabinet_mounted
+                  component: "{{ cab }}"
+                  severity: info
+                  summary: "CabinetAdmin repair_mount: '{{ cab }}' forced to mounted (verified: {{ states(cab) == 'online_mounted' }})."
+          # ── repair_dismount — force meta.mounted: false (bypass state guards) ─
+          - conditions:
+            - condition: template
+              value_template: '{{ op == ''repair_dismount'' }}'
+            sequence:
+            - event: set_variable_legacy
+              event_data:
+                volume_entity: '{{ cab }}'
+                key: meta
+                value: "{{ {'mounted': false} }}"
+                set_timestamp: true
+            - wait_template: "{{ states(cab) in ['online_unmounted', 'dismounted'] }}"
+              timeout: '00:00:05'
+              continue_on_timeout: true
+            - event: zen_event
+              event_data:
+                event:
+                  kind: cabinet_dismounted
+                  component: "{{ cab }}"
+                  severity: info
+                  summary: "CabinetAdmin repair_dismount: '{{ cab }}' forced to dismounted (verified: {{ states(cab) in ['online_unmounted', 'dismounted'] }})."
     # ── inspect — emit accumulated result after loop ─────────────────────────
     - if:
       - condition: template
@@ -501,6 +589,54 @@ script:
           inspect_acc: "{{ inspect_acc | combine({'caller_token': caller_token | default('')}) if inspect_acc is mapping else inspect_acc }}"
       - stop: inspect complete
         response_variable: inspect_acc
+    # ── mount_status — read mount state across all zen_cabinet entities ───────
+    - if:
+      - condition: template
+        value_template: '{{ op == ''mount_status'' }}'
+      then:
+      - variables:
+          _all_cabs: >-
+            {{ label_entities('Zen Cabinet' | slugify) | list }}
+      - variables:
+          mount_status_result: >-
+            {%- set ns = namespace(m={}) -%}
+            {%- for eid in _all_cabs -%}
+              {%- set _v = state_attr(eid, 'variables') | default({}, true) -%}
+              {%- set _v = _v if _v is mapping else {} -%}
+              {%- set _mt = _v.get('meta', {}) -%}
+              {%- set _mt = _mt if _mt is mapping else (_mt | from_json if _mt is string else {}) -%}
+              {%- set ns.m = ns.m | combine({eid: {'state': states(eid), 'mounted': _mt.get('mounted', false)}}) -%}
+            {%- endfor -%}
+            {{ ns.m | combine({'caller_token': caller_token}) }}
+      - stop: mount_status complete
+        response_variable: mount_status_result
+    # ── flip_schema_version — toggle cab_schema_version in syscab ────────────
+    - if:
+      - condition: template
+        value_template: '{{ op == ''flip_schema_version'' }}'
+      then:
+      - variables:
+          _syscab_vars: '{{ state_attr(''sensor.zenos_system_cabinet'', ''variables'') | default({}, true) }}'
+          _syscab_mapped: '{{ _syscab_vars if _syscab_vars is mapping else {} }}'
+          _csve: '{{ _syscab_mapped.get(''cab_schema_version'', {}) }}'
+          _csve_mapped: '{{ _csve if _csve is mapping else {} }}'
+          _current_v: '{{ _csve_mapped.get(''value'', 0) | int(0) }}'
+          _new_v: '{{ schema_version | default(none) | int(-1) if schema_version | default(none) is not none else (1 if _current_v == 0 else 0) }}'
+      - event: set_variable_legacy
+        event_data:
+          key: cab_schema_version
+          value: "{{ {'value': _new_v} }}"
+          volume_entity: sensor.zenos_system_cabinet
+          set_timestamp: true
+      - variables:
+          result:
+            status: success
+            message: "cab_schema_version {{ _current_v }} → {{ _new_v }} in syscab. Flynn now runs in {{ 'mount-aware' if _new_v >= 1 else 'legacy' }} mode."
+            previous_value: "{{ _current_v }}"
+            new_value: "{{ _new_v }}"
+            caller_token: "{{ caller_token }}"
+      - stop: flip_schema_version complete
+        response_variable: result
     # ── reset_all — nuclear cabinet wipe + reseed + Flynn bootstrap ──────────
     - if:
       - condition: template
