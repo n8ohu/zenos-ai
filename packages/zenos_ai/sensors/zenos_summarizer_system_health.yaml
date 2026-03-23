@@ -99,46 +99,86 @@ template:
       - name: Zen Default Household Cabinet Resolved
         unique_id: zen_default_household_cabinet_resolved
         state: >-
-          {{ label_entities('zen_default_household_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_household_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r='unavailable') -%}
+          {%- for e in _cands -%}{%- if ns.r == 'unavailable' and states(e) == 'online_mounted' -%}{%- set ns.r = e -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | first | default('unavailable') }}{%- endif -%}
         availability: >-
-          {{ label_entities('zen_default_household_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_household_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r=false) -%}
+          {%- for e in _cands -%}{%- if states(e) == 'online_mounted' -%}{%- set ns.r = true -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | count > 0 }}{%- endif -%}
 
       - name: Zen Default AI User Cabinet Resolved
         unique_id: zen_default_ai_user_cabinet_resolved
         state: >-
-          {{ label_entities('zen_default_ai_user_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_ai_user_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r='unavailable') -%}
+          {%- for e in _cands -%}{%- if ns.r == 'unavailable' and states(e) == 'online_mounted' -%}{%- set ns.r = e -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | first | default('unavailable') }}{%- endif -%}
         availability: >-
-          {{ label_entities('zen_default_ai_user_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_ai_user_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r=false) -%}
+          {%- for e in _cands -%}{%- if states(e) == 'online_mounted' -%}{%- set ns.r = true -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | count > 0 }}{%- endif -%}
 
       - name: Zen Default Family Cabinet Resolved
         unique_id: zen_default_family_cabinet_resolved
         state: >-
-          {{ label_entities('zen_default_family_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_family_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r='unavailable') -%}
+          {%- for e in _cands -%}{%- if ns.r == 'unavailable' and states(e) == 'online_mounted' -%}{%- set ns.r = e -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | first | default('unavailable') }}{%- endif -%}
         availability: >-
-          {{ label_entities('zen_default_family_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_family_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r=false) -%}
+          {%- for e in _cands -%}{%- if states(e) == 'online_mounted' -%}{%- set ns.r = true -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | count > 0 }}{%- endif -%}
 
       - name: Zen Default User Cabinet Resolved
         unique_id: zen_default_user_cabinet_resolved
         state: >-
-          {{ label_entities('zen_default_user_cabinet')
-             | select('match', 'sensor\.')
-             | first | default('unavailable') }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_user_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r='unavailable') -%}
+          {%- for e in _cands -%}{%- if ns.r == 'unavailable' and states(e) == 'online_mounted' -%}{%- set ns.r = e -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | first | default('unavailable') }}{%- endif -%}
         availability: >-
-          {{ label_entities('zen_default_user_cabinet')
-             | select('match', 'sensor\.')
-             | list | count > 0 }}
+          {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _se = _sv.get('cab_schema_version', {}) -%}
+          {%- set _ma = ((_se.get('value', 0) if _se is mapping else 0) | int(0)) >= 1 -%}
+          {%- set _cands = label_entities('zen_default_user_cabinet') | select('match', 'sensor\.') | list -%}
+          {%- if _ma -%}{%- set ns = namespace(r=false) -%}
+          {%- for e in _cands -%}{%- if states(e) == 'online_mounted' -%}{%- set ns.r = true -%}{%- endif -%}{%- endfor -%}
+          {{ ns.r }}{%- else -%}{{ _cands | count > 0 }}{%- endif -%}
 
       # ── Pool user/ai_user members ───────────────────────────────────────────
       # No ordinal resolver sensors — pool members enumerated via
