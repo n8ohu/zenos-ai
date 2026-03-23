@@ -681,7 +681,7 @@ script:
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: "{{ component_slug }}"
-              value: "{{ kata_summary | tojson }}"
+              value: "{{ kata_summary }}"
               # FIX: was {{ index_command, 'Ninja Summary' }} — tuple syntax, fixed to clean CSV
               # Guard: if index_command empty, omit leading comma
               label_input: "{{ (index_command + ', ') if index_command else '' }}Ninja Summary"
