@@ -149,6 +149,11 @@ script:
           - zen_default_ai_user_cabinet
     - variables:
         _type_label_id: "{{ _type_label_map.get(_cab_type, '') }}"
+        _cab_type_friendly_map:
+          ai_user: AI User Cabinet
+          user: User Cabinet
+          family: Family Cabinet
+          household: Household Cabinet
 
     # ── Gate: require target_cabinet ──────────────────────────────────────
     - if:
@@ -197,20 +202,51 @@ script:
         value_template: "{{ _op in ['provision', 'replace'] }}"
       then:
 
-      # ── Gate: target must be online_unmounted (in the stacks) ────────────
+      # ── Gate: target must be init or online_unmounted ───────────────────
       - if:
         - condition: template
-          value_template: "{{ states(_target) != 'online_unmounted' }}"
+          value_template: "{{ states(_target) not in ['init', 'online_unmounted'] }}"
         then:
         - variables:
             result:
               status: error
               message: >-
-                provision requires target_cabinet in online_unmounted state
-                (in the stacks). Current state: '{{ states(_target) }}'.
+                provision requires target_cabinet in init or online_unmounted
+                state (in the stacks). Current state: '{{ states(_target) }}'.
               caller_token: "{{ caller_token }}"
         - stop: target not in stacks
           response_variable: result
+
+      # ── Auto-stamp if init (no VolumeInfo yet) ───────────────────────────
+      - variables:
+          _needs_stamp: "{{ states(_target) == 'init' }}"
+          _cab_type_friendly: "{{ _cab_type_friendly_map.get(_cab_type, _cab_type | title | replace('_', ' ') + ' Cabinet') }}"
+
+      - if:
+        - condition: template
+          value_template: "{{ _needs_stamp }}"
+        then:
+        - action: script.zen_admintools_cabinetadmin_stamp
+          data:
+            cabinet_entity: "{{ _target }}"
+            cabinet_type: "{{ _cab_type_friendly }}"
+            confirm_action: true
+            caller_token: "{{ caller_token }}"
+          response_variable: _stamp_result
+        - wait_template: "{{ states(_target) == 'online_unmounted' }}"
+          timeout: '00:00:15'
+          continue_on_timeout: true
+        - if:
+          - condition: template
+            value_template: "{{ states(_target) != 'online_unmounted' }}"
+          then:
+          - variables:
+              result:
+                status: error
+                message: "provision failed: auto-stamp did not land online_unmounted within 15s. Current state: '{{ states(_target) }}'."
+                caller_token: "{{ caller_token }}"
+          - stop: stamp timeout
+            response_variable: result
 
       # ── GUID gate (before label application) ────────────────────────────
       # FG-38 safe — two-round normalization on VolumeInfo
