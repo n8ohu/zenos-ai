@@ -81,11 +81,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -216,11 +218,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -351,11 +355,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -486,11 +492,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -621,11 +629,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -756,11 +766,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -895,11 +907,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1030,11 +1044,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1169,11 +1185,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1304,11 +1322,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1443,11 +1463,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1578,11 +1600,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1717,11 +1741,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1852,11 +1878,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -1997,11 +2025,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -2131,11 +2161,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -2265,11 +2297,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -2399,11 +2433,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -2533,11 +2569,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
@@ -2667,11 +2705,13 @@ template:
           # BOOT-SAFE: state_attr() + default(none, true) — NOT this.attributes.get().
           # 'this' is undefined in action: variables of trigger-based template sensors
           # (TemplateError: UndefinedError crashes every trigger silently).
-          # default(none, true) preserves none-vs-{}: none = "not yet loaded at boot"
-          # (don't write), {} = "genuinely empty cabinet" (write allowed).
+          # default(none) — NOT default(none, true). boolean=True catches {} (falsy)
+          # which conflates "unknown at boot" with "known empty". default(none) only
+          # catches Jinja2 Undefined; None passes through as None. {} stays as {}.
+          # none = unknown at boot (block). {} = known empty (allow). {...} = allow.
           # See: FG this_in_trigger_sensor_action, incident 2026-03-23.
           current: >-
-            {{- state_attr(this_entity_id, 'variables') | default(none, true) -}}
+            {{- state_attr(this_entity_id, 'variables') | default(none) -}}
       # ── BOOT GUARD ────────────────────────────────────────────────────────────
       # current is none = recorder has not yet restored this cabinet's state.
       # We do not know what is in it. NEVER write into unknown state.
