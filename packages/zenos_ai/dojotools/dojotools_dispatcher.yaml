@@ -52,7 +52,7 @@
 
 automation:
 
-  zen_dojotool_dispatcher:
+  - id: zen_dojotool_dispatcher
     alias: Zen DojoTool Dispatcher
     description: >-
       Zen DojoTool Dispatcher 1.0.0. Event-driven dispatch layer for dojotool
@@ -66,21 +66,20 @@ automation:
     mode: parallel
     max: 20
 
-    trigger:
-      - platform: event
+    triggers:
+      - trigger: event
         event_type: zen_event
         event_data:
           event:
             kind: dojotool_call
 
-    variables:
-      _ev:      "{{ trigger.event.data.event }}"
-      _tool:    "{{ _ev.tool | default('') | trim }}"
-      _ver:     "{{ _ev.version | default('1') | string | trim }}"
-      _cid:     "{{ _ev.correlation_id | default('') | trim }}"
-      _payload: "{{ _ev.payload | default({}) }}"
-
-    action:
+    actions:
+      - variables:
+          _ev:      "{{ trigger.event.data.event }}"
+          _tool:    "{{ _ev.tool | default('') | trim }}"
+          _ver:     "{{ _ev.version | default('1') | string | trim }}"
+          _cid:     "{{ _ev.correlation_id | default('') | trim }}"
+          _payload: "{{ _ev.payload | default({}) }}"
 
       # ── Gate: correlation_id required ──────────────────────────────────────
       - if:
