@@ -1083,6 +1083,7 @@ script:
             \        if cabinet_type | lower == 'chat history cabinet'\n         else
             [\"system\",\"cabinet\",\"volumeinfo\"])\n  } | tojson\n}}"
           _label_index: '{{ {} | tojson }}'
+          meta: '{{ {"mounted": false} | tojson }}'
           _zen_relationships: "{{\n  {\n    \"mounts_out\": mounts_out,\n
             \     \"mounts_in\": [],\n      \"mount_policy\": \"allow_all\" if flag_profile
             == 'system' else \"restricted\"\n  } | tojson\n}}"

@@ -929,6 +929,7 @@ script:
           metadata: {}
           data:
             show_hidden_volumes: "{{ show_hidden_volumes }}"
+            show_stacks: "{{ show_stacks | default(false) }}"
           response_variable: final_response
         - stop: Manifest read complete
           response_variable: final_response
@@ -2019,6 +2020,13 @@ script:
           only use when you're trying to debug, confirm etc.)  System Drawers are always
           hidden.
         required: true
+      show_stacks:
+        selector:
+          boolean:
+        name: Show Stacks
+        description: Include online_unmounted (stacks) cabinets in manifest results.
+        required: false
+        default: false
       start:
         description: Start time in ISO 8601. Used when searching for entities updated
           or changed after... Defaults to no end date [Experimental - currently unused]
