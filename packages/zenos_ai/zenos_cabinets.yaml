@@ -3618,6 +3618,3 @@ automation:
               }}
         - stop: Redirect Complete
           response_variable: final_response
-
-  mode: parallel
-  max: 30
