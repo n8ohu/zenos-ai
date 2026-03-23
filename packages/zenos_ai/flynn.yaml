@@ -183,6 +183,19 @@ automation:
         - error
         - warn
         - ok
+      # Wake on cabinet mount/dismount so gates re-evaluate immediately
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_mounted
+        id: cab_mounted
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: cabinet_dismounted
+        id: cab_dismounted
     conditions: []
     actions:
       # Capture green state + OOBE state BEFORE delay
@@ -277,6 +290,49 @@ automation:
                 action: script.flynn_initialize_cabinets
                 data: {}
               - stop: "Gate 2: Cabinets initializing"
+
+      #####################################################################
+      # GATE 2.5: Mount-aware mode — core defaults must be online_mounted
+      # Legacy mode (cab_schema_version absent or 0): skip, no disruption.
+      # Mount-aware mode (cab_schema_version >= 1): required defaults must
+      # all be online_mounted before bootstrap is useful. Dismounted defaults
+      # indicate a broken migration or operator error.
+      #####################################################################
+      - variables:
+          _cab_schema_v: >-
+            {%- set _sv = state_attr('sensor.zenos_system_cabinet', 'variables') | default({}, true) -%}
+            {%- set _sv = _sv if _sv is mapping else {} -%}
+            {%- set _se = _sv.get('cab_schema_version', {}) -%}
+            {%- set _se = _se if _se is mapping else {} -%}
+            {{ _se.get('value', 0) | int(0) }}
+          _mount_aware: "{{ _cab_schema_v >= 1 }}"
+      - if: "{{ _mount_aware }}"
+        then:
+          - variables:
+              _req_default_resolvers:
+                - sensor.zen_default_ai_user_cabinet_resolved
+                - sensor.zen_default_user_cabinet_resolved
+                - sensor.zen_default_household_cabinet_resolved
+          - variables:
+              _unmounted_defaults: >-
+                {%- set ns = namespace(bad=[]) -%}
+                {%- for r in _req_default_resolvers -%}
+                  {%- set eid = states(r) -%}
+                  {%- if eid in ['', 'unavailable', 'unknown', 'none'] or states(eid) != 'online_mounted' -%}
+                    {%- set ns.bad = ns.bad + [r] -%}
+                  {%- endif -%}
+                {%- endfor -%}
+                {{ ns.bad }}
+          - if: "{{ _unmounted_defaults | count > 0 }}"
+            then:
+              - action: system_log.write
+                data:
+                  level: warning
+                  message: >-
+                    Flynn Gate 2.5: mount-aware mode active but required default cabinet(s) not
+                    online_mounted: {{ _unmounted_defaults | join(', ') }}.
+                    Run migration script or mount the affected cabinet(s) to proceed.
+              - stop: "Gate 2.5: Required default cabinets not online_mounted"
 
       #####################################################################
       # GATE 3: Monastery not ok
