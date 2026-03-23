@@ -695,6 +695,25 @@ script:
               # Both require deliberate operator action. Flynn does neither autonomously.
               # See: boot-wipe incident 2026-03-23.
               then:
+                - variables:
+                    _cab_vars: "{{ state_attr(entity_id, 'variables') | default(none) }}"
+                    _vi_raw: "{{ _cab_vars.get('AI_Cabinet_VolumeInfo', none) if _cab_vars is mapping else none }}"
+                    _has_volumeinfo: "{{ _vi_raw is not none }}"
+                # GUID GATE — REINIT IS DEAD.
+                # If AI_Cabinet_VolumeInfo exists in variables, this cabinet has data.
+                # State showing 'init' is a boot race artifact — data is intact.
+                # Nathan's invariant: GUID present = absolute stop. No override. No force.
+                # See: req_reinit_dead_external_gate_2026-03-23.md
+                - if: "{{ _has_volumeinfo }}"
+                  then:
+                    - action: system_log.write
+                      data:
+                        level: warning
+                        message: >-
+                          Flynn GUID gate: {{ entity_id }} shows state={{ states(entity_id) }}
+                          but AI_Cabinet_VolumeInfo is present — cabinet has data.
+                          Init blocked. Boot race artifact. Will self-heal on next write.
+                    - stop: "REINIT BLOCKED — {{ entity_id }} has VolumeInfo. Data present. Not a missing cabinet."
                 - action: script.zen_admintools_cabinetadmin
                   data:
                     mode: initialize

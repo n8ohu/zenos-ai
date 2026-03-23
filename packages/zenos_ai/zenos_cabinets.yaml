@@ -70,6 +70,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_system_cabinet
         id: sensor.zenos_system_cabinet
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_system_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -203,6 +206,9 @@ template:
         id: sensor.zenos_system_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_system_history_cabinet
+        id: sensor.zenos_system_history_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_system_history_cabinet
     action:
       - variables:
@@ -338,6 +344,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_dojo_cabinet
         id: sensor.zenos_dojo_cabinet
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_dojo_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -471,6 +480,9 @@ template:
         id: sensor.zenos_kata_cabinet
       - trigger: event
         event_type: clear_variables_zenos_kata_cabinet
+        id: sensor.zenos_kata_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_kata_cabinet
     action:
       - variables:
@@ -606,6 +618,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_history_cabinet
         id: sensor.zenos_history_cabinet
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_history_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -739,6 +754,9 @@ template:
         id: sensor.zenos_scratchpad_cabinet
       - trigger: event
         event_type: clear_variables_zenos_scratchpad_cabinet
+        id: sensor.zenos_scratchpad_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_scratchpad_cabinet
     action:
       - variables:
@@ -878,6 +896,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_household_cabinet
         id: sensor.zenos_default_household_cabinet
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_default_household_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1011,6 +1032,9 @@ template:
         id: sensor.zenos_default_household_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_household_history_cabinet
+        id: sensor.zenos_default_household_history_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_default_household_history_cabinet
     action:
       - variables:
@@ -1150,6 +1174,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_family_cabinet
         id: sensor.zenos_default_family_cabinet
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_default_family_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1283,6 +1310,9 @@ template:
         id: sensor.zenos_default_family_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_family_history_cabinet
+        id: sensor.zenos_default_family_history_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_default_family_history_cabinet
     action:
       - variables:
@@ -1422,6 +1452,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_user_cabinet
         id: sensor.zenos_default_user_cabinet
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_default_user_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1555,6 +1588,9 @@ template:
         id: sensor.zenos_default_user_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_user_history_cabinet
+        id: sensor.zenos_default_user_history_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_default_user_history_cabinet
     action:
       - variables:
@@ -1694,6 +1730,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_default_ai_user_cabinet
         id: sensor.zenos_default_ai_user_cabinet
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_default_ai_user_cabinet
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -1827,6 +1866,9 @@ template:
         id: sensor.zenos_default_ai_user_history_cabinet
       - trigger: event
         event_type: clear_variables_zenos_default_ai_user_history_cabinet
+        id: sensor.zenos_default_ai_user_history_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_default_ai_user_history_cabinet
     action:
       - variables:
@@ -1972,6 +2014,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_expansion_cabinet_1
         id: sensor.zenos_expansion_cabinet_1
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_expansion_cabinet_1
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -2104,6 +2149,9 @@ template:
         id: sensor.zenos_expansion_cabinet_2
       - trigger: event
         event_type: clear_variables_zenos_expansion_cabinet_2
+        id: sensor.zenos_expansion_cabinet_2
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_expansion_cabinet_2
     action:
       - variables:
@@ -2238,6 +2286,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_expansion_cabinet_3
         id: sensor.zenos_expansion_cabinet_3
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_expansion_cabinet_3
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -2370,6 +2421,9 @@ template:
         id: sensor.zenos_expansion_cabinet_4
       - trigger: event
         event_type: clear_variables_zenos_expansion_cabinet_4
+        id: sensor.zenos_expansion_cabinet_4
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_expansion_cabinet_4
     action:
       - variables:
@@ -2504,6 +2558,9 @@ template:
       - trigger: event
         event_type: clear_variables_zenos_expansion_cabinet_5
         id: sensor.zenos_expansion_cabinet_5
+      - trigger: homeassistant
+        event: start
+        id: sensor.zenos_expansion_cabinet_5
     action:
       - variables:
           this_entity_id: "{{- trigger.id -}}"
@@ -2636,6 +2693,9 @@ template:
         id: sensor.zenos_vault_cabinet
       - trigger: event
         event_type: clear_variables_zenos_vault_cabinet
+        id: sensor.zenos_vault_cabinet
+      - trigger: homeassistant
+        event: start
         id: sensor.zenos_vault_cabinet
     action:
       - variables:
