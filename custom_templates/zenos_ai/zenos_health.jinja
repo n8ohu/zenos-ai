@@ -284,6 +284,12 @@ Provides mapping of slots to default entities
             {%- if bad | count > 0 -%}{%- set ns.unhealthy_opt = ns.unhealthy_opt + [slot] -%}{%- endif -%}
         {%- endif -%}
     {%- endfor -%}
+    {%- set ns2 = namespace(legacy_schema=[]) -%}
+    {%- for eid in all_cabs -%}
+        {%- if states(eid) == 'Variables' -%}
+            {%- set ns2.legacy_schema = ns2.legacy_schema + [eid] -%}
+        {%- endif -%}
+    {%- endfor -%}
     {%- if ns.missing_req | count > 0 -%}
         Required cabinet label(s) missing from HA: {{ ns.missing_req | join(', ') }} — trigger Flynn stepgate to create them.
     {%- elif ns.invalid_req | count > 0 -%}
@@ -294,6 +300,8 @@ Provides mapping of slots to default entities
         Required cabinet label(s) exist but no entity assigned: {{ ns.unassigned_req | join(', ') }} — trigger Flynn stepgate to wire them.
     {%- elif ns.unhealthy_opt | count > 0 -%}
         Optional cabinet sensor(s) unavailable: {{ ns.unhealthy_opt | join(', ') }} — check entity configuration.
+    {%- elif ns2.legacy_schema | count > 0 -%}
+        Schema update available: {{ ns2.legacy_schema | count }} cabinet(s) on pre-RC2 schema (state: Variables). Data intact — touch to migrate to RP2 state machine (one-way). Not a gate condition.
     {%- else -%}
         All required cabinet slots filled and healthy.
     {%- endif -%}
@@ -344,7 +352,8 @@ Provides mapping of slots to default entities
         unassigned_req = [],
         invalid_req = [],
         unhealthy_req = [],
-        unhealthy_opt = []
+        unhealthy_opt = [],
+        legacy_schema = []
     ) -%}
 
     {# REQUIRED SLOTS: strict 1:1, label + cabinet health enforced #}
@@ -386,12 +395,20 @@ Provides mapping of slots to default entities
         {%- endif -%}
     {%- endfor -%}
 
+    {# LEGACY SCHEMA: cabinets with pre-RC2 state 'Variables' — non-blocking, update available #}
+    {%- for eid in all_cabs -%}
+        {%- if states(eid) == 'Variables' -%}
+            {%- set ns.legacy_schema = ns.legacy_schema + [eid] -%}
+        {%- endif -%}
+    {%- endfor -%}
+
     {# Priority (labels-aligned):
 missing required  -> critical
 invalid required  -> error
 unhealthy required-> error
 unassigned required -> warn
 unhealthy optional  -> warn
+legacy schema       -> warn (non-blocking — update available, not a gate condition)
 else -> ok
     #}
     {%- if ns.missing_req | count > 0 -%}
@@ -403,6 +420,8 @@ else -> ok
         {%- elif ns.unassigned_req | count > 0 -%}
         warn
         {%- elif ns.unhealthy_opt | count > 0 -%}
+        warn
+        {%- elif ns.legacy_schema | count > 0 -%}
         warn
     {%- else -%}
         ok
