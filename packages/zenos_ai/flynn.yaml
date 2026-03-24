@@ -553,7 +553,8 @@ automation:
                   title: "ZenOS-AI: Ready — let's name your agent"
                   message: >
                     Hey! I'm Flynn. Your system is up and running but I still need to know who's moving in.
-                    Open a conversation with me and let's get your agent set up — I'll walk you through the whole thing.
+                    Open a conversation with me and let's get your agent set up — I'll walk you through
+                    naming your AI, wiring up your household, and setting delegation.
                   notification_id: flynn_oobe_pending
         # Case 3: cabinet has a real name or _oobe_complete → dismiss
         default:
@@ -574,7 +575,8 @@ automation:
                 data:
                   title: "ZenOS-AI: All green — your agent is ready"
                   message: >
-                    Everything's copacetic. All gates green, system is fully operational.
+                    Everything's copacetic. All gates green, identity model wired, system is fully operational.
+                    Your household is set, your principal slots are filled, and delegation is live.
                     Open a conversation and say hi — I'll hand you off to the real talent.
                   notification_id: flynn_system_ready
 
@@ -1031,6 +1033,39 @@ script:
       # Trigger prompt loader to stamp purpose/directives/cortex
       - action: script.zen_admintools_zenos_prompt_loader
         data: {}
+
+      # Wire household membership — fills HoH and prime slots, links partners, builds manifest.
+      # Idempotent: household_add_member blocks if slot already occupied (existing installs safe).
+      - variables:
+          _b3_hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+          _b3_user_cab: "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
+          _b3_ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
+      - if: "{{ _b3_user_cab not in ['', 'unknown', 'unavailable'] }}"
+        then:
+          - action: script.zen_dojotools_identity
+            data:
+              mode: household_add_member
+              member_entity: "{{ _b3_user_cab }}"
+              member_type: user
+      - if: "{{ _b3_ai_cab not in ['', 'unknown', 'unavailable'] }}"
+        then:
+          - action: script.zen_dojotools_identity
+            data:
+              mode: household_add_member
+              member_entity: "{{ _b3_ai_cab }}"
+              member_type: ai_user
+      - if: >-
+          {{ _b3_user_cab not in ['', 'unknown', 'unavailable']
+             and _b3_ai_cab not in ['', 'unknown', 'unavailable'] }}
+        then:
+          - action: script.zen_dojotools_identity
+            data:
+              mode: link_partners
+              member_entity: "{{ _b3_user_cab }}"
+              ai_entity: "{{ _b3_ai_cab }}"
+      - action: script.zen_dojotools_identity
+        data:
+          mode: build_identity_manifest
 
       # Stamp gc_eligible flag into AI_Cabinet_VolumeInfo for all canonical cabinets.
       # force_action: false — only writes if drawer absent (fresh install path).
