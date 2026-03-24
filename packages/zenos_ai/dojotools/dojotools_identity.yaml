@@ -783,16 +783,12 @@ script:
                   {%- endif -%}
             - if: "{{ _slot_filled | bool and _hh_vi_updated | trim != '' }}"
               then:
-                - action: script.zen_dojotools_filecabinet
-                  data:
-                    action_type: create
-                    force_action: true
-                    set_timestamp: true
-                    show_hidden_volumes: false
-                    volume_entity_id:
-                      - "{{ _hh_cab }}"
+                - event: set_variable_legacy
+                  event_data:
                     key: AI_Cabinet_VolumeInfo
                     value: "{{ _hh_vi_updated }}"
+                    volume_entity: "{{ _hh_cab }}"
+                    set_timestamp: true
             - variables:
                 _slot_name: >-
                   {%- if member_type == 'user' and _slot_filled | bool -%}hoh
@@ -975,16 +971,12 @@ script:
                     {%- set _acls = dict(_acls, **{'partner': _others + [{'guid': _mguid, 'entity_id': member_entity, 'role': 'prime'}]}) -%}
                   {%- endif -%}
                   {{ dict(_vi, **{'acls': _acls}) | tojson }}
-            - action: script.zen_dojotools_filecabinet
-              data:
-                action_type: create
-                force_action: true
-                set_timestamp: true
-                show_hidden_volumes: false
-                volume_entity_id:
-                  - "{{ _target_cab }}"
+            - event: set_variable_legacy
+              event_data:
                 key: AI_Cabinet_VolumeInfo
                 value: "{{ _hh_vi_updated }}"
+                volume_entity: "{{ _target_cab }}"
+                set_timestamp: true
             - variables:
                 _slot: "{{ 'hoh' if member_type == 'user' else 'prime' }}"
                 response: "{{
@@ -1145,16 +1137,12 @@ script:
                       {%- set _acls = dict(_acls, **{'family': _fam_list}) -%}
                       {%- set _dfg = _fam_guid if _is_first_family | bool else _vi.get('default_family_guid', '') -%}
                       {{ dict(_vi, **{'acls': _acls, 'default_family_guid': _dfg}) | tojson }}
-                - action: script.zen_dojotools_filecabinet
-                  data:
-                    action_type: create
-                    force_action: true
-                    set_timestamp: true
-                    show_hidden_volumes: false
-                    volume_entity_id:
-                      - "{{ member_entity }}"
+                - event: set_variable_legacy
+                  event_data:
                     key: AI_Cabinet_VolumeInfo
                     value: "{{ _mem_vi_updated }}"
+                    volume_entity: "{{ member_entity }}"
+                    set_timestamp: true
             - event: zen_event
               event_data:
                 kind: family_member_joined
@@ -1301,16 +1289,12 @@ script:
                       {%- set _acls = dict(_acls, **{'family': _fam_list}) -%}
                       {%- set _dfg = '' if _was_default | bool else _vi.get('default_family_guid', '') -%}
                       {{ dict(_vi, **{'acls': _acls, 'default_family_guid': _dfg}) | tojson }}
-                - action: script.zen_dojotools_filecabinet
-                  data:
-                    action_type: create
-                    force_action: true
-                    set_timestamp: true
-                    show_hidden_volumes: false
-                    volume_entity_id:
-                      - "{{ member_entity }}"
+                - event: set_variable_legacy
+                  event_data:
                     key: AI_Cabinet_VolumeInfo
                     value: "{{ _mem_vi_updated }}"
+                    volume_entity: "{{ member_entity }}"
+                    set_timestamp: true
             - event: zen_event
               event_data:
                 kind: family_member_left
@@ -1427,26 +1411,18 @@ script:
                   {%- endif -%}
                   {%- set _acls = dict(_acls, **{'partner': _pts}) -%}
                   {{ dict(_vi, **{'acls': _acls}) | tojson }}
-            - action: script.zen_dojotools_filecabinet
-              data:
-                action_type: create
-                force_action: true
-                set_timestamp: true
-                show_hidden_volumes: false
-                volume_entity_id:
-                  - "{{ member_entity }}"
+            - event: set_variable_legacy
+              event_data:
                 key: AI_Cabinet_VolumeInfo
                 value: "{{ _a_vi_updated }}"
-            - action: script.zen_dojotools_filecabinet
-              data:
-                action_type: create
-                force_action: true
+                volume_entity: "{{ member_entity }}"
                 set_timestamp: true
-                show_hidden_volumes: false
-                volume_entity_id:
-                  - "{{ ai_entity }}"
+            - event: set_variable_legacy
+              event_data:
                 key: AI_Cabinet_VolumeInfo
                 value: "{{ _b_vi_updated }}"
+                volume_entity: "{{ ai_entity }}"
+                set_timestamp: true
             - variables:
                 response: >-
                   {{
@@ -1539,26 +1515,18 @@ script:
                   {%- set _filtered = _pts | rejectattr('entity_id', 'equalto', member_entity) | list -%}
                   {%- set _acls = dict(_acls, **{'partner': _filtered}) -%}
                   {{ dict(_vi, **{'acls': _acls}) | tojson }}
-            - action: script.zen_dojotools_filecabinet
-              data:
-                action_type: create
-                force_action: true
-                set_timestamp: true
-                show_hidden_volumes: false
-                volume_entity_id:
-                  - "{{ member_entity }}"
+            - event: set_variable_legacy
+              event_data:
                 key: AI_Cabinet_VolumeInfo
                 value: "{{ _user_vi_updated }}"
-            - action: script.zen_dojotools_filecabinet
-              data:
-                action_type: create
-                force_action: true
+                volume_entity: "{{ member_entity }}"
                 set_timestamp: true
-                show_hidden_volumes: false
-                volume_entity_id:
-                  - "{{ ai_entity }}"
+            - event: set_variable_legacy
+              event_data:
                 key: AI_Cabinet_VolumeInfo
                 value: "{{ _ai_vi_updated }}"
+                volume_entity: "{{ ai_entity }}"
+                set_timestamp: true
             - event: zen_event
               event_data:
                 kind: partner_unlinked
@@ -1625,16 +1593,12 @@ script:
                   {%- set _fvi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _fguid = (_fvi if _fvi is mapping else {}).get('guid', '') -%}
                   {{ dict(_vi, **{'default_family_guid': _fguid}) | tojson }}
-            - action: script.zen_dojotools_filecabinet
-              data:
-                action_type: create
-                force_action: true
-                set_timestamp: true
-                show_hidden_volumes: false
-                volume_entity_id:
-                  - "{{ member_entity }}"
+            - event: set_variable_legacy
+              event_data:
                 key: AI_Cabinet_VolumeInfo
                 value: "{{ _mem_vi_updated }}"
+                volume_entity: "{{ member_entity }}"
+                set_timestamp: true
             - variables:
                 response: >-
                   {{
