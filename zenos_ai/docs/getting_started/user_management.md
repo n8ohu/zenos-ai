@@ -207,6 +207,169 @@ Developer Tools → Events → Event type: zen_resolver_refresh → Fire Event
 
 ---
 
+## Household and Family Management
+
+ZenOS-AI has a three-layer membership model:
+
+```
+System
+  └─ Household (occupancy — "lives here")
+       └─ Family (belonging — "part of this unit")
+            └─ Sub-family (extended family — not on-premises)
+```
+
+**Household membership = residence.** Being in the household's `members` list means you occupy that space.
+
+**Family membership = belonging.** Being in a family means you're part of that unit. Inviting your AI into a family is a special act — it fires a `family_member_joined` event with `prompt_profile_update: true` so the AI can surface naming and profile suggestions.
+
+**Depth rule:** Families nest arbitrarily deep in the data model, but security resolution only chases 2 levels. `is_member(A, B)` checks: is A directly in B? Or is A in C which is directly in B? Anything deeper is not resolved for security purposes.
+
+**Multiple households:** A system can host multiple households (duplex, shared building). `zen_default_household` is the primary. Each household manages its own membership independently.
+
+---
+
+### Onboarding Sequence (Standard)
+
+When provisioning a fresh system, the recommended sequence:
+
+1. **Mint household** — provision a cabinet with `cab_type: household`
+2. **Add family to household** — wire your default family cabinet in
+3. **Mint user** — provision a cabinet with `cab_type: user`
+4. **Add user to family** — first family auto-sets `default_family_guid`; user also lands in household as HoH (first user fills the owner slot)
+5. **Mint AI user** — provision a cabinet with `cab_type: ai_user`
+6. **Add AI to household** — first AI fills the `prime` partner slot
+7. **Link user and AI** — bidirectional partner link
+8. **Optionally invite AI into family** — explicit invite required; fires join event
+
+---
+
+### Wire a Family into a Household
+
+```yaml
+script.zen_dojotools_identity:
+  mode: household_add_family
+  family_entity: sensor.<family_cabinet>
+```
+
+Adds the family to the household's `members.families` list at depth 1. Family members become household residents by graph traversal (depth-1 resolution).
+
+---
+
+### Add a Member to a Household
+
+```yaml
+script.zen_dojotools_identity:
+  mode: household_add_member
+  member_entity: sensor.<user_or_ai_cabinet>
+  member_type: user   # or ai_user
+```
+
+**First occupant behavior:**
+- First `user` added → also fills `VolumeInfo.acls.owner` (Head of Household slot)
+- First `ai_user` added → also fills `VolumeInfo.acls.partner` with `role: prime`
+
+**Occupied slot behavior:** If the HoH or prime slot is already filled, this mode is blocked. Use an admin operation (SP1) to transfer ownership.
+
+The response includes a `slot_filled` field (`hoh`, `prime`, or empty) so the caller knows whether a privileged slot was assigned.
+
+---
+
+### Remove a Member from a Household
+
+```yaml
+script.zen_dojotools_identity:
+  mode: household_remove_member
+  member_entity: sensor.<cabinet>
+  member_type: user   # or ai_user
+```
+
+Removes from `members.users` or `members.ai_users`. Does **not** clear the `acls.owner` or `acls.partner` slots — those require a dedicated admin transfer (SP1).
+
+---
+
+### Add a Member to a Family
+
+```yaml
+script.zen_dojotools_identity:
+  mode: family_add_member
+  family_entity: sensor.<family_cabinet>
+  member_entity: sensor.<user_ai_or_sub_family_cabinet>
+  member_type: user   # user | ai_user | family
+```
+
+**Default family:** If this is the member's first family (no `default_family_guid` set), the family is automatically marked as their default.
+
+**Sub-families:** `member_type: family` wires in a sub-family at depth 2. Sub-family members are extended family — not household residents.
+
+**Join event:** Fires `zen_event kind: family_member_joined` with `prompt_profile_update: true`.
+
+---
+
+### Remove a Member from a Family
+
+```yaml
+script.zen_dojotools_identity:
+  mode: family_remove_member
+  family_entity: sensor.<family_cabinet>
+  member_entity: sensor.<cabinet>
+  member_type: user   # user | ai_user | family
+```
+
+**Default family cleanup:** If the removed family was the member's `default_family_guid`, that field is cleared. The member must explicitly set a new default via `set_default_family`.
+
+**Leave event:** Fires `zen_event kind: family_member_left` with `prompt_profile_update: true` and `was_default_family` flag.
+
+---
+
+### Link a User and an AI (Partner Bond)
+
+```yaml
+script.zen_dojotools_identity:
+  mode: link_user_ai
+  member_entity: sensor.<user_cabinet>
+  ai_entity: sensor.<ai_user_cabinet>
+```
+
+Bidirectional write:
+- User `VolumeInfo.partners` gains an `ai_partner` entry pointing to the AI cabinet
+- AI `VolumeInfo.acls.partner` gains a `partner` entry pointing to the user cabinet
+
+Idempotent — re-running does not create duplicate entries.
+
+---
+
+### Change a User's Default Family
+
+```yaml
+script.zen_dojotools_identity:
+  mode: set_default_family
+  member_entity: sensor.<user_or_ai_cabinet>
+  family_entity: sensor.<family_cabinet>
+```
+
+Patches `default_family_guid` in the member's `VolumeInfo`. The first family joined is set automatically; use this to change it explicitly.
+
+---
+
+### Set or Replace a Principal (HoH or Prime AI)
+
+```yaml
+script.zen_dojotools_identity:
+  mode: set_principal
+  member_entity: sensor.<cabinet>
+  member_type: user      # user → fills/replaces acls.owner (HoH)
+                         # ai_user → fills/replaces acls.partner prime slot
+  # family_entity: sensor.<family_cabinet>  # optional — targets family instead of default household
+```
+
+Sets or replaces the Head of Household (`member_type: user`) or prime AI partner (`member_type: ai_user`) for the target container cabinet.
+
+**Targets:** Defaults to `zen_default_household_cabinet`. Pass `family_entity` to target a specific family cabinet instead — the same slot semantics apply.
+
+**Replacement:** Previous occupant of the slot is replaced. For the prime AI slot, any non-prime partner entries are preserved.
+
+---
+
 ## Targeted Repairs (Small / Mid Nuke)
 
 Use these when one identity or cabinet is broken but the rest of the system is healthy.
@@ -310,6 +473,14 @@ After the nuclear sequence completes, re-provision each identity cabinet via the
 | Remove person | `zen_dojotools_provisioner` | `deprovision` |
 | Move person to new cabinet | `zen_dojotools_provisioner` | `replace` |
 | Write / update user profile | `zen_dojotools_profile_editor` | `write`, `target_type: user` |
+| Wire family into household | `zen_dojotools_identity` | `household_add_family` |
+| Add member to household | `zen_dojotools_identity` | `household_add_member` |
+| Remove member from household | `zen_dojotools_identity` | `household_remove_member` |
+| Add member to family | `zen_dojotools_identity` | `family_add_member` |
+| Remove member from family | `zen_dojotools_identity` | `family_remove_member` |
+| Link user ↔ AI (partner bond) | `zen_dojotools_identity` | `link_user_ai` |
+| Change default family | `zen_dojotools_identity` | `set_default_family` |
+| Set/replace HoH or prime AI | `zen_dojotools_identity` | `set_principal` |
 | Transfer default label | `zen_dojotools_labels` | `untag` + `tag` |
 | Reseed cabinet header | `zen_admintools_cabinetadmin_stamp` | — |
 | Reset one cabinet | `zen_admintools_cabinetadmin` | `reset` |
