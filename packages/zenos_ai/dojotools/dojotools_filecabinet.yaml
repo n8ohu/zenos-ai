@@ -37,6 +37,7 @@ script:
           {% else %}
             ''
           {% endif %}
+        raw_key: "{{ key | default('') | trim }}"
         key: "{{ key | default('') | slugify }}"
         raw_value: "{{ value | default('') }}"
         label_input: "{{ label_input | default('') }}"
@@ -393,6 +394,12 @@ script:
           {%- set _m = _e.get('meta', {}) if _e is mapping else {} -%}
           {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
           {{ _m.get('ro', false) == true if _m is mapping else false }}
+        cabinet_ro_blocked: >
+          {%- set _vi_raw = initial_volume.get('AI_Cabinet_VolumeInfo', {}) if initial_volume is mapping else {} -%}
+          {%- set _vi_raw = _vi_raw if _vi_raw is mapping else {} -%}
+          {%- set _vi = _vi_raw.get('value', _vi_raw) if _vi_raw is mapping else {} -%}
+          {%- set _vi = _vi if _vi is mapping else (_vi | from_json if _vi is string else {}) -%}
+          {{ _vi.get('flags', {}).get('cabinet_ro', false) == true }}
         is_create_new: "{{ action_type == 'create' and key != '' and not key_exists_initial}}"
         is_force_update_new: "{{ action_type == 'update' and key != '' and not key_exists_initial and force_action}}"
         is_force_create_over_existing: "{{ action_type == 'create' and key != '' and key_exists_initial and force_action}}"
@@ -444,6 +451,71 @@ script:
         - stop: JSON Parse Failure
           response_variable: fatal_response
     - choose:
+      # ── WIRE-LEVEL LOCKOUT: SYSTEM CABINET ────────────────────────────────────
+      # sensor.zenos_system_cabinet is ALWAYS read-only to this tool. No exceptions.
+      # No force_action bypass. No caller_token override.
+      #
+      # WHY: The system cabinet holds the AI prompt substrate (Purpose, Directives,
+      # Cortex). If the agent could write here, it could rewrite its own prompt.
+      # This is the wire-level enforcement of that constraint — the tool physically
+      # cannot write to syscab regardless of caller, mode, or flags.
+      #
+      # Legitimate syscab writes (prompt_loader, Flynn bootstrap, cabinetadmin)
+      # fire set_variable_zenos_system_cabinet directly — they never touch this tool.
+      # ──────────────────────────────────────────────────────────────────────────
+      - conditions:
+        - alias: Error - Syscab hard RO (wire-level lockout)
+          condition: template
+          value_template: "{{ is_write_action and volume_entity == 'sensor.zenos_system_cabinet' }}"
+        sequence:
+        - variables:
+            final_response:
+              status: error
+              failure: syscab_write_blocked
+              message: >-
+                Write blocked: sensor.zenos_system_cabinet is read-only to FileCabinet.
+                This cabinet holds the AI prompt substrate and cannot be written by
+                any agent-accessible tool. Use the designated admin scripts for
+                system cabinet operations.
+              volume_entity: "{{ volume_entity }}"
+              key: "{{ key }}"
+        - stop: Syscab write blocked
+          response_variable: final_response
+      - conditions:
+        - alias: Error - Reserved key (leading underscore)
+          condition: template
+          value_template: "{{ is_write_action and raw_key.startswith('_') }}"
+        sequence:
+        - variables:
+            final_response:
+              status: error
+              failure: reserved_key
+              message: >-
+                Write blocked: key '{{ raw_key }}' starts with '_'.
+                System-reserved keys cannot be written via FileCabinet.
+                Use the appropriate admin tool for system drawer operations.
+              key_raw: "{{ raw_key }}"
+              key_slugified: "{{ key }}"
+              volume_entity: "{{ volume_entity }}"
+        - stop: Reserved key
+          response_variable: final_response
+      - conditions:
+        - alias: Error - Cabinet is read-only
+          condition: template
+          value_template: "{{ is_write_action and cabinet_ro_blocked }}"
+        sequence:
+        - variables:
+            final_response:
+              status: error
+              failure: cabinet_ro
+              message: >-
+                Write blocked: cabinet '{{ volume_entity }}' is marked read-only
+                (flags.cabinet_ro: true). Writes must go through the designated
+                admin tool for this cabinet.
+              volume_entity: "{{ volume_entity }}"
+              key: "{{ key }}"
+        - stop: Cabinet read-only
+          response_variable: final_response
       - conditions:
         - condition: template
           value_template: "{{ action_type in ['create','update','delete','move','copy','set_mount','remove_mount','mount_cabinet','dismount_cabinet'] }}"
