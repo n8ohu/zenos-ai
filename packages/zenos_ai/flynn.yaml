@@ -169,6 +169,22 @@ automation:
           event:
             kind: summary_force
 
+  - alias: "Flynn: Boot Warmup — Emit warmup_expired after window"
+    id: zen_warmup_timer
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+    conditions: []
+    actions:
+      - delay: "00:05:00"
+      - event: zen_event
+        event_data:
+          event:
+            kind: warmup_expired
+            source: zen_warmup_timer
+            timestamp: "{{ now().isoformat() }}"
+
   - alias: "Flynn: Stepgate Sentinel"
     id: flynn_stepgate_sentinel
     mode: single
@@ -219,6 +235,14 @@ automation:
           event:
             kind: cabinet_dismounted
         id: cab_dismounted
+      # Warmup window expired — re-evaluate all gates with warmup=false.
+      # Surfaces any pending cabinet warn notification after boot has settled.
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: warmup_expired
+        id: warmup_expired
     conditions: []
     actions:
       # Capture green state + OOBE state BEFORE delay

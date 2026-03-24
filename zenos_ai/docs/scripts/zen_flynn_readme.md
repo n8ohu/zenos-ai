@@ -28,6 +28,16 @@ Flynn re-runs any time these sensors change state:
 
 States that re-engage Flynn: `critical`, `error`, `warn`, `ok`
 
+Flynn also re-runs on these events:
+
+| Event | When |
+|---|---|
+| `zen_event kind: warmup_expired` | 5 min after `ha_start` — warmup window closed, re-evaluate all gates |
+| `zen_event kind: cabinet_mounted` | Cabinet mounted — gate 2.5 may now clear |
+| `zen_event kind: cabinet_dismounted` | Cabinet dismounted — gate 2.5 may re-engage |
+
+The `warmup_expired` event is fired by `automation.zen_warmup_timer` (also in `flynn.yaml`). It guarantees the warmup gate-down is a real signal, not a side-effect of monastery settling. If monastery never settles (real problem), Flynn will catch it at the 5-min mark rather than leaving sensors stuck at `warmup` indefinitely.
+
 ---
 
 ## Early Exit
