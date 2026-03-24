@@ -169,7 +169,7 @@ The cognition pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 **Summary:**
 Friday's unified system utility runner. MCP-exposed. Dispatches to library command interpreters and utility functions.
 
-* `library` — routes query through `command_interpreter.jinja`; returns `{query, output}`
+* `library` — routes query through `command_interpreter.jinja` (retiring at GA — migrating to index-supported constructs); returns `{query, output}`
 * `hash_md5` — MD5 hash of input string
 * `slugify` — applies HA slugify filter to input
 

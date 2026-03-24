@@ -49,7 +49,7 @@ Used internally by HyperIndex and the Index tool for hypergraph traversal, adjac
 | File | Purpose |
 |---|---|
 | `conversation_agent_prompt_template.yaml` | Paste this into your conversation agent's system prompt in HA. Three lines — imports `zen_os_1.jinja` and calls `render_prompt()`. |
-| `command_interpreter.jinja` | Library v1 command dispatch engine. Routes `~COMMANDS~` syntax to subsystem handlers. |
+| `command_interpreter.jinja` | Library v1 command dispatch engine. Routes `~COMMANDS~` syntax to subsystem handlers. **Retiring at GA** — individual commands are migrating to index-supported constructs. No new commands should be added here. |
 | `library_index.jinja` | Library index — registered command domains and their handlers. |
 | `zenos_health.jinja` | Health sensor macro library — `required_labels()`, `slots_all()`, `slot_to_label()`, cabinet state helpers, `is_warmup()`. |
 | `flynn_onboarding.jinja` | Flynn onboarding macros including `active_notification()` — surfaces highest-priority Flynn persistent notification into the prompt. |

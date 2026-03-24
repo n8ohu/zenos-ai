@@ -36,9 +36,9 @@ The Library is **MCP-exposed**. Friday uses it directly to hash strings, slugify
 
 ## Library Command Syntax
 
-The `library` tool accepts ZenOS Library Command Syntax — tilde-delimited domain dispatchers such as `~SECURITY~`, `~MEDIA~`, `~ELECTRICAL~`. These are defined in `command_interpreter.jinja`.
+> **Retiring at GA.** The `~COMMANDS~` interface (`command_interpreter.jinja`) is being retired. Individual commands are migrating to index-supported constructs. No new commands should be added to `command_interpreter.jinja`.
 
-Kung Fu components register their library command via the `command` field in their Dojo drawer. The Ninja Summarizer calls the Library automatically before building the monk prompt — the output lands in `library_console` in the review data.
+The `library` tool currently routes queries through `command_interpreter.jinja`. Kung Fu components register their library command via the `command` field in their Dojo drawer. The Ninja Summarizer calls the Library automatically before building the monk prompt — the output lands in `library_console` in the review data.
 
 ---
 
@@ -86,19 +86,9 @@ query: "Security Manager"
 
 ### Run a Library command
 
-```yaml
-tool: library
-query: "~MEDIA~"
-```
+Pass a tilde-delimited command token as the query. The Ninja Summarizer does this automatically using the component's `command` field from the Dojo drawer.
 
-### Run an on-demand Ninja library command
-
-The Ninja Summarizer calls this automatically using the component's `command` field from the Dojo drawer. You can also call it manually for testing:
-
-```yaml
-tool: library
-query: "~SECURITY~"
-```
+> Individual command tokens (`~SECURITY~`, `~MEDIA~`, etc.) are not documented here — this interface is retiring at GA. Commands are migrating to index-supported constructs.
 
 ---
 
