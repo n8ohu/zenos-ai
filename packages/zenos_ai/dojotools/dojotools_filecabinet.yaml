@@ -862,12 +862,18 @@ script:
                  and (volume_entity not in [None, '', '*'])
                  and (key not in [None, '', '*'])
             %}
-            
+
+            {% set is_wildcard_read =
+                 (action_type == 'read')
+                 and (volume_entity not in [None, '', '*'])
+                 and (key in [None, '', '*'])
+            %}
+
             {% set has_labels = normalized_label_targets is iterable and (normalized_label_targets | length) > 0 %}
-            
+
             {% set is_label_read = (action_type == 'read') and has_labels %}
-            
-            {{ is_direct_read or is_label_read }}
+
+            {{ is_direct_read or is_wildcard_read or is_label_read }}
         sequence:
         - variables:
             ignore_label_prefixes:
@@ -885,16 +891,16 @@ script:
               {% else %}
               
                 {#- --------------------------------------------------
-                    CASE 1: DIRECTORY LISTING ("", "*")
+                    CASE 1: WILDCARD READ ("", "*") — return all drawers with full values
                     -------------------------------------------------- -#}
                 {% if parsed_key in ['', '*'] %}
-                  {%- set ns_draw = namespace(drawers=[]) -%}
+                  {%- set ns_draw = namespace(result={}) -%}
                   {%- for d in vol.keys() | list -%}
                     {%- if d not in always_hide_drawers and not (d[:1] in ['_', '.']) -%}
-                      {%- set ns_draw.drawers = ns_draw.drawers + [d] -%}
+                      {%- set ns_draw.result = ns_draw.result | combine({d: vol[d]}) -%}
                     {%- endif -%}
                   {%- endfor -%}
-                  {{ {"drawers": ns_draw.drawers, "label_index": label_index} }}
+                  {{ ns_draw.result }}
               
                 {#- --------------------------------------------------
                    CASE 2: DIRECT KEY READ
