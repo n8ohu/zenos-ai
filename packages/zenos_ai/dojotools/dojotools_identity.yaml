@@ -1003,13 +1003,24 @@ script:
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('default_family_guid', '') }}
                 _is_first_family: "{{ member_type != 'family' and (_mem_dfg_raw | trim == '') }}"
-            - if: "{{ _is_first_family | bool }}"
+            # — always patch member's VolumeInfo: add family to acls.family + set default if first —
+            - if: "{{ member_type != 'family' }}"
               then:
                 - variables:
                     _mem_vi_updated: >-
                       {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
                       {%- set _vi = _vi if _vi is mapping else {} -%}
-                      {{ dict(_vi, **{'default_family_guid': _fam_guid}) | tojson }}
+                      {%- set _acls = _vi.get('acls', {}) -%}
+                      {%- set _acls = _acls if _acls is mapping else {} -%}
+                      {%- set _fam_list = _acls.get('family', []) -%}
+                      {%- set _fam_list = _fam_list if _fam_list is iterable and _fam_list is not string else [] -%}
+                      {%- set _already = _fam_list | selectattr('family_guid', 'equalto', _fam_guid) | list | count > 0 -%}
+                      {%- if not _already -%}
+                        {%- set _fam_list = _fam_list + [{'family_guid': _fam_guid, 'entity_id': family_entity, 'name': _fam_name}] -%}
+                      {%- endif -%}
+                      {%- set _acls = dict(_acls, **{'family': _fam_list}) -%}
+                      {%- set _dfg = _fam_guid if _is_first_family | bool else _vi.get('default_family_guid', '') -%}
+                      {{ dict(_vi, **{'acls': _acls, 'default_family_guid': _dfg}) | tojson }}
                 - action: script.zen_dojotools_filecabinet
                   data:
                     action_type: create
@@ -1133,14 +1144,21 @@ script:
                   - "{{ family_entity }}"
                 key: members
                 value: "{{ _updated_members }}"
-            # — clear default_family_guid if this was the member's default —
-            - if: "{{ _was_default | bool and member_type != 'family' }}"
+            # — scrub member's VolumeInfo: remove family from acls.family + clear default —
+            - if: "{{ member_type != 'family' }}"
               then:
                 - variables:
                     _mem_vi_updated: >-
                       {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
                       {%- set _vi = _vi if _vi is mapping else {} -%}
-                      {{ dict(_vi, **{'default_family_guid': ''}) | tojson }}
+                      {%- set _acls = _vi.get('acls', {}) -%}
+                      {%- set _acls = _acls if _acls is mapping else {} -%}
+                      {%- set _fam_list = _acls.get('family', []) -%}
+                      {%- set _fam_list = _fam_list if _fam_list is iterable and _fam_list is not string else [] -%}
+                      {%- set _fam_list = _fam_list | rejectattr('family_guid', 'equalto', _fam_guid) | list -%}
+                      {%- set _acls = dict(_acls, **{'family': _fam_list}) -%}
+                      {%- set _dfg = '' if _was_default | bool else _vi.get('default_family_guid', '') -%}
+                      {{ dict(_vi, **{'acls': _acls, 'default_family_guid': _dfg}) | tojson }}
                 - action: script.zen_dojotools_filecabinet
                   data:
                     action_type: create
