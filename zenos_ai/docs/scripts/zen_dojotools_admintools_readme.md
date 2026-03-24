@@ -265,6 +265,8 @@ Use this when a cabinet is missing its metadata header — for example, after cr
 - Cabinet metadata is corrupt or missing after an upgrade
 - GUID needs to be regenerated (e.g., cloned from another install)
 
+> **Backup first.** While cabinetadmin_stamp is designed to preserve existing data (Repair/Restamp path preserves GUID and mounts), a full HA backup before any schema repair operation is strongly recommended. Cabinet data is not version-controlled — a bad stamp cannot be undone except from backup.
+
 ---
 
 ## zen_admintools_kfc_migration_press
@@ -306,6 +308,12 @@ Loads the AI's identity substrate: **Cortex**, **Directives**, and **Purpose**. 
 | `Purpose` | Role definition — what ZenOS-AI is and what it manages |
 | `Directives` | 14 behavioral rules: tone, safety, confirmation patterns, tool preferences |
 | `Cortex` | Full reasoning substrate — schema references, DojoTools index, behavior rules, error policy, library access patterns |
+
+### System Cabinet Authorization
+
+`sensor.zenos_system_cabinet` (syscab) is **hard read-only** to `zen_dojotools_filecabinet` — all write actions are wire-blocked, no force bypass. The prompt loader is the designated write path for syscab. This is intentional: it prevents any agent or automation from rewriting the AI's own prompt substrate at runtime.
+
+> **Backup first.** Before running the prompt loader against a production install — especially a version upgrade — take a full HA backup. The syscab Cortex is not version-controlled at the drawer level. If a load is interrupted or the wrong version is selected, restoring from backup is the only recovery path.
 
 ### When to Use
 
