@@ -1132,6 +1132,14 @@ script:
                 value: '{{ repeat.item[1] | from_json | default({}) }}'
                 set_timestamp: true
                 volume_entity: '{{ cabinet_entity }}'
+        - event: zen_event
+          event_data:
+            kind: cabinet_boot_touch
+            component: cabinetadmin_stamp
+            severity: info
+            summary: 'Post-stamp boot touch for {{ cabinet_entity }}'
+            metadata:
+              volume_entity: '{{ cabinet_entity }}'
         - variables:
             response:
               status: success
@@ -1165,6 +1173,14 @@ script:
                   default({}) }}'
                 set_timestamp: true
                 volume_entity: '{{ cabinet_entity }}'
+        - event: zen_event
+          event_data:
+            kind: cabinet_boot_touch
+            component: cabinetadmin_stamp
+            severity: info
+            summary: 'Post-stamp boot touch for {{ cabinet_entity }}'
+            metadata:
+              volume_entity: '{{ cabinet_entity }}'
         - variables:
             response:
               status: success
