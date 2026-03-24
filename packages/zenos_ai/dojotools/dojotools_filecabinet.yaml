@@ -400,6 +400,19 @@ script:
           {%- set _vi = _vi_raw.get('value', _vi_raw) if _vi_raw is mapping else {} -%}
           {%- set _vi = _vi if _vi is mapping else (_vi | from_json if _vi is string else {}) -%}
           {{ _vi.get('flags', {}).get('cabinet_ro', false) == true }}
+        # Slugified names of system drawers that FileCabinet must never write.
+        # Keys starting with _ are caught by the _ guard above; these catch
+        # non-_ variants that slugify to the same system drawer name.
+        # meta: mount state — managed by mount_cabinet/dismount_cabinet only.
+        # label_index: slugified _label_index — internal label registry.
+        # zen_relationships: slugified _zen_relationships — relationship graph.
+        # ai_cabinet_volumeinfo: VolumeInfo — cabinetadmin_stamp / set_variable_legacy only.
+        protected_system_drawers:
+          - ai_cabinet_volumeinfo
+          - label_index
+          - zen_relationships
+          - meta
+        is_protected_drawer: "{{ is_write_action and key in protected_system_drawers }}"
         is_create_new: "{{ action_type == 'create' and key != '' and not key_exists_initial}}"
         is_force_update_new: "{{ action_type == 'update' and key != '' and not key_exists_initial and force_action}}"
         is_force_create_over_existing: "{{ action_type == 'create' and key != '' and key_exists_initial and force_action}}"
@@ -498,6 +511,26 @@ script:
               key_slugified: "{{ key }}"
               volume_entity: "{{ volume_entity }}"
         - stop: Reserved key
+          response_variable: final_response
+      - conditions:
+        - alias: Error - Protected system drawer
+          condition: template
+          value_template: "{{ is_protected_drawer }}"
+        sequence:
+        - variables:
+            final_response:
+              status: error
+              failure: protected_drawer
+              message: >-
+                Write blocked: key '{{ raw_key }}' slugifies to '{{ key }}'
+                which is a protected system drawer. FileCabinet cannot write
+                system drawers ({{ protected_system_drawers | join(', ') }}).
+                Use the appropriate admin tool for this operation.
+              key_raw: "{{ raw_key }}"
+              key_slugified: "{{ key }}"
+              volume_entity: "{{ volume_entity }}"
+              protected_drawers: "{{ protected_system_drawers }}"
+        - stop: Protected system drawer
           response_variable: final_response
       - conditions:
         - alias: Error - Cabinet is read-only
