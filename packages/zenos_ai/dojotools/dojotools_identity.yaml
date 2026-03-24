@@ -42,8 +42,10 @@
 #   mode: set_principal           — set/replace HoH (user) or prime AI (ai_user) on any container cabinet
 #   mode: family_add_member       — add user/ai_user/family to a family; fires join event
 #   mode: family_remove_member    — remove member; fires leave event; warns if removed entity is HoH/prime
-#   mode: link_user_ai            — bidirectional partner link: user.partners + AI.acls.partner
-#   mode: unlink_user_ai          — sever bidirectional partner link
+#   mode: link_partners            — bidirectional delegation link (any entity pair: user↔user,
+#                                    user↔ai_user, ai_user↔ai_user). Writes acls.partner on both sides.
+#                                    Partner = authorized to delegate on your behalf (governance, not social).
+#   mode: unlink_partners          — sever delegation link; removes each from the other's acls.partner
 #   mode: set_default_family      — change which family is the user's default (first = default)
 #   mode: membership              — full tree view (principals + members + sub-families to depth 2)
 #                                    or reverse lookup (which groups is this member in?)
@@ -95,8 +97,11 @@ script:
             (member_type: ai_user) on any container cabinet. Single-occupant slot — previous occupant replaced.
           family_add_member = add user/ai_user/family to a family (nesting allowed; resolver caps at 2).
           family_remove_member = remove member from a family. Warns if removed entity is HoH/prime.
-          link_user_ai = bidirectional partner link between a user and an AI construct.
-          unlink_user_ai = sever bidirectional partner link between a user and an AI construct.
+          link_partners = bidirectional delegation link between any two entities (user↔user,
+            user↔ai_user, ai_user↔ai_user). Writes to acls.partner on both sides. Partner
+            means the entity is authorized to delegate on your behalf — not a social label.
+          unlink_partners = sever the delegation link. Removes each entity from the other's
+            acls.partner list.
           set_default_family = change a user's default family (first family joined is default).
           membership = full tree view: principals, members, and sub-families to depth 2.
             If family_entity or member_entity is a container (household/family), returns that tree.
@@ -118,8 +123,8 @@ script:
               - set_principal
               - family_add_member
               - family_remove_member
-              - link_user_ai
-              - unlink_user_ai
+              - link_partners
+              - unlink_partners
               - set_default_family
               - membership
               - is_member
@@ -190,9 +195,10 @@ script:
               - ai_user
               - family
       ai_entity:
-        name: AI Cabinet
-        description: entity_id of the AI user cabinet sensor. Required for link_user_ai,
-          unlink_user_ai.
+        name: Partner Cabinet (Entity B)
+        description: entity_id of the second cabinet for partner link operations. Any
+          cabinet type — user, ai_user, etc. Required for link_partners, unlink_partners.
+          Note — partner in this model means delegation authority, not social relationship.
         required: false
         selector:
           entity:
@@ -1351,9 +1357,11 @@ script:
             - stop: Family member removed
               response_variable: response
 
-    # ── Step 3i: mode = link_user_ai ─────────────────────────────────────────
+    # ── Step 3i: mode = link_partners ─────────────────────────────────────────
+    # Works for any entity pair: user↔user, user↔ai_user, ai_user↔ai_user.
+    # partner = delegation authority. acls.partner is written on BOTH sides.
     - choose:
-        - conditions: "{{ _mode == 'link_user_ai' }}"
+        - conditions: "{{ _mode == 'link_partners' }}"
           sequence:
             - if: "{{ member_entity == '' or ai_entity == '' }}"
               then:
@@ -1361,52 +1369,75 @@ script:
                     response: >-
                       {{
                         {
-                          'mode':    'link_user_ai',
+                          'mode':    'link_partners',
                           'status':  'error',
-                          'message': 'member_entity (user cabinet) and ai_entity are both required.',
+                          'message': 'member_entity and ai_entity (the two entities to link) are both required.',
                           'timestamp': now().isoformat()
                         } | tojson
                       }}
                 - stop: Missing required fields
                   response_variable: response
             - variables:
-                _user_vi_raw: >-
+                _a_vi_raw: >-
                   {%- set _v = state_attr(member_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
                   {{ _vi | tojson }}
-                _ai_vi_raw: >-
+                _b_vi_raw: >-
                   {%- set _v = state_attr(ai_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
                   {{ _vi | tojson }}
             - variables:
-                _user_guid: >-
-                  {%- set _vi = _user_vi_raw | from_json if _user_vi_raw is string else {} -%}
+                _a_guid: >-
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
-                _user_name: >-
-                  {%- set _vi = _user_vi_raw | from_json if _user_vi_raw is string else {} -%}
+                _a_name: >-
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
                   {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
-                _ai_guid: >-
-                  {%- set _vi = _ai_vi_raw | from_json if _ai_vi_raw is string else {} -%}
+                _a_type: >-
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
+                  {{ (_vi if _vi is mapping else {}).get('cab_type', 'user') }}
+                _b_guid: >-
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
-                _ai_name: >-
-                  {%- set _vi = _ai_vi_raw | from_json if _ai_vi_raw is string else {} -%}
+                _b_name: >-
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
                   {{ (_vi if _vi is mapping else {}).get('name', ai_entity) }}
-            # — patch user VolumeInfo: add ai_entity to partners list —
+                _b_type: >-
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {{ (_vi if _vi is mapping else {}).get('cab_type', 'user') }}
+            # — write B into A's acls.partner (delegation: B is A's partner) —
             - variables:
-                _user_vi_updated: >-
-                  {%- set _vi = _user_vi_raw | from_json if _user_vi_raw is string else {} -%}
+                _a_vi_updated: >-
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {%- set _partners = _vi.get('partners', []) -%}
-                  {%- set _partners = _partners if _partners is iterable and _partners is not string else [] -%}
-                  {%- set _existing = _partners | selectattr('entity_id', 'equalto', ai_entity) | list | count > 0 -%}
-                  {%- if not _existing -%}
-                    {%- set _partners = _partners + [{'guid': _ai_guid, 'entity_id': ai_entity, 'role': 'ai_partner'}] -%}
+                  {%- set _acls = _vi.get('acls', {}) -%}
+                  {%- set _acls = _acls if _acls is mapping else {} -%}
+                  {%- set _pts = _acls.get('partner', []) -%}
+                  {%- set _pts = _pts if _pts is iterable and _pts is not string else [] -%}
+                  {%- set _already = _pts | selectattr('entity_id', 'equalto', ai_entity) | list | count > 0 -%}
+                  {%- if not _already -%}
+                    {%- set _pts = _pts + [{'guid': _b_guid, 'entity_id': ai_entity, 'cab_type': _b_type, 'role': 'partner', 'sid': _b_guid}] -%}
                   {%- endif -%}
-                  {{ dict(_vi, **{'partners': _partners}) | tojson }}
+                  {%- set _acls = dict(_acls, **{'partner': _pts}) -%}
+                  {{ dict(_vi, **{'acls': _acls}) | tojson }}
+                # — write A into B's acls.partner (delegation: A is B's partner) —
+                _b_vi_updated: >-
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _acls = _vi.get('acls', {}) -%}
+                  {%- set _acls = _acls if _acls is mapping else {} -%}
+                  {%- set _pts = _acls.get('partner', []) -%}
+                  {%- set _pts = _pts if _pts is iterable and _pts is not string else [] -%}
+                  {%- set _already = _pts | selectattr('entity_id', 'equalto', member_entity) | list | count > 0 -%}
+                  {%- if not _already -%}
+                    {%- set _pts = _pts + [{'guid': _a_guid, 'entity_id': member_entity, 'cab_type': _a_type, 'role': 'partner', 'sid': _a_guid}] -%}
+                  {%- endif -%}
+                  {%- set _acls = dict(_acls, **{'partner': _pts}) -%}
+                  {{ dict(_vi, **{'acls': _acls}) | tojson }}
             - action: script.zen_dojotools_filecabinet
               data:
                 action_type: create
@@ -1416,23 +1447,7 @@ script:
                 volume_entity_id:
                   - "{{ member_entity }}"
                 key: AI_Cabinet_VolumeInfo
-                value: "{{ _user_vi_updated }}"
-            # — patch AI VolumeInfo: add user to acls.partner —
-            - variables:
-                _ai_vi_updated: >-
-                  {%- set _vi = _ai_vi_raw | from_json if _ai_vi_raw is string else {} -%}
-                  {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {%- set _acls = _vi.get('acls', {}) -%}
-                  {%- set _acls = _acls if _acls is mapping else {} -%}
-                  {%- set _partners = _acls.get('partner', []) -%}
-                  {%- set _partners = _partners if _partners is iterable and _partners is not string else [] -%}
-                  {%- set _existing = _partners | selectattr('entity_id', 'equalto', member_entity) | list | count > 0 -%}
-                  {%- if not _existing -%}
-                    {%- set _entry = {'guid': _user_guid, 'entity_id': member_entity, 'role': 'partner', 'sid': _user_guid} -%}
-                    {%- set _partners = _partners + [_entry] -%}
-                  {%- endif -%}
-                  {%- set _acls = dict(_acls, **{'partner': _partners}) -%}
-                  {{ dict(_vi, **{'acls': _acls}) | tojson }}
+                value: "{{ _a_vi_updated }}"
             - action: script.zen_dojotools_filecabinet
               data:
                 action_type: create
@@ -1442,19 +1457,21 @@ script:
                 volume_entity_id:
                   - "{{ ai_entity }}"
                 key: AI_Cabinet_VolumeInfo
-                value: "{{ _ai_vi_updated }}"
+                value: "{{ _b_vi_updated }}"
             - variables:
                 response: >-
                   {{
                     {
-                      'mode':        'link_user_ai',
+                      'mode':        'link_partners',
                       'status':      'ok',
-                      'user_entity': member_entity,
-                      'user_guid':   _user_guid,
-                      'user_name':   _user_name,
-                      'ai_entity':   ai_entity,
-                      'ai_guid':     _ai_guid,
-                      'ai_name':     _ai_name,
+                      'entity_a':    member_entity,
+                      'guid_a':      _a_guid,
+                      'name_a':      _a_name,
+                      'type_a':      _a_type,
+                      'entity_b':    ai_entity,
+                      'guid_b':      _b_guid,
+                      'name_b':      _b_name,
+                      'type_b':      _b_type,
                       'timestamp':   now().isoformat(),
                       'caller_token': caller_token | default('')
                     } | tojson
@@ -1462,17 +1479,20 @@ script:
             - event: zen_event
               event_data:
                 kind: partner_linked
-                user_entity: "{{ member_entity }}"
-                user_name: "{{ _user_name }}"
-                ai_entity: "{{ ai_entity }}"
-                ai_name: "{{ _ai_name }}"
+                entity_a: "{{ member_entity }}"
+                name_a: "{{ _a_name }}"
+                type_a: "{{ _a_type }}"
+                entity_b: "{{ ai_entity }}"
+                name_b: "{{ _b_name }}"
+                type_b: "{{ _b_type }}"
                 prompt_profile_update: true
             - stop: User-AI link established
               response_variable: response
 
-    # ── Step 3i-2: mode = unlink_user_ai ─────────────────────────────────────
+    # ── Step 3i-2: mode = unlink_partners ─────────────────────────────────────
+    # Symmetric: removes each entity from the other's acls.partner list.
     - choose:
-        - conditions: "{{ _mode == 'unlink_user_ai' }}"
+        - conditions: "{{ _mode == 'unlink_partners' }}"
           sequence:
             - if: "{{ member_entity == '' or ai_entity == '' }}"
               then:
@@ -1480,51 +1500,54 @@ script:
                     response: >-
                       {{
                         {
-                          'mode':    'unlink_user_ai',
+                          'mode':    'unlink_partners',
                           'status':  'error',
-                          'message': 'member_entity (user cabinet) and ai_entity are both required.',
+                          'message': 'member_entity and ai_entity (the two entities to unlink) are both required.',
                           'timestamp': now().isoformat()
                         } | tojson
                       }}
                 - stop: Missing required fields
                   response_variable: response
             - variables:
-                _user_vi_raw: >-
+                _a_vi_raw: >-
                   {%- set _v = state_attr(member_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
                   {{ _vi | tojson }}
-                _ai_vi_raw: >-
+                _b_vi_raw: >-
                   {%- set _v = state_attr(ai_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
                   {{ _vi | tojson }}
             - variables:
-                _user_name: >-
-                  {%- set _vi = _user_vi_raw | from_json if _user_vi_raw is string else {} -%}
+                _a_name: >-
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
                   {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
-                _ai_name: >-
-                  {%- set _vi = _ai_vi_raw | from_json if _ai_vi_raw is string else {} -%}
+                _b_name: >-
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
                   {{ (_vi if _vi is mapping else {}).get('name', ai_entity) }}
-                # — remove ai_entity from user's partners list —
-                _user_vi_updated: >-
-                  {%- set _vi = _user_vi_raw | from_json if _user_vi_raw is string else {} -%}
-                  {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {%- set _partners = _vi.get('partners', []) -%}
-                  {%- set _partners = _partners if _partners is iterable and _partners is not string else [] -%}
-                  {%- set _filtered = _partners | rejectattr('entity_id', 'equalto', ai_entity) | list -%}
-                  {{ dict(_vi, **{'partners': _filtered}) | tojson }}
-                # — remove member_entity from AI's acls.partner list —
-                _ai_vi_updated: >-
-                  {%- set _vi = _ai_vi_raw | from_json if _ai_vi_raw is string else {} -%}
+                # — remove B from A's acls.partner —
+                _a_vi_updated: >-
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
-                  {%- set _partners = _acls.get('partner', []) -%}
-                  {%- set _partners = _partners if _partners is iterable and _partners is not string else [] -%}
-                  {%- set _filtered = _partners | rejectattr('entity_id', 'equalto', member_entity) | list -%}
+                  {%- set _pts = _acls.get('partner', []) -%}
+                  {%- set _pts = _pts if _pts is iterable and _pts is not string else [] -%}
+                  {%- set _filtered = _pts | rejectattr('entity_id', 'equalto', ai_entity) | list -%}
+                  {%- set _acls = dict(_acls, **{'partner': _filtered}) -%}
+                  {{ dict(_vi, **{'acls': _acls}) | tojson }}
+                # — remove A from B's acls.partner —
+                _b_vi_updated: >-
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _acls = _vi.get('acls', {}) -%}
+                  {%- set _acls = _acls if _acls is mapping else {} -%}
+                  {%- set _pts = _acls.get('partner', []) -%}
+                  {%- set _pts = _pts if _pts is iterable and _pts is not string else [] -%}
+                  {%- set _filtered = _pts | rejectattr('entity_id', 'equalto', member_entity) | list -%}
                   {%- set _acls = dict(_acls, **{'partner': _filtered}) -%}
                   {{ dict(_vi, **{'acls': _acls}) | tojson }}
             - action: script.zen_dojotools_filecabinet
@@ -1550,26 +1573,26 @@ script:
             - event: zen_event
               event_data:
                 kind: partner_unlinked
-                user_entity: "{{ member_entity }}"
-                user_name: "{{ _user_name }}"
-                ai_entity: "{{ ai_entity }}"
-                ai_name: "{{ _ai_name }}"
+                entity_a: "{{ member_entity }}"
+                name_a: "{{ _a_name }}"
+                entity_b: "{{ ai_entity }}"
+                name_b: "{{ _b_name }}"
                 prompt_profile_update: true
             - variables:
                 response: >-
                   {{
                     {
-                      'mode':        'unlink_user_ai',
-                      'status':      'ok',
-                      'user_entity': member_entity,
-                      'user_name':   _user_name,
-                      'ai_entity':   ai_entity,
-                      'ai_name':     _ai_name,
-                      'timestamp':   now().isoformat(),
+                      'mode':      'unlink_partners',
+                      'status':    'ok',
+                      'entity_a':  member_entity,
+                      'name_a':    _a_name,
+                      'entity_b':  ai_entity,
+                      'name_b':    _b_name,
+                      'timestamp': now().isoformat(),
                       'caller_token': caller_token | default('')
                     } | tojson
                   }}
-            - stop: User-AI link severed
+            - stop: Partners unlinked
               response_variable: response
 
     # ── Step 3j: mode = set_default_family ───────────────────────────────────

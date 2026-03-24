@@ -321,20 +321,33 @@ script.zen_dojotools_identity:
 
 ---
 
-### Link a User and an AI (Partner Bond)
+### Link Partners (Delegation Authority)
+
+**Partner in this model means: authorized to delegate on your behalf.** This is a governance relationship, not a social one. No token is issued without an explicit allow — the link records who has delegation authority, it does not grant it automatically.
+
+Works for any entity pair:
 
 ```yaml
 script.zen_dojotools_identity:
-  mode: link_user_ai
-  member_entity: sensor.<user_cabinet>
-  ai_entity: sensor.<ai_user_cabinet>
+  mode: link_partners
+  member_entity: sensor.<cabinet_a>   # any type: user, ai_user
+  ai_entity: sensor.<cabinet_b>       # any type: user, ai_user
 ```
 
-Bidirectional write:
-- User `VolumeInfo.partners` gains an `ai_partner` entry pointing to the AI cabinet
-- AI `VolumeInfo.acls.partner` gains a `partner` entry pointing to the user cabinet
+Writes to `VolumeInfo.acls.partner[]` on **both** entities. Each entry carries `{guid, entity_id, cab_type, role: partner, sid}`.
 
 Idempotent — re-running does not create duplicate entries.
+
+**Unlink:**
+
+```yaml
+script.zen_dojotools_identity:
+  mode: unlink_partners
+  member_entity: sensor.<cabinet_a>
+  ai_entity: sensor.<cabinet_b>
+```
+
+Removes each entity from the other's `acls.partner[]`.
 
 ---
 
@@ -478,7 +491,8 @@ After the nuclear sequence completes, re-provision each identity cabinet via the
 | Remove member from household | `zen_dojotools_identity` | `household_remove_member` |
 | Add member to family | `zen_dojotools_identity` | `family_add_member` |
 | Remove member from family | `zen_dojotools_identity` | `family_remove_member` |
-| Link user ↔ AI (partner bond) | `zen_dojotools_identity` | `link_user_ai` |
+| Link partners (delegation authority) | `zen_dojotools_identity` | `link_partners` |
+| Unlink partners | `zen_dojotools_identity` | `unlink_partners` |
 | Change default family | `zen_dojotools_identity` | `set_default_family` |
 | Set/replace HoH or prime AI | `zen_dojotools_identity` | `set_principal` |
 | Transfer default label | `zen_dojotools_labels` | `untag` + `tag` |
