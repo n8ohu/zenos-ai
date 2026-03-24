@@ -27,23 +27,25 @@
 #   zen_library_manifest in the manifest builder. Run after onboarding or
 #   any time the roster changes.
 #
-# v4.3.0 — family group management modes added
-#   Membership model: System → Household (occupancy) → Family (belonging, 2-deep max)
+# v4.3.0 — family group management + membership visibility
+#   Membership model: System → Household (occupancy) → Family (belonging, unlimited depth)
+#   Security resolution caps at depth 2. Data model is unrestricted.
 #   First user provisioned auto-joins household + default family.
 #   AI auto-joins household only; explicit family invite = "part of the family".
 #   Join/leave fires zen_event (family_member_joined / family_member_left) with
 #   prompt_profile_update: true so the AI can surface naming/profile suggestions.
 #
 #   mode: household_add_family  — wire a family cabinet into a household
-#   mode: family_add_member     — add user/ai_user/family to a family (depth-checked)
+#   mode: household_add_member  — add user/ai_user to household; first occupant fills HoH/prime slot
+#   mode: household_remove_member — remove user/ai_user from household members list
+#   mode: set_principal         — set/replace HoH (user) or prime AI (ai_user) on any container cabinet
+#   mode: family_add_member     — add user/ai_user/family to a family; fires join event
 #   mode: family_remove_member  — remove member, fire leave event, clear default if needed
-#   mode: household_add_member      — add user/ai_user/family to a household (not prime or HoH slots —
-#                                      those are occupied at mint; use set_principal to transfer)
-#   mode: set_principal   — explicitly set or replace the HoH (member_type: user) or
-#                                      prime AI partner (member_type: ai_user) for a household.
-#                                      Single-occupant slot — previous occupant is replaced.
-#   mode: link_user_ai          — bidirectional partner link: user.ai_partners + AI.acls.partner
+#   mode: link_user_ai          — bidirectional partner link: user.partners + AI.acls.partner
 #   mode: set_default_family    — change which family is the user's default (first = default)
+#   mode: membership            — full tree view (principals + members + sub-families to depth 2)
+#                                  or reverse lookup (which groups is this member in?)
+#   mode: is_member             — depth-2 membership check: is member_entity in family_entity?
 #
 # config check → go; restart → clean ✓
 # ==============================
@@ -91,6 +93,12 @@ script:
           family_remove_member = remove member from a family.
           link_user_ai = bidirectional partner link between a user and an AI construct.
           set_default_family = change a user's default family (first family joined is default).
+          membership = full tree view: principals, members, and sub-families to depth 2.
+            If family_entity or member_entity is a container (household/family), returns that tree.
+            If member_entity is a user/ai_user, returns all groups they belong to and their role in each.
+            Omit both to return the default household tree.
+          is_member = depth-2 membership check. member_entity = subject, family_entity = container.
+            Returns {is_member: bool, depth: 1|2|null}.
         default: resolve
         selector:
           select:
@@ -106,6 +114,8 @@ script:
               - family_remove_member
               - link_user_ai
               - set_default_family
+              - membership
+              - is_member
 
       user_label:
         selector:
@@ -313,6 +323,85 @@ script:
                   {%- else -%}
                     {{ {'status': 'error', 'count': 0, 'roster': []} | tojson }}
                   {%- endif -%}
+            # — build household tree to depth 2 alongside flat roster —
+            - variables:
+                _hh_vi_raw: >-
+                  {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
+                  {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {{ _vi | tojson }}
+                _hh_members_raw: >-
+                  {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _m = _v.get('members', {}) -%}
+                  {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {{ _m | tojson }}
+            - variables:
+                _hh_tree: >-
+                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _m if _m is mapping else {} -%}
+                  {%- set _acls = _vi.get('acls', {}) -%}
+                  {%- set _acls = _acls if _acls is mapping else {} -%}
+                  {%- set _owners = _acls.get('owner', []) -%}
+                  {%- set _partners = _acls.get('partner', []) -%}
+                  {%- set _prime = _partners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
+                  {%- set _fams = [] -%}
+                  {%- for fam in _m.get('families', []) -%}
+                    {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                    {%- set _fv = _fv if _fv is mapping else {} -%}
+                    {%- set _fvi = _fv.get('AI_Cabinet_VolumeInfo', _fv) -%}
+                    {%- set _fvi = _fvi.get('value', _fvi) if _fvi is mapping else {} -%}
+                    {%- set _fm = _fv.get('members', {}) -%}
+                    {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                    {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
+                    {%- set _facls = _facls if _facls is mapping else {} -%}
+                    {%- set _fowners = _facls.get('owner', []) -%}
+                    {%- set _fpartners = _facls.get('partner', []) -%}
+                    {%- set _fprime = _fpartners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
+                    {%- set _subfams = [] -%}
+                    {%- for sf in _fm.get('families', []) -%}
+                      {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
+                      {%- set _sfv = _sfv if _sfv is mapping else {} -%}
+                      {%- set _sfvi = _sfv.get('AI_Cabinet_VolumeInfo', _sfv) -%}
+                      {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
+                      {%- set _sfm = _sfv.get('members', {}) -%}
+                      {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
+                      {%- set _subfams = _subfams + [{
+                        'entity_id': sf.get('entity_id', ''),
+                        'guid': _sfvi.get('guid', ''),
+                        'name': _sfvi.get('name', sf.get('entity_id', '')),
+                        'depth': 2,
+                        'members': {'users': _sfm.get('users', []), 'ai_users': _sfm.get('ai_users', [])}
+                      }] -%}
+                    {%- endfor -%}
+                    {%- set _fams = _fams + [{
+                      'entity_id': fam.get('entity_id', ''),
+                      'guid': _fvi.get('guid', ''),
+                      'name': _fvi.get('name', fam.get('entity_id', '')),
+                      'depth': fam.get('depth', 1),
+                      'principals': {'hoh': _fowners[0] if _fowners | count > 0 else none, 'prime': _fprime[0] if _fprime | count > 0 else none},
+                      'members': {'users': _fm.get('users', []), 'ai_users': _fm.get('ai_users', []), 'families': _subfams}
+                    }] -%}
+                  {%- endfor -%}
+                  {{
+                    {
+                      'entity_id': _hh_cab,
+                      'guid': _vi.get('guid', ''),
+                      'name': _vi.get('name', _hh_cab),
+                      'principals': {'hoh': _owners[0] if _owners | count > 0 else none, 'prime': _prime[0] if _prime | count > 0 else none},
+                      'members': {'users': _m.get('users', []), 'ai_users': _m.get('ai_users', []), 'families': _fams}
+                    } | tojson
+                  }}
+                _manifest: >-
+                  {{
+                    {
+                      'roster': _roster,
+                      'tree':   _hh_tree
+                    } | tojson
+                  }}
             - action: script.zen_dojotools_filecabinet
               data:
                 action_type: create
@@ -322,17 +411,17 @@ script:
                 volume_entity_id:
                   - "{{ _hh_cab }}"
                 key: zen_identity_manifest
-                value: "{{ _roster }}"
+                value: "{{ _manifest }}"
             - variables:
                 response: >-
                   {{
                     {
-                      'mode':      'build_identity_manifest',
-                      'status':    'ok',
+                      'mode':              'build_identity_manifest',
+                      'status':            'ok',
                       'household_cabinet': _hh_cab,
-                      'manifest':  _roster,
-                      'timestamp': now().isoformat(),
-                      'caller_token': caller_token | default('')
+                      'manifest':          _manifest,
+                      'timestamp':         now().isoformat(),
+                      'caller_token':      caller_token | default('')
                     } | tojson
                   }}
             - stop: Identity manifest written
@@ -1271,6 +1360,313 @@ script:
                     } | tojson
                   }}
             - stop: Default family set
+              response_variable: response
+
+    # ── Step 3k: mode = membership ───────────────────────────────────────────
+    # Tree view for containers; reverse lookup for members.
+    # Reads VolumeInfo + members drawer from state_attr (template-time, no async).
+    # Depth-2 tree: household → families (depth 1) → sub-families (depth 2).
+    - choose:
+        - conditions: "{{ _mode == 'membership' }}"
+          sequence:
+            - variables:
+                # Determine root: family_entity > member_entity > default household
+                _root_entity: >-
+                  {%- if family_entity | trim != '' -%}
+                    {{ family_entity | trim }}
+                  {%- elif member_entity | trim != '' -%}
+                    {{ member_entity | trim }}
+                  {%- else -%}
+                    {{ states('sensor.zen_default_household_cabinet_resolved') }}
+                  {%- endif -%}
+                _hh_default: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+            - variables:
+                _root_vi_raw: >-
+                  {%- set _v = state_attr(_root_entity, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
+                  {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {{ _vi | tojson }}
+                _root_members_raw: >-
+                  {%- set _v = state_attr(_root_entity, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _m = _v.get('members', {}) -%}
+                  {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {{ _m | tojson }}
+            - variables:
+                _root_vi: "{{ _root_vi_raw | from_json if _root_vi_raw is string else (_root_vi_raw if _root_vi_raw is mapping else {}) }}"
+                _root_members: "{{ _root_members_raw | from_json if _root_members_raw is string else (_root_members_raw if _root_members_raw is mapping else {}) }}"
+                _root_cab_type: >-
+                  {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {{ _vi.get('cab_type', '') }}
+                _root_is_container: >-
+                  {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _ct = _vi.get('cab_type', '') -%}
+                  {{ _ct in ['household', 'family'] or 'members' in (state_attr(_root_entity, 'variables') | default({}, true)) }}
+            - choose:
+                # ── container tree ────────────────────────────────────────────
+                - conditions: "{{ _root_is_container | bool }}"
+                  sequence:
+                    - variables:
+                        _tree: >-
+                          {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else {} -%}
+                          {%- set _vi = _vi if _vi is mapping else {} -%}
+                          {%- set _m = _root_members_raw | from_json if _root_members_raw is string else {} -%}
+                          {%- set _m = _m if _m is mapping else {} -%}
+                          {%- set _acls = _vi.get('acls', {}) -%}
+                          {%- set _acls = _acls if _acls is mapping else {} -%}
+                          {%- set _owners = _acls.get('owner', []) -%}
+                          {%- set _partners = _acls.get('partner', []) -%}
+                          {%- set _prime = _partners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
+                          {%- set _hoh = _owners[0] if _owners | count > 0 else none -%}
+                          {%- set _prime_entry = _prime[0] if _prime | count > 0 else none -%}
+                          {# depth-1 families with their members #}
+                          {%- set _fams = [] -%}
+                          {%- for fam in _m.get('families', []) -%}
+                            {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                            {%- set _fv = _fv if _fv is mapping else {} -%}
+                            {%- set _fvi = _fv.get('AI_Cabinet_VolumeInfo', _fv) -%}
+                            {%- set _fvi = _fvi.get('value', _fvi) if _fvi is mapping else {} -%}
+                            {%- set _fm = _fv.get('members', {}) -%}
+                            {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                            {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
+                            {%- set _facls = _facls if _facls is mapping else {} -%}
+                            {%- set _fowners = _facls.get('owner', []) -%}
+                            {%- set _fpartners = _facls.get('partner', []) -%}
+                            {%- set _fprime = _fpartners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
+                            {# depth-2 sub-families (members only, no further recursion) #}
+                            {%- set _subfams = [] -%}
+                            {%- for sf in _fm.get('families', []) -%}
+                              {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
+                              {%- set _sfv = _sfv if _sfv is mapping else {} -%}
+                              {%- set _sfvi = _sfv.get('AI_Cabinet_VolumeInfo', _sfv) -%}
+                              {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
+                              {%- set _sfm = _sfv.get('members', {}) -%}
+                              {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
+                              {%- set _subfams = _subfams + [{
+                                'entity_id': sf.get('entity_id', ''),
+                                'guid': _sfvi.get('guid', ''),
+                                'name': _sfvi.get('name', sf.get('entity_id', '')),
+                                'depth': 2,
+                                'members': {
+                                  'users': _sfm.get('users', []),
+                                  'ai_users': _sfm.get('ai_users', [])
+                                }
+                              }] -%}
+                            {%- endfor -%}
+                            {%- set _fams = _fams + [{
+                              'entity_id': fam.get('entity_id', ''),
+                              'guid': _fvi.get('guid', ''),
+                              'name': _fvi.get('name', fam.get('entity_id', '')),
+                              'depth': fam.get('depth', 1),
+                              'principals': {
+                                'hoh': _fowners[0] if _fowners | count > 0 else none,
+                                'prime': _fprime[0] if _fprime | count > 0 else none
+                              },
+                              'members': {
+                                'users': _fm.get('users', []),
+                                'ai_users': _fm.get('ai_users', []),
+                                'families': _subfams
+                              }
+                            }] -%}
+                          {%- endfor -%}
+                          {{
+                            {
+                              'entity_id': _root_entity,
+                              'guid': _vi.get('guid', ''),
+                              'name': _vi.get('name', _root_entity),
+                              'cab_type': _vi.get('cab_type', ''),
+                              'principals': {
+                                'hoh': _hoh,
+                                'prime': _prime_entry
+                              },
+                              'members': {
+                                'users': _m.get('users', []),
+                                'ai_users': _m.get('ai_users', []),
+                                'families': _fams
+                              }
+                            } | tojson
+                          }}
+                    - variables:
+                        response: >-
+                          {{
+                            {
+                              'mode':             'membership',
+                              'view':             'tree',
+                              'root_entity':      _root_entity,
+                              'tree':             _tree,
+                              'timestamp':        now().isoformat(),
+                              'caller_token':     caller_token | default('')
+                            } | tojson
+                          }}
+                    - stop: Membership tree returned
+                      response_variable: response
+
+                # ── member reverse-lookup ─────────────────────────────────────
+                - conditions: "{{ not _root_is_container | bool }}"
+                  sequence:
+                    - variables:
+                        # Scan the default household and its families for this member
+                        _lookup_root: "{{ _hh_default }}"
+                        _target_eid: "{{ _root_entity }}"
+                    - variables:
+                        _hh_vi_raw: >-
+                          {%- set _v = state_attr(_lookup_root, 'variables') | default({}, true) -%}
+                          {%- set _v = _v if _v is mapping else {} -%}
+                          {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
+                          {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                          {{ _vi | tojson }}
+                        _hh_m_raw: >-
+                          {%- set _v = state_attr(_lookup_root, 'variables') | default({}, true) -%}
+                          {%- set _v = _v if _v is mapping else {} -%}
+                          {%- set _m = _v.get('members', {}) -%}
+                          {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                          {{ _m | tojson }}
+                    - variables:
+                        _memberships: >-
+                          {%- set _hvi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                          {%- set _hvi = _hvi if _hvi is mapping else {} -%}
+                          {%- set _hm = _hh_m_raw | from_json if _hh_m_raw is string else {} -%}
+                          {%- set _hm = _hm if _hm is mapping else {} -%}
+                          {%- set _eid = _target_eid -%}
+                          {%- set _groups = [] -%}
+                          {# household direct membership? #}
+                          {%- set _hh_users = _hm.get('users', []) + _hm.get('ai_users', []) -%}
+                          {%- set _in_hh = _hh_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
+                          {%- if _in_hh -%}
+                            {%- set _hacls = _hvi.get('acls', {}) | default({}, true) -%}
+                            {%- set _hacls = _hacls if _hacls is mapping else {} -%}
+                            {%- set _own = _hacls.get('owner', []) -%}
+                            {%- set _prt = _hacls.get('partner', []) -%}
+                            {%- set _is_hoh = _own | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
+                            {%- set _is_prime = _prt | selectattr('entity_id', 'equalto', _eid) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
+                            {%- set _role = 'hoh' if _is_hoh else ('prime' if _is_prime else 'member') -%}
+                            {%- set _groups = _groups + [{'container': _lookup_root, 'container_type': 'household', 'guid': _hvi.get('guid', ''), 'name': _hvi.get('name', _lookup_root), 'depth': 0, 'role': _role}] -%}
+                          {%- endif -%}
+                          {# scan depth-1 families #}
+                          {%- for fam in _hm.get('families', []) -%}
+                            {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                            {%- set _fv = _fv if _fv is mapping else {} -%}
+                            {%- set _fvi = _fv.get('AI_Cabinet_VolumeInfo', _fv) -%}
+                            {%- set _fvi = _fvi.get('value', _fvi) if _fvi is mapping else {} -%}
+                            {%- set _fm = _fv.get('members', {}) -%}
+                            {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                            {%- set _f_users = _fm.get('users', []) + _fm.get('ai_users', []) -%}
+                            {%- set _in_fam = _f_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
+                            {%- if _in_fam -%}
+                              {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
+                              {%- set _facls = _facls if _facls is mapping else {} -%}
+                              {%- set _fown = _facls.get('owner', []) -%}
+                              {%- set _fprt = _facls.get('partner', []) -%}
+                              {%- set _is_fhoh = _fown | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
+                              {%- set _is_fprime = _fprt | selectattr('entity_id', 'equalto', _eid) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
+                              {%- set _frole = 'hoh' if _is_fhoh else ('prime' if _is_fprime else 'member') -%}
+                              {%- set _groups = _groups + [{'container': fam.get('entity_id', ''), 'container_type': 'family', 'guid': _fvi.get('guid', ''), 'name': _fvi.get('name', fam.get('entity_id', '')), 'depth': 1, 'role': _frole}] -%}
+                            {%- endif -%}
+                            {# scan depth-2 sub-families #}
+                            {%- for sf in _fm.get('families', []) -%}
+                              {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
+                              {%- set _sfv = _sfv if _sfv is mapping else {} -%}
+                              {%- set _sfvi = _sfv.get('AI_Cabinet_VolumeInfo', _sfv) -%}
+                              {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
+                              {%- set _sfm = _sfv.get('members', {}) -%}
+                              {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
+                              {%- set _sf_users = _sfm.get('users', []) + _sfm.get('ai_users', []) -%}
+                              {%- set _in_sf = _sf_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
+                              {%- if _in_sf -%}
+                                {%- set _groups = _groups + [{'container': sf.get('entity_id', ''), 'container_type': 'family', 'guid': _sfvi.get('guid', ''), 'name': _sfvi.get('name', sf.get('entity_id', '')), 'depth': 2, 'role': 'member'}] -%}
+                              {%- endif -%}
+                            {%- endfor -%}
+                          {%- endfor -%}
+                          {{ _groups | tojson }}
+                    - variables:
+                        response: >-
+                          {{
+                            {
+                              'mode':          'membership',
+                              'view':          'member_lookup',
+                              'member_entity': _root_entity,
+                              'memberships':   _memberships,
+                              'timestamp':     now().isoformat(),
+                              'caller_token':  caller_token | default('')
+                            } | tojson
+                          }}
+                    - stop: Member lookup returned
+                      response_variable: response
+
+    # ── Step 3l: mode = is_member ─────────────────────────────────────────────
+    - choose:
+        - conditions: "{{ _mode == 'is_member' }}"
+          sequence:
+            - if: "{{ member_entity == '' or family_entity == '' }}"
+              then:
+                - variables:
+                    response: >-
+                      {{
+                        {
+                          'mode':    'is_member',
+                          'status':  'error',
+                          'message': 'member_entity (subject) and family_entity (container) are both required.',
+                          'timestamp': now().isoformat()
+                        } | tojson
+                      }}
+                - stop: Missing required fields
+                  response_variable: response
+            - variables:
+                _container_m_raw: >-
+                  {%- set _v = state_attr(family_entity, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _m = _v.get('members', {}) -%}
+                  {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {{ _m | tojson }}
+            - variables:
+                _check: >-
+                  {%- set _m = _container_m_raw | from_json if _container_m_raw is string else {} -%}
+                  {%- set _m = _m if _m is mapping else {} -%}
+                  {%- set _eid = member_entity -%}
+                  {%- set _all_direct = _m.get('users', []) + _m.get('ai_users', []) -%}
+                  {%- set _d1 = _all_direct | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
+                  {%- if _d1 -%}
+                    {{ {'is_member': true, 'depth': 1} | tojson }}
+                  {%- else -%}
+                    {%- set _found_d2 = false -%}
+                    {%- for fam in _m.get('families', []) -%}
+                      {%- if not _found_d2 -%}
+                        {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                        {%- set _fv = _fv if _fv is mapping else {} -%}
+                        {%- set _fm = _fv.get('members', {}) -%}
+                        {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                        {%- set _d2_all = _fm.get('users', []) + _fm.get('ai_users', []) -%}
+                        {%- set _in_d2 = _d2_all | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
+                        {%- if _in_d2 -%}
+                          {%- set _found_d2 = true -%}
+                        {%- endif -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    {%- if _found_d2 -%}
+                      {{ {'is_member': true, 'depth': 2} | tojson }}
+                    {%- else -%}
+                      {{ {'is_member': false, 'depth': none} | tojson }}
+                    {%- endif -%}
+                  {%- endif -%}
+            - variables:
+                response: >-
+                  {%- set _r = _check | from_json if _check is string else _check -%}
+                  {%- set _r = _r if _r is mapping else {'is_member': false, 'depth': none} -%}
+                  {{
+                    {
+                      'mode':             'is_member',
+                      'member_entity':    member_entity,
+                      'container_entity': family_entity,
+                      'is_member':        _r.get('is_member', false),
+                      'depth':            _r.get('depth', none),
+                      'timestamp':        now().isoformat(),
+                      'caller_token':     caller_token | default('')
+                    } | tojson
+                  }}
+            - stop: is_member check complete
               response_variable: response
 
     # ── Step 3b: mode = resolve (default) ──────────────────────────────────
