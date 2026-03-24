@@ -330,15 +330,14 @@ script:
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':      'build_identity_manifest',
-                          'status':    'error',
-                          'message':   'Household cabinet unavailable — cannot write zen_identity_manifest.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':      'build_identity_manifest',
+                        'status':    'error',
+                        'message':   'Household cabinet unavailable — cannot write zen_identity_manifest.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Household cabinet unavailable
                   response_variable: response
             - variables:
@@ -365,19 +364,20 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
             - variables:
                 _hh_tree: >-
-                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
                   {%- set _owners = _acls.get('owner', []) -%}
                   {%- set _partners = _acls.get('partner', []) -%}
                   {%- set _prime = _partners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
-                  {%- set _fams = [] -%}
+                  {%- set _ns = namespace(fams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                   {%- for fam in _m.get('families', []) -%}
                     {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
                     {%- set _fv = _fv if _fv is mapping else {} -%}
@@ -390,7 +390,7 @@ script:
                     {%- set _fowners = _facls.get('owner', []) -%}
                     {%- set _fpartners = _facls.get('partner', []) -%}
                     {%- set _fprime = _fpartners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
-                    {%- set _subfams = [] -%}
+                    {%- set _nsf = namespace(subfams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                     {%- for sf in _fm.get('families', []) -%}
                       {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
                       {%- set _sfv = _sfv if _sfv is mapping else {} -%}
@@ -398,7 +398,7 @@ script:
                       {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
                       {%- set _sfm = _sfv.get('members', {}) -%}
                       {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
-                      {%- set _subfams = _subfams + [{
+                      {%- set _nsf.subfams = _nsf.subfams + [{
                         'entity_id': sf.get('entity_id', ''),
                         'guid': _sfvi.get('guid', ''),
                         'name': _sfvi.get('name', sf.get('entity_id', '')),
@@ -406,13 +406,13 @@ script:
                         'members': {'users': _sfm.get('users', []), 'ai_users': _sfm.get('ai_users', [])}
                       }] -%}
                     {%- endfor -%}
-                    {%- set _fams = _fams + [{
+                    {%- set _ns.fams = _ns.fams + [{
                       'entity_id': fam.get('entity_id', ''),
                       'guid': _fvi.get('guid', ''),
                       'name': _fvi.get('name', fam.get('entity_id', '')),
                       'depth': fam.get('depth', 1),
                       'principals': {'hoh': _fowners[0] if _fowners | count > 0 else none, 'prime': _fprime[0] if _fprime | count > 0 else none},
-                      'members': {'users': _fm.get('users', []), 'ai_users': _fm.get('ai_users', []), 'families': _subfams}
+                      'members': {'users': _fm.get('users', []), 'ai_users': _fm.get('ai_users', []), 'families': _nsf.subfams}
                     }] -%}
                   {%- endfor -%}
                   {{
@@ -421,7 +421,7 @@ script:
                       'guid': _vi.get('guid', ''),
                       'name': _vi.get('name', _hh_cab),
                       'principals': {'hoh': _owners[0] if _owners | count > 0 else none, 'prime': _prime[0] if _prime | count > 0 else none},
-                      'members': {'users': _m.get('users', []), 'ai_users': _m.get('ai_users', []), 'families': _fams}
+                      'members': {'users': _m.get('users', []), 'ai_users': _m.get('ai_users', []), 'families': _ns.fams}
                     } | tojson
                   }}
                 _manifest: >-
@@ -442,17 +442,16 @@ script:
                 key: zen_identity_manifest
                 value: "{{ _manifest }}"
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':              'build_identity_manifest',
-                      'status':            'ok',
-                      'household_cabinet': _hh_cab,
-                      'manifest':          _manifest,
-                      'timestamp':         now().isoformat(),
-                      'caller_token':      caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':              'build_identity_manifest',
+                    'status':            'ok',
+                    'household_cabinet': _hh_cab,
+                    'manifest':          _manifest,
+                    'timestamp':         now().isoformat(),
+                    'caller_token':      caller_token | default('')
+                  }
+                }}"
             - stop: Identity manifest written
               response_variable: response
 
@@ -465,15 +464,14 @@ script:
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or family_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':      'household_add_family',
-                          'status':    'error',
-                          'message':   'household_cabinet and family_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':      'household_add_family',
+                        'status':    'error',
+                        'message':   'household_cabinet and family_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -488,6 +486,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
             - variables:
                 _fam_vi: "{{ _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw }}"
@@ -502,7 +501,7 @@ script:
                 _hh_members: "{{ _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw }}"
             - variables:
                 _existing_fams: >-
-                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {{ _m.get('families', []) | tojson }}
                 _new_fam_entry: >-
@@ -521,21 +520,20 @@ script:
             - if: "{{ _already_member | bool }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':           'household_add_family',
-                          'status':         'already_member',
-                          'family_entity':  family_entity,
-                          'household_cabinet': _hh_cab,
-                          'timestamp':      now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':           'household_add_family',
+                        'status':         'already_member',
+                        'family_entity':  family_entity,
+                        'household_cabinet': _hh_cab,
+                        'timestamp':      now().isoformat()
+                      }
+                    }}"
                 - stop: Already a household member
                   response_variable: response
             - variables:
                 _updated_members: >-
-                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _fams = _m.get('families', []) -%}
                   {%- set _fams = _fams if _fams is iterable and _fams is not string else [] -%}
@@ -554,19 +552,18 @@ script:
                 key: members
                 value: "{{ _updated_members }}"
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':              'household_add_family',
-                      'status':            'ok',
-                      'household_cabinet': _hh_cab,
-                      'family_entity':     family_entity,
-                      'family_guid':       _fam_guid,
-                      'family_name':       _fam_name,
-                      'timestamp':         now().isoformat(),
-                      'caller_token':      caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':              'household_add_family',
+                    'status':            'ok',
+                    'household_cabinet': _hh_cab,
+                    'family_entity':     family_entity,
+                    'family_guid':       _fam_guid,
+                    'family_name':       _fam_name,
+                    'timestamp':         now().isoformat(),
+                    'caller_token':      caller_token | default('')
+                  }
+                }}"
             - stop: Household family added
               response_variable: response
 
@@ -579,15 +576,14 @@ script:
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or family_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'household_remove_family',
-                          'status':  'error',
-                          'message': 'household_cabinet and family_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'household_remove_family',
+                        'status':  'error',
+                        'message': 'household_cabinet and family_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -596,10 +592,11 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
             - variables:
                 _updated_members: >-
-                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _fams = _m.get('families', []) -%}
                   {%- set _fams = _fams if _fams is iterable and _fams is not string else [] -%}
@@ -616,17 +613,16 @@ script:
                 key: members
                 value: "{{ _updated_members }}"
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':              'household_remove_family',
-                      'status':            'ok',
-                      'household_cabinet': _hh_cab,
-                      'family_entity':     family_entity,
-                      'timestamp':         now().isoformat(),
-                      'caller_token':      caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':              'household_remove_family',
+                    'status':            'ok',
+                    'household_cabinet': _hh_cab,
+                    'family_entity':     family_entity,
+                    'timestamp':         now().isoformat(),
+                    'caller_token':      caller_token | default('')
+                  }
+                }}"
             - stop: Household family removed
               response_variable: response
 
@@ -639,15 +635,14 @@ script:
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or member_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'household_add_member',
-                          'status':  'error',
-                          'message': 'household_cabinet and member_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'household_add_member',
+                        'status':  'error',
+                        'message': 'household_cabinet and member_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -662,6 +657,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
                 _mem_vi_raw: >-
                   {%- set _v = state_attr(member_entity, 'variables') | default({}, true) -%}
@@ -673,27 +669,27 @@ script:
                 _hh_vi: "{{ _hh_vi_raw | from_json if _hh_vi_raw is string else (_hh_vi_raw if _hh_vi_raw is mapping else {}) }}"
                 _mem_vi: "{{ _mem_vi_raw | from_json if _mem_vi_raw is string else (_mem_vi_raw if _mem_vi_raw is mapping else {}) }}"
                 _hh_acls: >-
-                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('acls', {}) | tojson }}
                 _mem_guid: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _mem_name: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('name', member_entity) }}
             - variables:
                 _acls: "{{ _hh_acls | from_json if _hh_acls is string else (_hh_acls if _hh_acls is mapping else {}) }}"
                 _prime_occupied: >-
-                  {%- set _a = _hh_acls | from_json if _hh_acls is string else {} -%}
+                  {%- set _a = _hh_acls | from_json if _hh_acls is string else _hh_acls -%}
                   {%- set _a = _a if _a is mapping else {} -%}
                   {%- set _partners = _a.get('partner', []) -%}
                   {%- set _partners = _partners if _partners is iterable and _partners is not string else [] -%}
                   {{ _partners | selectattr('role', 'equalto', 'prime') | list | count > 0 }}
                 _hoh_occupied: >-
-                  {%- set _a = _hh_acls | from_json if _hh_acls is string else {} -%}
+                  {%- set _a = _hh_acls | from_json if _hh_acls is string else _hh_acls -%}
                   {%- set _a = _a if _a is mapping else {} -%}
                   {{ _a.get('owner', []) | list | count > 0 }}
             - if: >-
@@ -701,27 +697,26 @@ script:
                    or (member_type == 'user' and _hoh_occupied | bool) }}
               then:
                 - variables:
-                    response: >-
+                    response: "{{
                       {%- set _slot = 'prime AI partner' if member_type == 'ai_user' else 'Head of Household' -%}
-                      {{
-                        {
-                          'mode':          'household_add_member',
-                          'status':        'error',
-                          'code':          'slot_occupied',
-                          'message':       _slot ~ ' slot is already occupied for this household. Use an admin operation to transfer.',
-                          'member_entity': member_entity,
-                          'member_type':   member_type,
-                          'timestamp':     now().isoformat()
-                        } | tojson
-                      }}
+                      {
+                        'mode':          'household_add_member',
+                        'status':        'error',
+                        'code':          'slot_occupied',
+                        'message':       _slot ~ ' slot is already occupied for this household. Use an admin operation to transfer.',
+                        'member_entity': member_entity,
+                        'member_type':   member_type,
+                        'timestamp':     now().isoformat()
+                      }
+                    }}"
                 - stop: Prime or HoH slot occupied
                   response_variable: response
             - variables:
                 _list_key: "{{ 'ai_users' if member_type == 'ai_user' else 'users' }}"
-                _hh_members: "{{ _hh_members_raw | from_json if _hh_members_raw is string else {} }}"
+                _hh_members: "{{ _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw }}"
             - variables:
                 _existing_list: >-
-                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {{ _m.get(_list_key, []) | tojson }}
             - variables:
@@ -732,23 +727,22 @@ script:
             - if: "{{ _already_member | bool }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':          'household_add_member',
-                          'status':        'already_member',
-                          'member_entity': member_entity,
-                          'member_type':   member_type,
-                          'timestamp':     now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':          'household_add_member',
+                        'status':        'already_member',
+                        'member_entity': member_entity,
+                        'member_type':   member_type,
+                        'timestamp':     now().isoformat()
+                      }
+                    }}"
                 - stop: Already a household member
                   response_variable: response
             - variables:
                 _new_entry: >-
                   {{ {'guid': _mem_guid, 'entity_id': member_entity} | tojson }}
                 _updated_members: >-
-                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _lst = _m.get(_list_key, []) -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
@@ -772,7 +766,7 @@ script:
                 _hh_vi_updated: >-
                   {%- if (member_type == 'user' and not _hoh_occupied | bool)
                          or (member_type == 'ai_user' and not _prime_occupied | bool) -%}
-                    {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                    {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                     {%- set _vi = _vi if _vi is mapping else {} -%}
                     {%- set _acls = _vi.get('acls', {}) -%}
                     {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -814,21 +808,20 @@ script:
                 slot_filled: "{{ _slot_name }}"
                 prompt_profile_update: "{{ member_type == 'ai_user' }}"
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':              'household_add_member',
-                      'status':            'ok',
-                      'household_cabinet': _hh_cab,
-                      'member_entity':     member_entity,
-                      'member_type':       member_type,
-                      'member_guid':       _mem_guid,
-                      'member_name':       _mem_name,
-                      'slot_filled':       _slot_name,
-                      'timestamp':         now().isoformat(),
-                      'caller_token':      caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':              'household_add_member',
+                    'status':            'ok',
+                    'household_cabinet': _hh_cab,
+                    'member_entity':     member_entity,
+                    'member_type':       member_type,
+                    'member_guid':       _mem_guid,
+                    'member_name':       _mem_name,
+                    'slot_filled':       _slot_name,
+                    'timestamp':         now().isoformat(),
+                    'caller_token':      caller_token | default('')
+                  }
+                }}"
             - stop: Household member added
               response_variable: response
 
@@ -841,15 +834,14 @@ script:
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or member_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'household_remove_member',
-                          'status':  'error',
-                          'message': 'household_cabinet and member_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'household_remove_member',
+                        'status':  'error',
+                        'message': 'household_cabinet and member_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -859,6 +851,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
                 _hh_vi_raw: >-
                   {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
@@ -868,14 +861,14 @@ script:
                   {{ _vi | tojson }}
             - variables:
                 _updated_members: >-
-                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _lst = _m.get(_list_key, []) -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
                   {%- set _filtered = _lst | rejectattr('entity_id', 'equalto', member_entity) | list -%}
                   {{ dict(_m, **{_list_key: _filtered}) | tojson }}
                 _principal_warning: >-
-                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -905,19 +898,18 @@ script:
                 principal_warning: "{{ _principal_warning }}"
                 prompt_profile_update: "{{ member_type == 'ai_user' }}"
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':              'household_remove_member',
-                      'status':            'ok',
-                      'household_cabinet': _hh_cab,
-                      'member_entity':     member_entity,
-                      'member_type':       member_type,
-                      'principal_warning': _principal_warning,
-                      'timestamp':         now().isoformat(),
-                      'caller_token':      caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':              'household_remove_member',
+                    'status':            'ok',
+                    'household_cabinet': _hh_cab,
+                    'member_entity':     member_entity,
+                    'member_type':       member_type,
+                    'principal_warning': _principal_warning,
+                    'timestamp':         now().isoformat(),
+                    'caller_token':      caller_token | default('')
+                  }
+                }}"
             - stop: Household member removed
               response_variable: response
 
@@ -936,15 +928,14 @@ script:
             - if: "{{ _target_cab in ['', 'unknown', 'unavailable'] or member_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'set_principal',
-                          'status':  'error',
-                          'message': 'A target cabinet (family_entity or default household) and member_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'set_principal',
+                        'status':  'error',
+                        'message': 'A target cabinet (family_entity or default household) and member_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -962,17 +953,17 @@ script:
                   {{ _vi | tojson }}
             - variables:
                 _mem_guid: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _mem_name: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
                 _hh_vi_updated: >-
-                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
-                  {%- set _mvi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _mvi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _mguid = (_mvi if _mvi is mapping else {}).get('guid', '') -%}
                   {%- if member_type == 'user' -%}
                     {%- set _acls = dict(_acls, **{'owner': [{'guid': _mguid, 'entity_id': member_entity}]}) -%}
@@ -996,21 +987,20 @@ script:
                 value: "{{ _hh_vi_updated }}"
             - variables:
                 _slot: "{{ 'hoh' if member_type == 'user' else 'prime' }}"
-                response: >-
-                  {{
-                    {
-                      'mode':           'set_principal',
-                      'status':         'ok',
-                      'target_cabinet': _target_cab,
-                      'slot':              _slot,
-                      'member_entity':     member_entity,
-                      'member_type':       member_type,
-                      'member_guid':       _mem_guid,
-                      'member_name':       _mem_name,
-                      'timestamp':         now().isoformat(),
-                      'caller_token':      caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':           'set_principal',
+                    'status':         'ok',
+                    'target_cabinet': _target_cab,
+                    'slot':              _slot,
+                    'member_entity':     member_entity,
+                    'member_type':       member_type,
+                    'member_guid':       _mem_guid,
+                    'member_name':       _mem_name,
+                    'timestamp':         now().isoformat(),
+                    'caller_token':      caller_token | default('')
+                  }
+                }}"
             - event: zen_event
               event_data:
                 kind: principal_changed
@@ -1031,15 +1021,14 @@ script:
             - if: "{{ family_entity == '' or member_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'family_add_member',
-                          'status':  'error',
-                          'message': 'family_entity and member_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'family_add_member',
+                        'status':  'error',
+                        'message': 'family_entity and member_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -1048,6 +1037,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
                 _mem_vi_raw: >-
                   {%- set _v = state_attr(member_entity, 'variables') | default({}, true) -%}
@@ -1063,19 +1053,19 @@ script:
                   {{ _vi | tojson }}
             - variables:
                 _mem_guid: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _mem_name: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('name', member_entity) }}
                 _fam_guid: >-
-                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else {} -%}
+                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _fam_name: >-
-                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else {} -%}
+                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('name', family_entity) }}
                 _list_key: >-
@@ -1084,7 +1074,7 @@ script:
                   {%- else -%}users{%- endif -%}
             - variables:
                 _existing_list: >-
-                  {%- set _m = _fam_members_raw | from_json if _fam_members_raw is string else {} -%}
+                  {%- set _m = _fam_members_raw | from_json if _fam_members_raw is string else _fam_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {{ _m.get(_list_key, []) | tojson }}
                 _new_entry: >-
@@ -1101,21 +1091,20 @@ script:
             - if: "{{ _already_member | bool }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':          'family_add_member',
-                          'status':        'already_member',
-                          'family_entity': family_entity,
-                          'member_entity': member_entity,
-                          'timestamp':     now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':          'family_add_member',
+                        'status':        'already_member',
+                        'family_entity': family_entity,
+                        'member_entity': member_entity,
+                        'timestamp':     now().isoformat()
+                      }
+                    }}"
                 - stop: Already a family member
                   response_variable: response
             - variables:
                 _updated_members: >-
-                  {%- set _m = _fam_members_raw | from_json if _fam_members_raw is string else {} -%}
+                  {%- set _m = _fam_members_raw | from_json if _fam_members_raw is string else _fam_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _lst = _m.get(_list_key, []) -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
@@ -1134,7 +1123,7 @@ script:
             # — if this is the member's first family, set default_family_guid —
             - variables:
                 _mem_dfg_raw: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('default_family_guid', '') }}
                 _is_first_family: "{{ member_type != 'family' and (_mem_dfg_raw | trim == '') }}"
@@ -1143,7 +1132,7 @@ script:
               then:
                 - variables:
                     _mem_vi_updated: >-
-                      {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                      {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                       {%- set _vi = _vi if _vi is mapping else {} -%}
                       {%- set _acls = _vi.get('acls', {}) -%}
                       {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1179,22 +1168,21 @@ script:
                 is_first_family: "{{ _is_first_family | bool }}"
                 prompt_profile_update: true
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':             'family_add_member',
-                      'status':           'ok',
-                      'family_entity':    family_entity,
-                      'family_guid':      _fam_guid,
-                      'family_name':      _fam_name,
-                      'member_entity':    member_entity,
-                      'member_type':      member_type,
-                      'member_guid':      _mem_guid,
-                      'member_name':      _mem_name,
-                      'is_first_family':  _is_first_family | bool,
-                      'timestamp':        now().isoformat(),
-                      'caller_token':     caller_token | default('')
-                    } | tojson
+                response: "{{
+                  {
+                    'mode':             'family_add_member',
+                    'status':           'ok',
+                    'family_entity':    family_entity,
+                    'family_guid':      _fam_guid,
+                    'family_name':      _fam_name,
+                    'member_entity':    member_entity,
+                    'member_type':      member_type,
+                    'member_guid':      _mem_guid,
+                    'member_name':      _mem_name,
+                    'is_first_family':  _is_first_family | bool,
+                    'timestamp':        now().isoformat(),
+                    'caller_token':     caller_token | default('')
+                  }
                   }}
             - stop: Family member added
               response_variable: response
@@ -1223,6 +1211,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
                 _mem_vi_raw: >-
                   {%- set _v = state_attr(member_entity, 'variables') | default({}, true) -%}
@@ -1238,19 +1227,19 @@ script:
                   {{ _vi | tojson }}
             - variables:
                 _fam_guid: >-
-                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else {} -%}
+                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _fam_name: >-
-                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else {} -%}
+                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('name', family_entity) }}
                 _mem_guid: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _mem_name: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('name', member_entity) }}
                 _list_key: >-
@@ -1258,7 +1247,7 @@ script:
                   {%- elif member_type == 'family' -%}families
                   {%- else -%}users{%- endif -%}
                 _was_default: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('default_family_guid', '') == _fam_guid }}
                 _fam_vi_raw2: >-
@@ -1268,7 +1257,7 @@ script:
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
                   {{ _vi | tojson }}
                 _principal_warning: >-
-                  {%- set _vi = _fam_vi_raw2 | from_json if _fam_vi_raw2 is string else {} -%}
+                  {%- set _vi = _fam_vi_raw2 | from_json if _fam_vi_raw2 is string else _fam_vi_raw2 -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1281,7 +1270,7 @@ script:
                   {%- else -%}{%- endif -%}
             - variables:
                 _updated_members: >-
-                  {%- set _m = _fam_members_raw | from_json if _fam_members_raw is string else {} -%}
+                  {%- set _m = _fam_members_raw | from_json if _fam_members_raw is string else _fam_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _lst = _m.get(_list_key, []) -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
@@ -1302,7 +1291,7 @@ script:
               then:
                 - variables:
                     _mem_vi_updated: >-
-                      {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                      {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                       {%- set _vi = _vi if _vi is mapping else {} -%}
                       {%- set _acls = _vi.get('acls', {}) -%}
                       {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1392,27 +1381,27 @@ script:
                   {{ _vi | tojson }}
             - variables:
                 _a_guid: >-
-                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _a_name: >-
-                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
                 _a_type: >-
-                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('cab_type', 'user') }}
                 _b_guid: >-
-                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _b_name: >-
-                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('name', ai_entity) }}
                 _b_type: >-
-                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('cab_type', 'user') }}
             # — write B into A's acls.partner (delegation: B is A's partner) —
             - variables:
                 _a_vi_updated: >-
-                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1426,7 +1415,7 @@ script:
                   {{ dict(_vi, **{'acls': _acls}) | tojson }}
                 # — write A into B's acls.partner (delegation: A is B's partner) —
                 _b_vi_updated: >-
-                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1523,14 +1512,14 @@ script:
                   {{ _vi | tojson }}
             - variables:
                 _a_name: >-
-                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
                 _b_name: >-
-                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('name', ai_entity) }}
                 # — remove B from A's acls.partner —
                 _a_vi_updated: >-
-                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else {} -%}
+                  {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1541,7 +1530,7 @@ script:
                   {{ dict(_vi, **{'acls': _acls}) | tojson }}
                 # — remove A from B's acls.partner —
                 _b_vi_updated: >-
-                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else {} -%}
+                  {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _acls = _vi.get('acls', {}) -%}
                   {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1628,12 +1617,12 @@ script:
                   {{ _vi | tojson }}
             - variables:
                 _fam_guid: >-
-                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else {} -%}
+                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _mem_vi_updated: >-
-                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {%- set _fvi = _fam_vi_raw | from_json if _fam_vi_raw is string else {} -%}
+                  {%- set _fvi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _fguid = (_fvi if _fvi is mapping else {}).get('guid', '') -%}
                   {{ dict(_vi, **{'default_family_guid': _fguid}) | tojson }}
             - action: script.zen_dojotools_filecabinet
@@ -1692,16 +1681,17 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
             - variables:
                 _root_vi: "{{ _root_vi_raw | from_json if _root_vi_raw is string else (_root_vi_raw if _root_vi_raw is mapping else {}) }}"
                 _root_members: "{{ _root_members_raw | from_json if _root_members_raw is string else (_root_members_raw if _root_members_raw is mapping else {}) }}"
                 _root_cab_type: >-
-                  {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else {} -%}
+                  {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else _root_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('cab_type', '') }}
                 _root_is_container: >-
-                  {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else {} -%}
+                  {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else _root_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _ct = _vi.get('cab_type', '') -%}
                   {{ _ct in ['household', 'family'] or 'members' in (state_attr(_root_entity, 'variables') | default({}, true)) }}
@@ -1711,9 +1701,9 @@ script:
                   sequence:
                     - variables:
                         _tree: >-
-                          {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else {} -%}
+                          {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else _root_vi_raw -%}
                           {%- set _vi = _vi if _vi is mapping else {} -%}
-                          {%- set _m = _root_members_raw | from_json if _root_members_raw is string else {} -%}
+                          {%- set _m = _root_members_raw | from_json if _root_members_raw is string else _root_members_raw -%}
                           {%- set _m = _m if _m is mapping else {} -%}
                           {%- set _acls = _vi.get('acls', {}) -%}
                           {%- set _acls = _acls if _acls is mapping else {} -%}
@@ -1723,7 +1713,7 @@ script:
                           {%- set _hoh = _owners[0] if _owners | count > 0 else none -%}
                           {%- set _prime_entry = _prime[0] if _prime | count > 0 else none -%}
                           {# depth-1 families with their members #}
-                          {%- set _fams = [] -%}
+                          {%- set _ns = namespace(fams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                           {%- for fam in _m.get('families', []) -%}
                             {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
                             {%- set _fv = _fv if _fv is mapping else {} -%}
@@ -1737,7 +1727,7 @@ script:
                             {%- set _fpartners = _facls.get('partner', []) -%}
                             {%- set _fprime = _fpartners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
                             {# depth-2 sub-families (members only, no further recursion) #}
-                            {%- set _subfams = [] -%}
+                            {%- set _nsf = namespace(subfams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                             {%- for sf in _fm.get('families', []) -%}
                               {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
                               {%- set _sfv = _sfv if _sfv is mapping else {} -%}
@@ -1745,7 +1735,7 @@ script:
                               {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
                               {%- set _sfm = _sfv.get('members', {}) -%}
                               {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
-                              {%- set _subfams = _subfams + [{
+                              {%- set _nsf.subfams = _nsf.subfams + [{
                                 'entity_id': sf.get('entity_id', ''),
                                 'guid': _sfvi.get('guid', ''),
                                 'name': _sfvi.get('name', sf.get('entity_id', '')),
@@ -1756,7 +1746,7 @@ script:
                                 }
                               }] -%}
                             {%- endfor -%}
-                            {%- set _fams = _fams + [{
+                            {%- set _ns.fams = _ns.fams + [{
                               'entity_id': fam.get('entity_id', ''),
                               'guid': _fvi.get('guid', ''),
                               'name': _fvi.get('name', fam.get('entity_id', '')),
@@ -1768,7 +1758,7 @@ script:
                               'members': {
                                 'users': _fm.get('users', []),
                                 'ai_users': _fm.get('ai_users', []),
-                                'families': _subfams
+                                'families': _nsf.subfams
                               }
                             }] -%}
                           {%- endfor -%}
@@ -1785,7 +1775,7 @@ script:
                               'members': {
                                 'users': _m.get('users', []),
                                 'ai_users': _m.get('ai_users', []),
-                                'families': _fams
+                                'families': _ns.fams
                               }
                             } | tojson
                           }}
@@ -1823,12 +1813,13 @@ script:
                           {%- set _v = _v if _v is mapping else {} -%}
                           {%- set _m = _v.get('members', {}) -%}
                           {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                          {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                           {{ _m | tojson }}
                     - variables:
                         _memberships: >-
-                          {%- set _hvi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                          {%- set _hvi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                           {%- set _hvi = _hvi if _hvi is mapping else {} -%}
-                          {%- set _hm = _hh_m_raw | from_json if _hh_m_raw is string else {} -%}
+                          {%- set _hm = _hh_m_raw | from_json if _hh_m_raw is string else _hh_m_raw -%}
                           {%- set _hm = _hm if _hm is mapping else {} -%}
                           {%- set _eid = _target_eid -%}
                           {%- set _groups = [] -%}
@@ -1920,10 +1911,11 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {%- set _m = _m.get('value', _m) if _m is mapping else {} -%}
                   {{ _m | tojson }}
             - variables:
                 _check: >-
-                  {%- set _m = _container_m_raw | from_json if _container_m_raw is string else {} -%}
+                  {%- set _m = _container_m_raw | from_json if _container_m_raw is string else _container_m_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _eid = member_entity -%}
                   {%- set _all_direct = _m.get('users', []) + _m.get('ai_users', []) -%}
