@@ -150,7 +150,7 @@
       "path": "zen_summarizer",
       "files": [
         { "id": "zen_summarizer_readme", "file": "readme.md", "title": "Zen Summarizer Overview", "type": "readme" },
-        { "id": "ninja_summarizer_spec", "file": "ninja_summarrizer_spec.md", "title": "Ninja Summarizer Specification", "type": "spec" }
+        { "id": "ninja_summarizer_spec", "file": "ninja_summarizer_spec.md", "title": "Ninja Summarizer Specification", "type": "spec" }
       ]
     }
   }

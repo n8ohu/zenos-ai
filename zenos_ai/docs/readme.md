@@ -136,7 +136,7 @@ The Library is the glue that holds all subsystems together.
 
 Background research and whitepapers.
 
-* `whitepaper_cognitive_architecture.md` – Theory behind the Monastery, Summarizers, and Cabinets
+* `whitepaper_cognitive_architectures.md` – Theory behind the Monastery, Summarizers, and Cabinets
 
 Good for deep dives and formal reasoning.
 
@@ -208,7 +208,6 @@ Files:
 
 * `ninja_summarizer_spec.md`
 * `readme.md`
-* `_index.json`
 
 This is Friday’s working memory engine.
 
