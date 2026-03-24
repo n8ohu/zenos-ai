@@ -52,12 +52,15 @@ template:
 
         #######################################################################
         # STATE — worst of the three gate sensors
-        # Priority: critical > error > warn > disabled > ok
+        # Priority: critical > error > warmup > warn > disabled > ok
+        # warmup: boot window active AND at least one sensor not yet settled
         #######################################################################
         state: >-
           {%- set label_st = states('sensor.zen_label_health') %}
           {%- set cab_st   = states('sensor.zen_cabinet_health') %}
           {%- set mon_st   = states('sensor.zen_monastery_health') %}
+          {%- import 'zenos_ai/zenos_health.jinja' as HEALTH %}
+          {%- set _in_warmup = HEALTH.is_warmup() | trim | bool %}
 
           {%- set all = [label_st, cab_st, mon_st] %}
 
@@ -65,6 +68,8 @@ template:
             critical
           {%- elif 'error' in all %}
             error
+          {%- elif _in_warmup and (all | select('in', ['warn', 'unavailable']) | list | count > 0) %}
+            warmup
           {%- elif 'warn' in all %}
             warn
           {%- elif 'disabled' in all %}
@@ -146,12 +151,16 @@ template:
             {%- set label_st = states('sensor.zen_label_health') %}
             {%- set cab_st   = states('sensor.zen_cabinet_health') %}
             {%- set mon_st   = states('sensor.zen_monastery_health') %}
+            {%- import 'zenos_ai/zenos_health.jinja' as HEALTH %}
+            {%- set _in_warmup = HEALTH.is_warmup() | trim | bool %}
             {%- if label_st == 'critical' %}
               Required labels missing. Trigger automation.flynn_stepgate_sentinel — Flynn will create them. HA restart required after.
             {%- elif label_st == 'warn' %}
               Labels exist but not assigned to cabinet entities. Trigger automation.flynn_stepgate_sentinel — Flynn will wire them.
             {%- elif cab_st in ['error', 'critical'] %}
               Labels wired but required cabinets not initialized. Trigger automation.flynn_stepgate_sentinel — Flynn will initialize them.
+            {%- elif _in_warmup %}
+              System is settling after restart — this is normal. Health sensors will stabilize within a few minutes. No action needed.
             {%- elif cab_st == 'warn' %}
               Cabinet schema upgrade available — not urgent. System is fully operational. Upgrade when convenient via the cabinet admin tool.
             {%- elif mon_st == 'disabled' %}
@@ -183,6 +192,7 @@ template:
         #   critical/error = labels or cabs in critical/error
         #   warn (hard)    = labels or cabs in warn (structural, no agent check)
         #   error          = labels+cabs ok, 0 agents bootable
+        #   warmup         = boot window active, monastery not yet settled
         #   warn (soft)    = labels+cabs ok, ≥1 agent bootable, monastery != ok
         #   ok             = labels+cabs ok, ≥1 agent bootable, monastery ok
         #######################################################################
@@ -190,6 +200,8 @@ template:
           {%- set label_st = states('sensor.zen_label_health') %}
           {%- set cab_st   = states('sensor.zen_cabinet_health') %}
           {%- set mon_st   = states('sensor.zen_monastery_health') %}
+          {%- import 'zenos_ai/zenos_health.jinja' as HEALTH %}
+          {%- set _in_warmup = HEALTH.is_warmup() | trim | bool %}
 
           {%- if label_st in ['critical','error'] or cab_st in ['critical','error'] %}
             {%- if 'critical' in [label_st, cab_st]  %}
@@ -221,6 +233,8 @@ template:
 
             {%- if ns.ok_count == 0 %}
               error
+            {%- elif _in_warmup and (cab_st == 'warn' or mon_st not in ['ok', 'disabled']) %}
+              warmup
             {%- elif mon_st != 'ok' or cab_st == 'warn' %}
               warn
             {%- else %}
