@@ -81,6 +81,6 @@ template:
         unique_id: flynn_system_ready
         state: >-
           {{ states('sensor.zen_label_health') == 'ok'
-             and states('sensor.zen_cabinet_health') == 'ok'
+             and states('sensor.zen_cabinet_health') in ['ok', 'warn']
              and states('sensor.zen_monastery_health') in ['ok', 'warn'] }}
         icon: "{{ 'mdi:check-circle' if is_state('binary_sensor.flynn_system_ready', 'on') else 'mdi:alert-circle' }}"

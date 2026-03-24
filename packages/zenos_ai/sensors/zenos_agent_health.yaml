@@ -126,12 +126,16 @@ template:
             {%- set label_st = states('sensor.zen_label_health') %}
             {%- set cab_st   = states('sensor.zen_cabinet_health') %}
             {%- set mon_st   = states('sensor.zen_monastery_health') %}
+            {%- import 'zenos_ai/zenos_health.jinja' as HEALTH %}
+            {%- set _in_warmup = HEALTH.is_warmup() | trim | bool %}
             {%- if label_st == 'critical' %}
               gate_0
             {%- elif label_st == 'warn' %}
               gate_1
-            {%- elif cab_st != 'ok' %}
+            {%- elif cab_st in ['error', 'critical'] %}
               gate_2
+            {%- elif _in_warmup and (cab_st == 'warn' or mon_st not in ['ok', 'disabled']) %}
+              warmup
             {%- elif mon_st != 'ok' %}
               gate_3
             {%- else %}
@@ -146,10 +150,14 @@ template:
               Required labels missing. Trigger automation.flynn_stepgate_sentinel — Flynn will create them. HA restart required after.
             {%- elif label_st == 'warn' %}
               Labels exist but not assigned to cabinet entities. Trigger automation.flynn_stepgate_sentinel — Flynn will wire them.
-            {%- elif cab_st != 'ok' %}
+            {%- elif cab_st in ['error', 'critical'] %}
               Labels wired but required cabinets not initialized. Trigger automation.flynn_stepgate_sentinel — Flynn will initialize them.
+            {%- elif cab_st == 'warn' %}
+              Cabinet schema upgrade available — not urgent. System is fully operational. Upgrade when convenient via the cabinet admin tool.
             {%- elif mon_st == 'disabled' %}
               Summary pipeline is disabled. Enable zen_summarizers_enabled (and optionally zen_ninja_summarizer_enabled / zen_supersummarizer_enabled) in Settings > Helpers to restore full cognition.
+            {%- elif mon_st == 'warn' %}
+              Monastery still settling after boot — should clear on its own within a few minutes.
             {%- elif mon_st != 'ok' %}
               Cabinets ready but content not bootstrapped. Fill in Settings > Helpers (household name, primary user, persona name, conversation agent), then trigger automation.flynn_stepgate_sentinel.
             {%- else %}
@@ -189,11 +197,11 @@ template:
             {%- else %}
               error
             {%- endif %}
-          {%- elif label_st == 'warn' or cab_st == 'warn' %}
+          {%- elif label_st == 'warn' %}
             warn
 
           {%- else %}
-            {#--- labels+cabs ok: check agent bootability ---#}
+            {#--- labels+cabs ok (cab warn is non-blocking): check agent bootability ---#}
             {%- set conv_eid = states('input_text.zenos_conversation_agent') | trim %}
             {%- set conv_avail =
                   conv_eid != ''
@@ -213,7 +221,7 @@ template:
 
             {%- if ns.ok_count == 0 %}
               error
-            {%- elif mon_st != 'ok' %}
+            {%- elif mon_st != 'ok' or cab_st == 'warn' %}
               warn
             {%- else %}
               ok
@@ -285,7 +293,7 @@ template:
             {%- set mon_st   = states('sensor.zen_monastery_health') %}
             {%- set infra_gate =
                 'critical' if (label_st in ['critical','error'] or cab_st in ['critical','error']) else
-                'warn'     if (label_st == 'warn' or cab_st == 'warn') else
+                'warn'     if (label_st == 'warn') else
                 'ok' %}
 
             {#--- conversation agent ---#}
@@ -421,7 +429,7 @@ template:
           agents_ok: >-
             {%- set labels_cabs_ok =
                   states('sensor.zen_label_health') == 'ok'
-                  and states('sensor.zen_cabinet_health') == 'ok' %}
+                  and states('sensor.zen_cabinet_health') in ['ok', 'warn'] %}
             {%- set conv_eid = states('input_text.zenos_conversation_agent') | trim %}
             {%- set conv_avail =
                   conv_eid != '' and conv_eid not in ['unknown','unavailable','none']

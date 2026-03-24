@@ -353,6 +353,7 @@ Provides mapping of slots to default entities
         invalid_req = [],
         unhealthy_req = [],
         unhealthy_opt = [],
+        legacy_req = [],
         legacy_schema = []
     ) -%}
 
@@ -371,6 +372,7 @@ Provides mapping of slots to default entities
         {%- set label_exists = label_slug in label_index -%}
         {%- set ents = intersect(all_cabs, label_entities(label_slug) or []) | list -%}
         {%- set bad = ents | selectattr('state','eq','unavailable') | list -%}
+        {%- set eid = (ents | first) if ents | count == 1 else '' -%}
 
         {%- if not label_exists -%}
             {%- set ns.missing_req = ns.missing_req + [slot] -%}
@@ -380,6 +382,8 @@ Provides mapping of slots to default entities
             {%- set ns.invalid_req = ns.invalid_req + [slot] -%}
             {%- elif bad | count > 0 -%}
             {%- set ns.unhealthy_req = ns.unhealthy_req + [slot] -%}
+            {%- elif eid != '' and states(eid) in ['Variables', 'init'] -%}
+            {%- set ns.legacy_req = ns.legacy_req + [slot] -%}
         {%- endif -%}
     {%- endfor -%}
 
@@ -403,11 +407,12 @@ Provides mapping of slots to default entities
     {%- endfor -%}
 
     {# Priority (labels-aligned):
-missing required  -> critical
-invalid required  -> error
-unhealthy required-> error
+missing required    -> critical
+invalid required    -> error
+unhealthy required  -> error
 unassigned required -> warn
 unhealthy optional  -> warn
+legacy required     -> warn (init/Variables on required slot — non-blocking, self-heals on touch)
 legacy schema       -> warn (non-blocking — update available, not a gate condition)
 else -> ok
     #}
@@ -421,10 +426,30 @@ else -> ok
         warn
         {%- elif ns.unhealthy_opt | count > 0 -%}
         warn
+        {%- elif ns.legacy_req | count > 0 -%}
+        warn
         {%- elif ns.legacy_schema | count > 0 -%}
         warn
     {%- else -%}
         ok
+    {%- endif -%}
+{%- endmacro -%}
+
+{#-
+is_warmup(threshold_s=300)
+Returns true if the system booted less than threshold_s seconds ago.
+Canon warmup calculation — import this everywhere warmup detection is needed.
+
+Usage:
+  {%- import 'zenos_ai/zenos_health.jinja' as HEALTH -%}
+  {%- set _in_warmup = HEALTH.is_warmup() | bool -%}
+-#}
+{%- macro is_warmup(threshold_s=300) -%}
+    {%- set _last_boot = states('sensor.system_monitor_last_boot') -%}
+    {%- if _last_boot in ['unknown', 'unavailable', ''] -%}
+        false
+    {%- else -%}
+        {{ (now() - as_datetime(_last_boot)).total_seconds() < threshold_s }}
     {%- endif -%}
 {%- endmacro -%}
 
