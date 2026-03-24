@@ -35,17 +35,19 @@
 #   Join/leave fires zen_event (family_member_joined / family_member_left) with
 #   prompt_profile_update: true so the AI can surface naming/profile suggestions.
 #
-#   mode: household_add_family  — wire a family cabinet into a household
-#   mode: household_add_member  — add user/ai_user to household; first occupant fills HoH/prime slot
-#   mode: household_remove_member — remove user/ai_user from household members list
-#   mode: set_principal         — set/replace HoH (user) or prime AI (ai_user) on any container cabinet
-#   mode: family_add_member     — add user/ai_user/family to a family; fires join event
-#   mode: family_remove_member  — remove member, fire leave event, clear default if needed
-#   mode: link_user_ai          — bidirectional partner link: user.partners + AI.acls.partner
-#   mode: set_default_family    — change which family is the user's default (first = default)
-#   mode: membership            — full tree view (principals + members + sub-families to depth 2)
-#                                  or reverse lookup (which groups is this member in?)
-#   mode: is_member             — depth-2 membership check: is member_entity in family_entity?
+#   mode: household_add_family    — wire a family cabinet into a household
+#   mode: household_remove_family — detach a family cabinet from a household
+#   mode: household_add_member    — add user/ai_user to household; first occupant fills HoH/prime slot
+#   mode: household_remove_member — remove user/ai_user; warns if removed entity is HoH/prime
+#   mode: set_principal           — set/replace HoH (user) or prime AI (ai_user) on any container cabinet
+#   mode: family_add_member       — add user/ai_user/family to a family; fires join event
+#   mode: family_remove_member    — remove member; fires leave event; warns if removed entity is HoH/prime
+#   mode: link_user_ai            — bidirectional partner link: user.partners + AI.acls.partner
+#   mode: unlink_user_ai          — sever bidirectional partner link
+#   mode: set_default_family      — change which family is the user's default (first = default)
+#   mode: membership              — full tree view (principals + members + sub-families to depth 2)
+#                                    or reverse lookup (which groups is this member in?)
+#   mode: is_member               — depth-2 membership check: is member_entity in family_entity?
 #
 # config check → go; restart → clean ✓
 # ==============================
@@ -84,14 +86,17 @@ script:
           prompt = rendered capsule for this construct.
           build_identity_manifest = rebuild zen_identity_manifest in household cabinet.
           household_add_family = wire a family cabinet into a household.
+          household_remove_family = detach a family cabinet from a household.
           household_add_member = add user or ai_user to a household (member_type selects which).
             First occupant fills the HoH or prime slot. Blocked if slot already occupied — use set_principal.
-          household_remove_member = remove user or ai_user from a household members list.
+          household_remove_member = remove user or ai_user from a household. Warns in response if
+            removed entity holds the HoH or prime slot (stale pointer — use set_principal to transfer).
           set_principal = set or replace the HoH (member_type: user) or prime AI partner
-            (member_type: ai_user) for a household. Single-occupant slot — previous occupant replaced.
+            (member_type: ai_user) on any container cabinet. Single-occupant slot — previous occupant replaced.
           family_add_member = add user/ai_user/family to a family (nesting allowed; resolver caps at 2).
-          family_remove_member = remove member from a family.
+          family_remove_member = remove member from a family. Warns if removed entity is HoH/prime.
           link_user_ai = bidirectional partner link between a user and an AI construct.
+          unlink_user_ai = sever bidirectional partner link between a user and an AI construct.
           set_default_family = change a user's default family (first family joined is default).
           membership = full tree view: principals, members, and sub-families to depth 2.
             If family_entity or member_entity is a container (household/family), returns that tree.
@@ -107,12 +112,14 @@ script:
               - prompt
               - build_identity_manifest
               - household_add_family
+              - household_remove_family
               - household_add_member
               - household_remove_member
               - set_principal
               - family_add_member
               - family_remove_member
               - link_user_ai
+              - unlink_user_ai
               - set_default_family
               - membership
               - is_member
@@ -184,7 +191,19 @@ script:
               - family
       ai_entity:
         name: AI Cabinet
-        description: entity_id of the AI user cabinet sensor. Required for link_user_ai.
+        description: entity_id of the AI user cabinet sensor. Required for link_user_ai,
+          unlink_user_ai.
+        required: false
+        selector:
+          entity:
+            filter:
+              domain: sensor
+            multiple: false
+      household_entity:
+        name: Household Cabinet
+        description: entity_id of a specific household cabinet sensor. Optional — overrides
+          the default household resolver (zen_default_household_cabinet_resolved). Use
+          for multi-household installations.
         required: false
         selector:
           entity:
@@ -216,6 +235,10 @@ script:
         member_entity: '{{ member_entity | default('''') | trim }}'
         member_type: '{{ member_type | default(''user'') | lower | trim }}'
         ai_entity: '{{ ai_entity | default('''') | trim }}'
+        household_entity: '{{ household_entity | default('''') | trim }}'
+        _hh_target: "{%- if household_entity | default('') | trim != '' -%}\n  {{ household_entity\
+          \ | trim }}\n{%- else -%}\n  {{ states('sensor.zen_default_household_cabinet_resolved')\
+          \ }}\n{%- endif -%}"
         user_guid: '{%- set ug = user_guid | default('''') | trim -%} {%- set pattern
           = "(?i)^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$"
           -%} {{ ug if ug is match(pattern) else '''' }}'
@@ -297,7 +320,7 @@ script:
         - conditions: "{{ _mode == 'build_identity_manifest' }}"
           sequence:
             - variables:
-                _hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+                _hh_cab: "{{ _hh_target }}"
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] }}"
               then:
                 - variables:
@@ -432,7 +455,7 @@ script:
         - conditions: "{{ _mode == 'household_add_family' }}"
           sequence:
             - variables:
-                _hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+                _hh_cab: "{{ _hh_target }}"
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or family_entity == '' }}"
               then:
                 - variables:
@@ -541,12 +564,72 @@ script:
             - stop: Household family added
               response_variable: response
 
+    # ── Step 3d-2: mode = household_remove_family ────────────────────────────
+    - choose:
+        - conditions: "{{ _mode == 'household_remove_family' }}"
+          sequence:
+            - variables:
+                _hh_cab: "{{ _hh_target }}"
+            - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or family_entity == '' }}"
+              then:
+                - variables:
+                    response: >-
+                      {{
+                        {
+                          'mode':    'household_remove_family',
+                          'status':  'error',
+                          'message': 'household_cabinet and family_entity are both required.',
+                          'timestamp': now().isoformat()
+                        } | tojson
+                      }}
+                - stop: Missing required fields
+                  response_variable: response
+            - variables:
+                _hh_members_raw: >-
+                  {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _m = _v.get('members', {}) -%}
+                  {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
+                  {{ _m | tojson }}
+            - variables:
+                _updated_members: >-
+                  {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
+                  {%- set _m = _m if _m is mapping else {} -%}
+                  {%- set _fams = _m.get('families', []) -%}
+                  {%- set _fams = _fams if _fams is iterable and _fams is not string else [] -%}
+                  {%- set _filtered = _fams | rejectattr('entity_id', 'equalto', family_entity) | list -%}
+                  {{ dict(_m, **{'families': _filtered}) | tojson }}
+            - action: script.zen_dojotools_filecabinet
+              data:
+                action_type: create
+                force_action: true
+                set_timestamp: true
+                show_hidden_volumes: false
+                volume_entity_id:
+                  - "{{ _hh_cab }}"
+                key: members
+                value: "{{ _updated_members }}"
+            - variables:
+                response: >-
+                  {{
+                    {
+                      'mode':              'household_remove_family',
+                      'status':            'ok',
+                      'household_cabinet': _hh_cab,
+                      'family_entity':     family_entity,
+                      'timestamp':         now().isoformat(),
+                      'caller_token':      caller_token | default('')
+                    } | tojson
+                  }}
+            - stop: Household family removed
+              response_variable: response
+
     # ── Step 3e: mode = household_add_member ─────────────────────────────────
     - choose:
         - conditions: "{{ _mode == 'household_add_member' }}"
           sequence:
             - variables:
-                _hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+                _hh_cab: "{{ _hh_target }}"
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or member_entity == '' }}"
               then:
                 - variables:
@@ -715,6 +798,16 @@ script:
                   {%- if member_type == 'user' and _slot_filled | bool -%}hoh
                   {%- elif member_type == 'ai_user' and _slot_filled | bool -%}prime
                   {%- else -%}{%- endif -%}
+            - event: zen_event
+              event_data:
+                kind: household_member_joined
+                household_cabinet: "{{ _hh_cab }}"
+                member_entity: "{{ member_entity }}"
+                member_name: "{{ _mem_name }}"
+                member_type: "{{ member_type }}"
+                slot_filled: "{{ _slot_name }}"
+                prompt_profile_update: "{{ member_type == 'ai_user' }}"
+            - variables:
                 response: >-
                   {{
                     {
@@ -738,7 +831,7 @@ script:
         - conditions: "{{ _mode == 'household_remove_member' }}"
           sequence:
             - variables:
-                _hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+                _hh_cab: "{{ _hh_target }}"
             - if: "{{ _hh_cab in ['', 'unknown', 'unavailable'] or member_entity == '' }}"
               then:
                 - variables:
@@ -761,6 +854,12 @@ script:
                   {%- set _m = _v.get('members', {}) -%}
                   {%- set _m = _m if _m is mapping else (_m | from_json if _m is string else {}) -%}
                   {{ _m | tojson }}
+                _hh_vi_raw: >-
+                  {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
+                  {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {{ _vi | tojson }}
             - variables:
                 _updated_members: >-
                   {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else {} -%}
@@ -769,6 +868,18 @@ script:
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
                   {%- set _filtered = _lst | rejectattr('entity_id', 'equalto', member_entity) | list -%}
                   {{ dict(_m, **{_list_key: _filtered}) | tojson }}
+                _principal_warning: >-
+                  {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _acls = _vi.get('acls', {}) -%}
+                  {%- set _acls = _acls if _acls is mapping else {} -%}
+                  {%- set _own = _acls.get('owner', []) -%}
+                  {%- set _prt = _acls.get('partner', []) -%}
+                  {%- set _is_hoh = _own | selectattr('entity_id', 'equalto', member_entity) | list | count > 0 -%}
+                  {%- set _is_prime = _prt | selectattr('entity_id', 'equalto', member_entity) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
+                  {%- if _is_hoh -%}hoh_slot_stale
+                  {%- elif _is_prime -%}prime_slot_stale
+                  {%- else -%}{%- endif -%}
             - action: script.zen_dojotools_filecabinet
               data:
                 action_type: create
@@ -779,6 +890,14 @@ script:
                   - "{{ _hh_cab }}"
                 key: members
                 value: "{{ _updated_members }}"
+            - event: zen_event
+              event_data:
+                kind: household_member_left
+                household_cabinet: "{{ _hh_cab }}"
+                member_entity: "{{ member_entity }}"
+                member_type: "{{ member_type }}"
+                principal_warning: "{{ _principal_warning }}"
+                prompt_profile_update: "{{ member_type == 'ai_user' }}"
             - variables:
                 response: >-
                   {{
@@ -788,6 +907,7 @@ script:
                       'household_cabinet': _hh_cab,
                       'member_entity':     member_entity,
                       'member_type':       member_type,
+                      'principal_warning': _principal_warning,
                       'timestamp':         now().isoformat(),
                       'caller_token':      caller_token | default('')
                     } | tojson
@@ -805,7 +925,7 @@ script:
                   {%- if family_entity | trim != '' -%}
                     {{ family_entity | trim }}
                   {%- else -%}
-                    {{ states('sensor.zen_default_household_cabinet_resolved') }}
+                    {{ _hh_target }}
                   {%- endif -%}
             - if: "{{ _target_cab in ['', 'unknown', 'unavailable'] or member_entity == '' }}"
               then:
@@ -885,6 +1005,15 @@ script:
                       'caller_token':      caller_token | default('')
                     } | tojson
                   }}
+            - event: zen_event
+              event_data:
+                kind: principal_changed
+                target_cabinet: "{{ _target_cab }}"
+                slot: "{{ _slot }}"
+                member_entity: "{{ member_entity }}"
+                member_name: "{{ _mem_name }}"
+                member_type: "{{ member_type }}"
+                prompt_profile_update: true
             - stop: Principal set
               response_variable: response
 
@@ -1126,6 +1255,24 @@ script:
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else {} -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('default_family_guid', '') == _fam_guid }}
+                _fam_vi_raw2: >-
+                  {%- set _v = state_attr(family_entity, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
+                  {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {{ _vi | tojson }}
+                _principal_warning: >-
+                  {%- set _vi = _fam_vi_raw2 | from_json if _fam_vi_raw2 is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _acls = _vi.get('acls', {}) -%}
+                  {%- set _acls = _acls if _acls is mapping else {} -%}
+                  {%- set _own = _acls.get('owner', []) -%}
+                  {%- set _prt = _acls.get('partner', []) -%}
+                  {%- set _is_hoh = _own | selectattr('entity_id', 'equalto', member_entity) | list | count > 0 -%}
+                  {%- set _is_prime = _prt | selectattr('entity_id', 'equalto', member_entity) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
+                  {%- if _is_hoh -%}hoh_slot_stale
+                  {%- elif _is_prime -%}prime_slot_stale
+                  {%- else -%}{%- endif -%}
             - variables:
                 _updated_members: >-
                   {%- set _m = _fam_members_raw | from_json if _fam_members_raw is string else {} -%}
@@ -1180,6 +1327,7 @@ script:
                 member_type: "{{ member_type }}"
                 is_ai: "{{ member_type == 'ai_user' }}"
                 was_default_family: "{{ _was_default | bool }}"
+                principal_warning: "{{ _principal_warning }}"
                 prompt_profile_update: true
             - variables:
                 response: >-
@@ -1195,6 +1343,7 @@ script:
                       'member_guid':       _mem_guid,
                       'member_name':       _mem_name,
                       'was_default_family': _was_default | bool,
+                      'principal_warning': _principal_warning,
                       'timestamp':         now().isoformat(),
                       'caller_token':      caller_token | default('')
                     } | tojson
@@ -1310,7 +1459,117 @@ script:
                       'caller_token': caller_token | default('')
                     } | tojson
                   }}
+            - event: zen_event
+              event_data:
+                kind: partner_linked
+                user_entity: "{{ member_entity }}"
+                user_name: "{{ _user_name }}"
+                ai_entity: "{{ ai_entity }}"
+                ai_name: "{{ _ai_name }}"
+                prompt_profile_update: true
             - stop: User-AI link established
+              response_variable: response
+
+    # ── Step 3i-2: mode = unlink_user_ai ─────────────────────────────────────
+    - choose:
+        - conditions: "{{ _mode == 'unlink_user_ai' }}"
+          sequence:
+            - if: "{{ member_entity == '' or ai_entity == '' }}"
+              then:
+                - variables:
+                    response: >-
+                      {{
+                        {
+                          'mode':    'unlink_user_ai',
+                          'status':  'error',
+                          'message': 'member_entity (user cabinet) and ai_entity are both required.',
+                          'timestamp': now().isoformat()
+                        } | tojson
+                      }}
+                - stop: Missing required fields
+                  response_variable: response
+            - variables:
+                _user_vi_raw: >-
+                  {%- set _v = state_attr(member_entity, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
+                  {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {{ _vi | tojson }}
+                _ai_vi_raw: >-
+                  {%- set _v = state_attr(ai_entity, 'variables') | default({}, true) -%}
+                  {%- set _v = _v if _v is mapping else {} -%}
+                  {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
+                  {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {{ _vi | tojson }}
+            - variables:
+                _user_name: >-
+                  {%- set _vi = _user_vi_raw | from_json if _user_vi_raw is string else {} -%}
+                  {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
+                _ai_name: >-
+                  {%- set _vi = _ai_vi_raw | from_json if _ai_vi_raw is string else {} -%}
+                  {{ (_vi if _vi is mapping else {}).get('name', ai_entity) }}
+                # — remove ai_entity from user's partners list —
+                _user_vi_updated: >-
+                  {%- set _vi = _user_vi_raw | from_json if _user_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _partners = _vi.get('partners', []) -%}
+                  {%- set _partners = _partners if _partners is iterable and _partners is not string else [] -%}
+                  {%- set _filtered = _partners | rejectattr('entity_id', 'equalto', ai_entity) | list -%}
+                  {{ dict(_vi, **{'partners': _filtered}) | tojson }}
+                # — remove member_entity from AI's acls.partner list —
+                _ai_vi_updated: >-
+                  {%- set _vi = _ai_vi_raw | from_json if _ai_vi_raw is string else {} -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {%- set _acls = _vi.get('acls', {}) -%}
+                  {%- set _acls = _acls if _acls is mapping else {} -%}
+                  {%- set _partners = _acls.get('partner', []) -%}
+                  {%- set _partners = _partners if _partners is iterable and _partners is not string else [] -%}
+                  {%- set _filtered = _partners | rejectattr('entity_id', 'equalto', member_entity) | list -%}
+                  {%- set _acls = dict(_acls, **{'partner': _filtered}) -%}
+                  {{ dict(_vi, **{'acls': _acls}) | tojson }}
+            - action: script.zen_dojotools_filecabinet
+              data:
+                action_type: create
+                force_action: true
+                set_timestamp: true
+                show_hidden_volumes: false
+                volume_entity_id:
+                  - "{{ member_entity }}"
+                key: AI_Cabinet_VolumeInfo
+                value: "{{ _user_vi_updated }}"
+            - action: script.zen_dojotools_filecabinet
+              data:
+                action_type: create
+                force_action: true
+                set_timestamp: true
+                show_hidden_volumes: false
+                volume_entity_id:
+                  - "{{ ai_entity }}"
+                key: AI_Cabinet_VolumeInfo
+                value: "{{ _ai_vi_updated }}"
+            - event: zen_event
+              event_data:
+                kind: partner_unlinked
+                user_entity: "{{ member_entity }}"
+                user_name: "{{ _user_name }}"
+                ai_entity: "{{ ai_entity }}"
+                ai_name: "{{ _ai_name }}"
+                prompt_profile_update: true
+            - variables:
+                response: >-
+                  {{
+                    {
+                      'mode':        'unlink_user_ai',
+                      'status':      'ok',
+                      'user_entity': member_entity,
+                      'user_name':   _user_name,
+                      'ai_entity':   ai_entity,
+                      'ai_name':     _ai_name,
+                      'timestamp':   now().isoformat(),
+                      'caller_token': caller_token | default('')
+                    } | tojson
+                  }}
+            - stop: User-AI link severed
               response_variable: response
 
     # ── Step 3j: mode = set_default_family ───────────────────────────────────
@@ -1395,9 +1654,9 @@ script:
                   {%- elif member_entity | trim != '' -%}
                     {{ member_entity | trim }}
                   {%- else -%}
-                    {{ states('sensor.zen_default_household_cabinet_resolved') }}
+                    {{ _hh_target }}
                   {%- endif -%}
-                _hh_default: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+                _hh_default: "{{ _hh_target }}"
             - variables:
                 _root_vi_raw: >-
                   {%- set _v = state_attr(_root_entity, 'variables') | default({}, true) -%}
