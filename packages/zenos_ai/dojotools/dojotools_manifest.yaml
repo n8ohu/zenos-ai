@@ -3,7 +3,7 @@
 # Version: 4.5.1
 #
 # Scripts:
-#   zen_dojotools_manifest — Runtime health and volume manifest (v4.0.0 RC2)
+#   zen_dojotools_manifest — Runtime health and volume manifest (v4.5.x)
 #
 # MIGRATED FROM: scripts.yaml (2026-03-06)
 #
@@ -24,7 +24,7 @@
 script:
   zen_dojotools_manifest:
     alias: Zen DojoTools Manifest
-    description: 'Zen DojoTools Manifest (4.0.0 RC2) Sandbox Safe! Runtime-only health,
+    description: 'Zen DojoTools Manifest (4.5.x) Sandbox Safe! Runtime-only health,
       zero persistent health storage. Authoritative manifest  scanner for AI_Cabinet
       volumes. Extracts users, metadata, context, capacity, access flags, ACLs, drawers.
       Writes ONLY the compiled manifest to the Zen Default Household cabinet.
@@ -241,7 +241,7 @@ script:
   dojotools_zen_inspect:
     alias: Zen DojoTools Inspect
     mode: parallel
-    description: Inspect (4.0.0 RC2). Deep dive on one or more entities. Attributes
+    description: Inspect (4.5.x). Deep dive on one or more entities. Attributes
       are key-scanned for safety. Cabinet sensors expose header metadata only; use cabinet
       tools for full volume access.
     fields:

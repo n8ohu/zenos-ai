@@ -1,6 +1,6 @@
 # 📘 **ZenOS-AI Documentation Hub**
 
-> **Version:** 4.5.0 'Meridian' | **Last Updated:** March 2026 | **License:** MIT
+> **Version:** 4.5.x 'Ready Player Two' | **Last Updated:** March 2026 | **License:** MIT
 
 → [Project Overview & Install](../../README.md)
 
@@ -32,6 +32,7 @@ New to ZenOS-AI? Start here.
 * `cabinet_placement.md` — Where things go and why: Dojo vs Kata, drawer vs KFC, the quick-reference placement table. Read after entity_exposure.
 * `oobe.md` — OOBE walkthrough: the six-step first-boot configuration protocol to your conversation agent: actionable vs contextable vs invisible, the three-tier model
 * `troubleshooting.md` — Gauges → Kill Switches → Repair Tools. Health sensor quick-reads, summarizer kill switches, and a seven-step graduated repair sequence (resolver refresh → reseed → label reset → nuclear cabinet reset)
+* `user_management.md` — Add/remove/move AI users and human users. Provision new identity cabinets, deprovision or swap existing ones, transfer default labels, and perform targeted identity-layer repairs or full nukes.
 
 If you just installed ZenOS-AI and want to know what to do next, start here.
 

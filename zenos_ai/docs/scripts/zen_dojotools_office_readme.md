@@ -1,4 +1,4 @@
-# Zen DojoTools Office — 4.5.0 'Meridian'
+# Zen DojoTools Office — 4.5.x 'Ready Player Two'
 
 *Calendar and scheduling tools for Home Assistant*
 

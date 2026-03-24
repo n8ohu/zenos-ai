@@ -1,6 +1,6 @@
 # ZenOS-AI: First Run Guide
 
-> **Version:** 4.5.0 'Meridian' | **Last Updated:** March 2026
+> **Version:** 4.5.x 'Ready Player Two' | **Last Updated:** March 2026
 
 ---
 

@@ -3,7 +3,7 @@
 # Version: 4.5.1
 #
 # Scripts:
-#   zen_dojotools_filecabinet — Cabinet volume K/V storage engine (v4.0.0 RC2)
+#   zen_dojotools_filecabinet — Cabinet volume K/V storage engine (v4.5.x)
 #
 # MIGRATED FROM: scripts.yaml (2026-03-06)
 #
@@ -610,7 +610,7 @@ script:
                   delete source after copy.
                 help: Returns help
               about:
-                version: 4.0.0 RC2
+                version: 4.5.x
                 branch: beta
                 manual: "summary: >\n  The Zen DojoTools File Cabinet is your go-to
                   tool for managing data in volumes.\n  Volumes are digital storage
@@ -1907,7 +1907,7 @@ script:
       - stop: Invalid parameters
         response_variable: final_response
     alias: Zen DojoTools FileCabinet
-    description: "Zen DojoTools FileCabinet (v4.0.0 RC2+) 100% More Health, No Bad JSON!
+    description: "Zen DojoTools FileCabinet (v4.5.x+) 100% More Health, No Bad JSON!
       No more ghost Writes, output mapping, Parser engages on Create / Update to validate
       input.\nCabinetVolumes are The Library's storage. To use ALWAYS pull a Volume
       Manifest 'Manifest' (list of all volumes with rich metadata) FIRST if you do not

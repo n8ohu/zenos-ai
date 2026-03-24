@@ -22,8 +22,8 @@
 #   - ninja summarizer: event emitter kata/monk paths → monk.data.*
 #
 # Scripts:
-#   zen_dojotools_supersummary     — Whole-home synthesizer (v4.0.0 RC2)
-#   zen_dojotools_ninja_summarizer — Per-component kata writer (v4.0.0 RC2)
+#   zen_dojotools_supersummary     — Whole-home synthesizer (v4.5.x)
+#   zen_dojotools_ninja_summarizer — Per-component kata writer (v4.5.x)
 #
 # PIPELINE:
 #   Ninja Summarizer → kata cabinet (per component) → SuperSummary → zen_summary → Friday
@@ -42,7 +42,7 @@
 # Auditor: Claude (Anthropic, Sonnet 4.6)
 # HALMark: 0.9.10-draft — PASS Level 3 (Steward Safe) — Full pipeline verified
 #
-# zen_dojotools_supersummary (v4.0.0 RC2 → v1.1.0):
+# zen_dojotools_supersummary (v4.5.x → v1.1.0):
 #   namespace() fix — active_component_ids now populates (was always []) ✓
 #   zen_summary key — prompt_context last_summary now loads (was always {}) ✓
 #   active components gate — KF System Switch ON + kata drawer required ✓
@@ -56,7 +56,7 @@
 #   post_to_kata_cabinet | bool gate — type-safe, passes correctly ✓
 #   config check → go; restart → clean ✓
 #
-# zen_dojotools_ninja_summarizer (v4.0.0 RC2 → v1.1.0):
+# zen_dojotools_ninja_summarizer (v4.5.x → v1.1.0):
 #   library_command_result fix — monk receives library output (~MEDIA~ exercised) ✓
 #   kata_cabinet var — kata_template reads dynamic entity (not hardcoded) ✓
 #   label_input CSV — "Media Manager, Ninja Summary" — no leading comma ✓
@@ -98,9 +98,9 @@ script:
   zen_dojotools_supersummary:
     alias: Zen DojoTools SuperSummary
     description: >-
-      SuperSummary (4.0.0 RC2). Whole-home synthesizer. Reads active component kata
+      SuperSummary (4.5.x). Whole-home synthesizer. Reads active component kata
       drawers gated by Kung Fu System Switch state. Builds zen_summary — the
-      canonical home state that loads Friday's prompt context. (v4.0.0 RC2)
+      canonical home state that loads Friday's prompt context. (v4.5.x)
       Respects zen_summarizers_enabled (master) and zen_supersummarizer_enabled
       kill switches — early-outs immediately if either is off.
     icon: mdi:home-circle
@@ -433,10 +433,10 @@ script:
   zen_dojotools_ninja_summarizer:
     alias: Zen DojoTools Ninja Summarizer
     description: >-
-      Ninja Summarizer (4.0.0 RC2). Hyper(graph)-aware per-component kata writer.
+      Ninja Summarizer (4.5.x). Hyper(graph)-aware per-component kata writer.
       Collects context defined by a Kung Fu component in the Dojo cabinet and
       submits it to a trusted LLM monk. Writes result to kata cabinet drawer.
-      Queues up to 2 concurrent runs. ~15s warm, ~60s cold. (v4.0.0 RC2)
+      Queues up to 2 concurrent runs. ~15s warm, ~60s cold. (v4.5.x)
     icon: mdi:karate
     mode: queued
     max: 2

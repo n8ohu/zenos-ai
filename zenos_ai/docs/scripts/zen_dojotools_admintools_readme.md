@@ -1,4 +1,4 @@
-# Zen DojoTools AdminTools — 4.5.0 'Meridian'
+# Zen DojoTools AdminTools — 4.5.x 'Ready Player Two'
 
 *Ring-2 administrative tools: component registration, cabinet repair, template management, and prompt configuration*
 

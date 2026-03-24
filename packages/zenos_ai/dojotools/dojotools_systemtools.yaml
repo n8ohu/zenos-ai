@@ -16,7 +16,7 @@
 #     Full reload/restart decision guide in tool description.
 #     No ha_api or whitelist changes required — reloads use HA service
 #     calls directly (same path as ha_restart → homeassistant.restart).
-#   4.0.0 RC2 — initial consolidated release
+#   4.5.x — initial consolidated release
 #
 # SETUP:
 #   1. Add to secrets.yaml:
@@ -42,7 +42,7 @@
 #   file returns a structured journal_mode response (not an error) with guidance
 #   including the Petro31 HACS file-logger restoration link.
 #
-# === UAT PASS — 2026-03-03 (4.0.0 RC2 baseline) ===
+# === UAT PASS — 2026-03-03 (4.5.x baseline) ===
 # Auditor: Caitlin (Anthropic, Sonnet 4.6) + Veronica (OAI, editorial)
 # HALMark: 0.9.10-draft — PASS Level 3 (Steward Safe) — 23/25 PASS, 2/25 N/A
 # UAT Cases: 20/20 PASS
@@ -1170,7 +1170,7 @@ script:
 
   zen_dojotools_event_emitter:
     alias: Zen DojoTools Event Emitter
-    description: "Zen DojoTools Event Emitter (v4.0.0 RC2). Advanced mode for Zen!\nEmits
+    description: "Zen DojoTools Event Emitter (v4.5.x). Advanced mode for Zen!\nEmits
       structured ZenOS-AI events or returns a dictionary of canonical event shapes.
       Used for breadcrumbs, observability, and trace reconstruction by Zen Constructs
       and the Monastery.\nModes:\n  emit → send a zen_event to the HA EventBus\n  help

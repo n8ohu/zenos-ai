@@ -405,7 +405,7 @@ script:
                     {{
                       {
                         "tool": "zen_dojotools_profile_editor",
-                        "version": "4.0.0 RC2",
+                        "version": "4.5.x",
                         "overview": "Read or write identity profiles for any ZenOS cabinet type. Leaf-level patch — non-destructive by default. Set force: true to overwrite existing values.",
                         "modes": {"read": "Return flattened current profile fields.", "write": "Patch one or more fields. Skips fields already set unless force: true.", "help": "Return this reference."},
                         "target_types": {

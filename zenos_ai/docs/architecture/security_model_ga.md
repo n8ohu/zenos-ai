@@ -1,6 +1,6 @@
 # ZenOS-AI Security Model — GA Reference
 
-**Version:** 4.5.0 'Meridian' GA
+**Version:** 4.5.x 'Ready Player Two' GA
 **Status:** Operational reference — describes what is active at GA and what is stubbed for SP1
 
 ---

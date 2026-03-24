@@ -1,4 +1,4 @@
-# Zen DojoTools Identity — 4.5.0 'Meridian'
+# Zen DojoTools Identity — 4.5.x 'Ready Player Two'
 
 *Resolve user and construct identities within the ZenOS-AI household*
 

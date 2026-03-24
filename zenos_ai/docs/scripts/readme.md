@@ -33,7 +33,7 @@ Below is the official documentation index for all ZenOS-AI DojoTools modules.
 
 ---
 
-## **1. Zen DojoTools AdminTools — 4.5.0 'Meridian'**
+## **1. Zen DojoTools AdminTools — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_admintools_readme.md`
 **Type:** Technical Documentation
@@ -53,7 +53,7 @@ KungFu Writer is the only AI-accessible tool here. All others are admin-only and
 
 ---
 
-## **2. Flynn — Stepgate Sentinel & Bootstrap Engine — 4.5.0 'Meridian'**
+## **2. Flynn — Stepgate Sentinel & Bootstrap Engine — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_flynn_readme.md`
 **Type:** Technical Documentation
@@ -73,7 +73,7 @@ If the system isn't coming up clean, Flynn is why — and where to look first.
 
 ---
 
-## **3. Zen DojoTools Profile Editor — 4.5.0 'Meridian'**
+## **3. Zen DojoTools Profile Editor — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_profile_readme.md`
 **Type:** Technical Documentation
@@ -109,7 +109,7 @@ Includes label design guidance: cross-entity labels outperform single-use labels
 
 ---
 
-## **5. Zen DojoTools Identity — 4.5.0 'Meridian'**
+## **5. Zen DojoTools Identity — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_identity_readme.md`
 **Type:** Technical Documentation
@@ -127,7 +127,7 @@ Current scope is resolution only. Privilege enforcement, session tokens, and sec
 
 ---
 
-## **6. Zen DojoTools Scheduler — 4.5.0 'Meridian'**
+## **6. Zen DojoTools Scheduler — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_scheduler_readme.md`
 **Type:** Technical Documentation
@@ -144,7 +144,7 @@ Trigger orchestrator for the ZenOS-AI pipeline. Dojo-driven — components decla
 
 ---
 
-## **7. Zen DojoTools Summarizers — 4.5.0 'Meridian'**
+## **7. Zen DojoTools Summarizers — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_summarizers_readme.md`
 **Type:** Technical Documentation
@@ -154,14 +154,14 @@ The cognition pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 
 * **Ninja Summarizer** (`zen_dojotools_ninja_summarizer`) — per-component kata writer. Reads one KFC component's Dojo drawer, runs HyperIndex + library command, sends to AI monk, writes kata drawer.
 * **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. Reads all active kata drawers (gated by `meta.enabled`), sends to AI monk, writes `zen_summary` — the canonical home state that loads Friday's prompt.
-* Three kill switches: master (`zen_summarizers_enabled`), ninja, supersummary — all default on
+* Three kill switches: master (`zen_summarizers_enabled`), ninja, supersummary — **all default off** (ship disabled; enable after verifying AI task entity points at a local model — cost risk if pointed at a paid API)
 * Auto-refire on re-enable via `zen_pipeline_autofire_on_enable`
 
 > **Warning:** Do not point the AI task entity at a paid inference API — the pipeline fires multiple times per hour. Use a local model.
 
 ---
 
-## **8. Zen DojoTools Library — 4.5.0 'Meridian'**
+## **8. Zen DojoTools Library — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_library_readme.md`
 **Type:** Technical Documentation
@@ -169,8 +169,7 @@ The cognition pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 **Summary:**
 Friday's unified system utility runner. MCP-exposed. Dispatches to library command interpreters and utility functions.
 
-* `library` — routes query through `command_interpreter.jinja` (v1); returns `{query, output}`
-* `library_2` — routes through `command_interpreter_2.jinja` (v2)
+* `library` — routes query through `command_interpreter.jinja`; returns `{query, output}`
 * `hash_md5` — MD5 hash of input string
 * `slugify` — applies HA slugify filter to input
 
@@ -178,7 +177,7 @@ The `library` tool is the engine the Ninja Summarizer uses for component `comman
 
 ---
 
-## **9. Zen Home Mode — 4.5.0 'Meridian'**
+## **9. Zen Home Mode — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_home_mode_readme.md`
 **Type:** Technical Documentation
@@ -195,7 +194,7 @@ Eight-state home presence and time-of-day state machine. Ambient context layer f
 
 ---
 
-## **10. Zen DojoTools History — 4.5.0 'Meridian'**
+## **10. Zen DojoTools History — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_history_readme.md`
 **Type:** Technical Documentation
@@ -210,7 +209,7 @@ Recorder statistics query engine. Time-bucketed historical data for sensors with
 
 ---
 
-## **11. Zen DojoTools Utilities — 4.5.0 'Meridian'**
+## **11. Zen DojoTools Utilities — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_utilities_readme.md`
 **Type:** Technical Documentation
@@ -229,7 +228,7 @@ General-purpose utility collection.
 
 ---
 
-## **12. Zen DojoTools Core (FileCabinet GC) — 4.5.0 'Meridian'**
+## **12. Zen DojoTools Core (FileCabinet GC) — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_core_readme.md`
 **Type:** Technical Documentation
@@ -246,7 +245,7 @@ Protected drawers (`_prefix`, VolumeInfo, schema keys) are never touched. Post-e
 
 ---
 
-## **13. Zen DojoTools SystemTools — 4.5.0 'Meridian'**
+## **13. Zen DojoTools SystemTools — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_systemtools_readme.md`
 **Type:** Technical Documentation
@@ -263,7 +262,7 @@ Requires a long-lived HA token in `secrets.yaml` (ha_bearer).
 
 ---
 
-## **14. Zen DojoTools Office — 4.5.0 'Meridian'**
+## **14. Zen DojoTools Office — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_office_readme.md`
 **Type:** Technical Documentation
@@ -284,7 +283,7 @@ This is Friday's and Veronica's primary tool for anything date-, event-, or sche
 
 ---
 
-## **15. Zen DojoTools Event Emitter — 4.5.0 'Meridian'**
+## **15. Zen DojoTools Event Emitter — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_event_emitter_readme.md`
 **Type:** Technical Documentation
@@ -311,7 +310,7 @@ This is how Friday, Veronica, Kronk, and the High Priestess leave traceable brea
 
 ---
 
-## **16. Zen DojoTools FileCabinet — 4.5.0 'Meridian'**
+## **16. Zen DojoTools FileCabinet — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_filecabinet_readme.md`
 **Type:** Technical Documentation
@@ -335,7 +334,7 @@ If any drawer changes anywhere in ZenOS-AI, it happened through FileCabinet.
 
 ---
 
-## **17. Zen DojoTools Manifest — 4.5.0 'Meridian'**
+## **17. Zen DojoTools Manifest — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_manifest_readme.md`
 **Type:** Technical Documentation
@@ -359,7 +358,7 @@ If Friday trusts a Cabinet, it's because the Manifest told her it's safe.
 
 ---
 
-## **18. Zen DojoTools Index — 4.5.0 'Meridian'**
+## **18. Zen DojoTools Index — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_index_readme.md`
 **Type:** Technical Documentation
@@ -381,7 +380,7 @@ The Zen Index is Friday's "graph engine," letting her understand relationships b
 
 ---
 
-## **19. Zen DojoTools Inspect — 4.5.0 'Meridian'**
+## **19. Zen DojoTools Inspect — 4.5.x 'Ready Player Two'**
 
 **File:** `zen_dojotools_inspect_readme.md`
 **Type:** Technical Documentation

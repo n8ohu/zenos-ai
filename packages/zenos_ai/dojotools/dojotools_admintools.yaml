@@ -4,8 +4,8 @@
 #
 # Scripts:
 #   zen_admintools_reset_template        — Kata + Dojo template press (v1.1.0)
-#   zen_admintools_cabinetadmin          — Cabinet inspect/restore/reset/hammer (v4.0.0 RC2)
-#   zen_dojotools_kungfu_writer          — Dojo component writer (v4.0.0 RC2)
+#   zen_admintools_cabinetadmin          — Cabinet inspect/restore/reset/hammer (v4.5.x)
+#   zen_dojotools_kungfu_writer          — Dojo component writer (v4.5.x)
 #   zen_admintools_cabinetadmin_stamp   — Cabinet factory stamper/repairer (v1.x)
 #   zen_admintools_zenos_prompt_loader   — Cortex/Directives/Purpose loader
 #
@@ -41,7 +41,7 @@ script:
           null,\n      \"subjective\": null,\n      \"urgency\": 0,\n      \"confidence\":
           0.0,\n      \"criticality\": 1,\n      \"emotion_queue\": [],\n      \"errors\":
           [],\n      \"timestamp\": null\n    }\n  },\n  \"example\": {\n    \"system\":
-          {\n      \"cortex\": \"nominal\",\n      \"os_version\": \"ZenOS-AI (4.0.0 RC2)\",\n
+          {\n      \"cortex\": \"nominal\",\n      \"os_version\": \"ZenOS-AI (4.5.x)\",\n
           \     \"build_version\": \"SuperSummary 1.0.0-beta\"\n    },\n    \"home_overview\":
           {\n      \"status\": \"ok\",\n      \"risks\": [\"storm watch active\"],\n
           \     \"events\": [\"2025-09-23T07:15:00Z: power dip detected\"]\n    },\n
@@ -320,7 +320,7 @@ script:
   zen_admintools_cabinetadmin:
     alias: Zen AdminTools CabinetAdmin
     description: >-
-      Zen AdminTools CabinetAdmin (4.0.0 RC2). Pattern A — strict redirector
+      Zen AdminTools CabinetAdmin (4.5.x). Pattern A — strict redirector
       mode. All writes routed exclusively through set_variable_legacy /
       clear_variables_legacy for safe cabinet volume routing.
 
@@ -1283,7 +1283,7 @@ script:
       cortex_version:
         name: Cortex Version
         description: "Prompt primitive set version to stamp. 30 = 2026 GA (Friday Delta).
-          29 = prior GA. 27 = 2026 RC2. Default: latest (30)."
+          29 = prior GA. 27 = Quiet Fusion (legacy). Default: latest (30)."
         required: false
         selector:
           select:
@@ -1294,7 +1294,7 @@ script:
                 value: '30'
               - label: 29 — 2026 GA
                 value: '29'
-              - label: 27 — 2026 RC2
+              - label: 27 — Quiet Fusion (legacy)
                 value: '27'
       ship_zen_system:
         name: "Ship KFC: ZenOS System Health"
@@ -2547,7 +2547,7 @@ script:
     alias: Zen AdminTools ZenOS-AI Prompt Loader (v27/v29/v30)
     description: 'Sets the ''Cortex'', ''Directives'', and ''Purpose'' sections for
       the ZenOS-AI Prompt Loader. Use cortex_version field to select: 30 / latest
-      = 2026 GA Friday Delta, 29 = prior GA, 27 = 2026 RC2.
+      = 2026 GA Friday Delta, 29 = prior GA, 27 = Quiet Fusion (legacy).
 
 
       Purpose: Who am I?

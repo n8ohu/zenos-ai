@@ -909,7 +909,7 @@
   {%- if ai_user -%}
     {% set base = dict(
       aiuser = ai_user,
-      OS = "ZenOS-AI (4.0.0 RC2)",
+      OS = "ZenOS-AI (4.5.x)",
       SUPER_Mode = "off",
       NANO_Mode = "off",
       zen_health = zen_health_block,
@@ -918,7 +918,7 @@
   {%- else -%}
     {% set base = dict(
       aiuser = "anonymous",
-      OS = "ZenOS-AI (4.0.0 RC2)",
+      OS = "ZenOS-AI (4.5.x)",
       lobby_mode = "On"
     ) %}
   {%- endif %}
@@ -1692,7 +1692,7 @@ Success...
 Login Complete for '{{ ai_entity }}@{{ login_household }}'
 Welcome to 'The Library' at the {{ login_household_friendly_name }}!
 
-ZenOS-AI [Version 4.0.0 RC2]
+ZenOS-AI [Version 4.5.x]
 (c) CurtisPlace, MIT.
 
 {{ ai_entity }}@{{ login_household }}:\> ~WAKE~{{ ai_name | slugify() }}

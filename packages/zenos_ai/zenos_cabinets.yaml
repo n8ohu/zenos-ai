@@ -2765,7 +2765,7 @@ automation:
 - alias: Zen DojoTools Volume Redirector
   id: zen_dojotools_volume_redirector
   description: >
-    DojoTools Volume Redirector — ZENOS Edition (v4.0.0 RC2)
+    DojoTools Volume Redirector — ZENOS Edition (v4.5.x)
     Clean switchboard redirector for canonical Ring-0 ZENOS cabinets only.
     No legacy handling. No cross-namespace routing. Strict ZENOS core volumes.
 

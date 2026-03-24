@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI — Label Health
-# Version 4.0.0 RC2
+# Version 4.5.x
 #
 # sensor.zen_label_health
 #   Validates the presence and health of all Zen labels against a canonical
