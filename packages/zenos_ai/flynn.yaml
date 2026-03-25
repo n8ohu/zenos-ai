@@ -382,19 +382,21 @@ automation:
                     missing={{ state_attr('sensor.zen_cabinet_health', 'missing_cabinets') }}.
                     Auto-initialization is disabled. Operator action required.
               - stop: "Gate 2: Cabinet check needed — operator action required"
-          # Case B: warn outside warmup, not ha_start — friendly notify + stop
+          # Case B: warn outside warmup, not ha_start — friendly notify (once) + continue
           - conditions: "{{ _cab_warn and not _in_warmup and not _is_ha_start }}"
             sequence:
-              - alias: "Flynn: Notify operator — cabinet upgrade available"
-                action: persistent_notification.create
-                data:
-                  title: "ZenOS-AI: Cabinet Upgrade Available"
-                  message: >
-                    One or more cabinets are on a pre-RC2 schema. Everything is working —
-                    this is just a housekeeping note. Make sure you have a current HA backup,
-                    then open a conversation with me and say "upgrade my cabinets" when you're ready.
-                    No rush.
-                  notification_id: flynn_cabinets_upgrade_available
+              - alias: "Flynn: Fire alert_once — cabinet upgrade available"
+                event: zen_event
+                event_data:
+                  event:
+                    kind: alert_fire
+                    alert_key: cab_schema_upgrade_available
+                    severity: warn
+                    message: >-
+                      One or more cabinets are on a pre-RC2 schema. Everything is working —
+                      this is just a housekeeping note. Make sure you have a current HA backup,
+                      then open a conversation with me and say "upgrade my cabinets" when you're ready.
+                      No rush.
               - action: system_log.write
                 data:
                   level: info
@@ -411,6 +413,17 @@ automation:
                   message: >-
                     Flynn Gate 2: cabinet_health=warn during warmup/ha_start — continuing.
                     reason={{ state_attr('sensor.zen_cabinet_health', 'reason') }}.
+
+      # Clear cab upgrade alert when schema is healthy
+      - if:
+        - condition: template
+          value_template: "{{ not _cab_warn and not _cab_hard }}"
+        then:
+        - event: zen_event
+          event_data:
+            event:
+              kind: alert_clear
+              alert_key: cab_schema_upgrade_available
 
       #####################################################################
       # GATE 2.5: Mount-aware mode — core defaults must be online_mounted
