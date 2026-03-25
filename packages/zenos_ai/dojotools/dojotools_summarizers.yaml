@@ -365,7 +365,8 @@ script:
                 "status": "ok" if (zen_summary and zen_summary != {}) else "error",
                 "components": active_component_ids | default([]) | length,
                 "component_ids": active_component_ids | default([]),
-                "duration_seconds": duration_seconds | default(0)
+                "duration_seconds": duration_seconds | default(0),
+                "run_started_at": started_at | default('')
               } | tojson
             }}
           label_input: zen_summary
@@ -728,6 +729,15 @@ script:
       - alias: Compute run duration
         variables:
           duration_seconds: "{{ ((now() - (started_at | as_datetime)).total_seconds()) | round(1) }}"
+
+      # ── 8c. Write per-component timing record to kata cabinet ─────────────
+      # zen_ninja_last_run_<slug> → read by zen_summarizer_health component_timings
+      - event: set_variable_legacy
+        event_data:
+          key: "zen_ninja_last_run_{{ component_slug }}"
+          value: "{{ {'duration_seconds': duration_seconds, 'run_started_at': started_at | default(''), 'component': component_slug} | tojson }}"
+          volume_entity: "{{ kata_cabinet }}"
+          set_timestamp: true
 
       # ── 9. Build response + emit ──────────────────────────────────────────
       - alias: Build final response
