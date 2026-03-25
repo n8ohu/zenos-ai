@@ -181,7 +181,7 @@ script:
             {{ parsed }}
           {% endif %}
         parsed_entity_labels: >
-          {% if is_create or is_update %}
+          {% if is_create or is_update or is_relabel %}
             {% if label_input is string %}
               {% set s = label_input | replace('\\n', ',') %}
               {{
@@ -215,7 +215,7 @@ script:
             []
           {% endif %}
         all_system_labels: >
-          {% if is_create or is_update %}
+          {% if is_create or is_update or is_relabel %}
             {{ labels() | map('lower') | sort | list }}
           {% else %}
             []
@@ -223,7 +223,7 @@ script:
         dropped_labels: "{{ parsed_entity_labels | reject('in', all_system_labels) | sort | list }}"
         accepted_entity_labels: "{{ parsed_entity_labels | select('in', all_system_labels) | sort | list }}"
         updated_label_index: >
-          {% if (is_create | default(false)) or (is_update | default(false)) %}
+          {% if (is_create | default(false)) or (is_update | default(false)) or (is_relabel | default(false)) %}
             {%- set vol = (prewrite_volume if prewrite_volume is mapping else initial_volume) -%}
             {%- set current_index = vol.get('_label_index', {}).get('value', {}) -%}
             {%- set current = current_index if current_index is mapping else {} -%}
@@ -418,7 +418,8 @@ script:
         is_force_create_over_existing: "{{ action_type == 'create' and key != '' and key_exists_initial and force_action}}"
         is_create_path: "{{ is_create_new or is_force_update_new or is_force_create_over_existing}}"
         is_update_path: "{{ is_update and key_exists_initial}}"
-        is_write_action: "{{ action_type in ['create','update','delete','move','copy','mount_cabinet','dismount_cabinet']}}"
+        is_write_action: "{{ action_type in ['create','update','delete','move','copy','mount_cabinet','dismount_cabinet','relabel']}}"
+        is_relabel: "{{ action_type == 'relabel' }}"
         json_parse_failed: >
           {{ (parsed_value is string and parsed_value.startswith('Write failed')) 
               or (parsed_value is mapping and (parsed_value.get('error','') | string).startswith('Write failed'))
@@ -435,7 +436,7 @@ script:
           condition: template
           value_template: >
             {{
-              (action_type not in ['manifest', 'read', 'delete', 'move', 'copy', 'clone', 'set_mount', 'remove_mount', 'mount_cabinet', 'dismount_cabinet', 'help' ])
+              (action_type not in ['manifest', 'read', 'delete', 'move', 'copy', 'clone', 'set_mount', 'remove_mount', 'mount_cabinet', 'dismount_cabinet', 'set_cabinet_ro', 'relabel', 'help' ])
                 and (
                       (parsed_value is string and parsed_value.startswith('Write failed'))
                       or
@@ -717,6 +718,10 @@ script:
                   target cabinet. Idempotent. BLOCKED on sensor.zenos_system_cabinet (syscab is
                   hard RO — use zen_admintools_zenos_prompt_loader or zen_admintools_cabinetadmin_stamp
                   to update syscab). No force_action bypass for syscab. Requires volume_entity."
+                relabel: "Updates _label_index only for the specified drawer — does NOT touch the
+                  drawer value. No value param required (ignored if supplied). Use when you need to
+                  update entity labels on a drawer without re-serializing or re-validating its value.
+                  Bypasses JSON parse check. Drawer must exist; returns drawer_not_found if absent."
                 help: Returns help
               system_cabinet_note: "sensor.zenos_system_cabinet is HARD READ-ONLY to FileCabinet.
                 This is a wire-level lockout — no exceptions, no force_action bypass. It holds the
@@ -2072,6 +2077,63 @@ script:
                 cabinet_ro: true
           - stop: set_cabinet_ro complete
             response_variable: final_response
+      # ── RELABEL ────────────────────────────────────────────────────────────────
+      # Updates _label_index only — does NOT touch the drawer value.
+      # Use when tagging an existing drawer without modifying its content.
+      # Large payload drawers (kata components, etc.) should ALWAYS use relabel
+      # instead of passing the full value through an update call.
+      # ───────────────────────────────────────────────────────────────────────────
+      - conditions:
+        - condition: template
+          value_template: "{{ action_type == 'relabel' }}"
+          alias: Relabel drawer (label index only)
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: "{{ key == '' or not key_exists_initial }}"
+            sequence:
+            - variables:
+                final_response:
+                  status: error
+                  failure: drawer_not_found
+                  message: "relabel requires an existing drawer key. '{{ raw_key }}' not found in this cabinet."
+                  volume_entity: "{{ volume_entity }}"
+                  key: "{{ key }}"
+            - stop: relabel — drawer not found
+              response_variable: final_response
+          - conditions:
+            - condition: template
+              value_template: "{{ existing_drawer_is_ro }}"
+            sequence:
+            - variables:
+                final_response:
+                  status: error
+                  failure: drawer_ro
+                  message: "relabel blocked: drawer '{{ key }}' is read-only (zen_scroll)."
+                  volume_entity: "{{ volume_entity }}"
+                  key: "{{ key }}"
+            - stop: relabel — drawer is ro
+              response_variable: final_response
+          default:
+          - event: set_variable_legacy
+            event_data:
+              key: _label_index
+              value: "{{ updated_label_index }}"
+              set_timestamp: true
+              volume_entity: "{{ volume_entity }}"
+          - variables:
+              final_response:
+                status: success
+                message: "Labels updated on drawer '{{ key }}' (index only — drawer value unchanged)."
+                volume_entity: "{{ volume_entity }}"
+                entry:
+                  drawer: "{{ key }}"
+                  labels_applied: "{{ accepted_entity_labels }}"
+                  labels_dropped: "{{ dropped_labels }}"
+                caller_token: "{{ caller_token | trim }}"
+          - stop: relabel complete
+            response_variable: final_response
       default:
       - variables:
           final_response:
@@ -2094,7 +2156,7 @@ script:
       target_guid). remove_mount unlinks it. Both verify the write and return previous_guid for undo.\nCABINET MOUNT/DISMOUNT: mount_cabinet / dismount_cabinet flip meta.mounted (state: online_mounted / online_unmounted). dismount_cabinet blocked if cabinet holds a zen_default_* label — transfer first. Both fire zen_event on completion.\nRO DRAWERS: Include 'zen_scroll' in label_input to make a drawer read-only (one-way — removing the label later does NOT revert ro). ro drawers block all create/update/delete — no force bypass. Use CabinetAdmin set_ro_flag to clear.\nCLONE: clone copies all cabinet drawers to destination_cabinet. Default: destination gets a new GUID (source untouched). With transfer_guid+force_action: GUID travels to destination, source is cleared and marked needs_restamp (Highlander mode — one cabinet owns a GUID).\n\u26a0\ufe0f SYSTEM CABINET (sensor.zenos_system_cabinet) IS HARD READ-ONLY to FileCabinet. It holds the AI prompt substrate (Purpose, Directives, Cortex). All writes are blocked — no force_action bypass. Use zen_admintools_zenos_prompt_loader to update prompt primitives, or zen_admintools_cabinetadmin_stamp for VolumeInfo repair. This is wire-level lockout — the tool cannot write there."
     fields:
       action_type:
-        description: "'manifest', 'create', 'read', 'update', 'delete', 'move', 'copy', 'clone', 'set_mount', 'remove_mount', 'mount_cabinet', 'dismount_cabinet', 'set_cabinet_ro', 'help' (default: help). NOTE: sensor.zenos_system_cabinet (syscab) is hard read-only — all write actions blocked. Use zen_admintools_zenos_prompt_loader or zen_admintools_cabinetadmin_stamp for syscab operations."
+        description: "'manifest', 'create', 'read', 'update', 'delete', 'move', 'copy', 'clone', 'set_mount', 'remove_mount', 'mount_cabinet', 'dismount_cabinet', 'set_cabinet_ro', 'relabel', 'help' (default: help). relabel: updates _label_index only — does NOT touch drawer value, no value param required. NOTE: sensor.zenos_system_cabinet (syscab) is hard read-only — all write actions blocked. Use zen_admintools_zenos_prompt_loader or zen_admintools_cabinetadmin_stamp for syscab operations."
         required: true
         selector:
           select:
@@ -2112,6 +2174,7 @@ script:
             - mount_cabinet
             - dismount_cabinet
             - set_cabinet_ro
+            - relabel
             - help
         default: manifest
       volume_entity_id:
