@@ -496,12 +496,36 @@ script:
                 _fam_guid: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('guid', '') }}
+                  {%- set _existing = _vi.get('guid', '') | string | trim -%}
+                  {%- if _existing != '' -%}{{ _existing }}{%- else -%}
+                  {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random) }}
+                  {%- endif -%}
+                _fam_guid_is_new: >-
+                  {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {{ _vi.get('guid', '') | string | trim == '' }}
                 _fam_name: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('name', family_entity) }}
                 _hh_members: "{{ _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw }}"
+            - if: "{{ _fam_guid_is_new | bool }}"
+              then:
+                - variables:
+                    _fam_vi_stamped: >-
+                      {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
+                      {%- set _vi = _vi if _vi is mapping else {} -%}
+                      {{ dict(_vi, **{'guid': _fam_guid}) | tojson }}
+                - event: set_variable_legacy
+                  event_data:
+                    key: AI_Cabinet_VolumeInfo
+                    value: "{{ _fam_vi_stamped }}"
+                    volume_entity: "{{ family_entity }}"
+                    set_timestamp: true
             - variables:
                 _existing_fams: >-
                   {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
@@ -678,11 +702,35 @@ script:
                 _mem_guid: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('guid', '') }}
+                  {%- set _existing = _vi.get('guid', '') | string | trim -%}
+                  {%- if _existing != '' -%}{{ _existing }}{%- else -%}
+                  {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random) }}
+                  {%- endif -%}
+                _mem_guid_is_new: >-
+                  {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
+                  {%- set _vi = _vi if _vi is mapping else {} -%}
+                  {{ _vi.get('guid', '') | string | trim == '' }}
                 _mem_name: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('name', member_entity) }}
+            - if: "{{ _mem_guid_is_new | bool }}"
+              then:
+                - variables:
+                    _mem_vi_guid_stamped: >-
+                      {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
+                      {%- set _vi = _vi if _vi is mapping else {} -%}
+                      {{ dict(_vi, **{'guid': _mem_guid}) | tojson }}
+                - event: set_variable_legacy
+                  event_data:
+                    key: AI_Cabinet_VolumeInfo
+                    value: "{{ _mem_vi_guid_stamped }}"
+                    volume_entity: "{{ member_entity }}"
+                    set_timestamp: true
             - variables:
                 _acls: "{{ _hh_acls | from_json if _hh_acls is string else (_hh_acls if _hh_acls is mapping else {}) }}"
                 _prime_occupied: >-
@@ -1049,7 +1097,14 @@ script:
                 _mem_guid: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('guid', '') }}
+                  {%- set _existing = _vi.get('guid', '') | string | trim -%}
+                  {%- if _existing != '' -%}{{ _existing }}{%- else -%}
+                  {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random,
+                      range(0, 65536) | random, range(0, 65536) | random) }}
+                  {%- endif -%}
                 _mem_name: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
@@ -1138,7 +1193,7 @@ script:
                       {%- endif -%}
                       {%- set _acls = dict(_acls, **{'family': _fam_list}) -%}
                       {%- set _dfg = _fam_guid if _is_first_family | bool else _vi.get('default_family_guid', '') -%}
-                      {{ dict(_vi, **{'acls': _acls, 'default_family_guid': _dfg}) | tojson }}
+                      {{ dict(_vi, **{'guid': _mem_guid, 'acls': _acls, 'default_family_guid': _dfg}) | tojson }}
                 - event: set_variable_legacy
                   event_data:
                     key: AI_Cabinet_VolumeInfo
