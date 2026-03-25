@@ -1181,15 +1181,14 @@ script:
             - if: "{{ family_entity == '' or member_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'family_remove_member',
-                          'status':  'error',
-                          'message': 'family_entity and member_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'family_remove_member',
+                        'status':  'error',
+                        'message': 'family_entity and member_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -1308,24 +1307,23 @@ script:
                 principal_warning: "{{ _principal_warning }}"
                 prompt_profile_update: true
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':              'family_remove_member',
-                      'status':            'ok',
-                      'family_entity':     family_entity,
-                      'family_guid':       _fam_guid,
-                      'family_name':       _fam_name,
-                      'member_entity':     member_entity,
-                      'member_type':       member_type,
-                      'member_guid':       _mem_guid,
-                      'member_name':       _mem_name,
-                      'was_default_family': _was_default | bool,
-                      'principal_warning': _principal_warning,
-                      'timestamp':         now().isoformat(),
-                      'caller_token':      caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':              'family_remove_member',
+                    'status':            'ok',
+                    'family_entity':     family_entity,
+                    'family_guid':       _fam_guid,
+                    'family_name':       _fam_name,
+                    'member_entity':     member_entity,
+                    'member_type':       member_type,
+                    'member_guid':       _mem_guid,
+                    'member_name':       _mem_name,
+                    'was_default_family': _was_default | bool,
+                    'principal_warning': _principal_warning,
+                    'timestamp':         now().isoformat(),
+                    'caller_token':      caller_token | default('')
+                  }
+                }}"
             - stop: Family member removed
               response_variable: response
 
@@ -1338,15 +1336,14 @@ script:
             - if: "{{ member_entity == '' or ai_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'link_partners',
-                          'status':  'error',
-                          'message': 'member_entity and ai_entity (the two entities to link) are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'link_partners',
+                        'status':  'error',
+                        'message': 'member_entity and ai_entity (the two entities to link) are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -1423,23 +1420,22 @@ script:
                 volume_entity: "{{ ai_entity }}"
                 set_timestamp: true
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':        'link_partners',
-                      'status':      'ok',
-                      'entity_a':    member_entity,
-                      'guid_a':      _a_guid,
-                      'name_a':      _a_name,
-                      'type_a':      _a_type,
-                      'entity_b':    ai_entity,
-                      'guid_b':      _b_guid,
-                      'name_b':      _b_name,
-                      'type_b':      _b_type,
-                      'timestamp':   now().isoformat(),
-                      'caller_token': caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':        'link_partners',
+                    'status':      'ok',
+                    'entity_a':    member_entity,
+                    'guid_a':      _a_guid,
+                    'name_a':      _a_name,
+                    'type_a':      _a_type,
+                    'entity_b':    ai_entity,
+                    'guid_b':      _b_guid,
+                    'name_b':      _b_name,
+                    'type_b':      _b_type,
+                    'timestamp':   now().isoformat(),
+                    'caller_token': caller_token | default('')
+                  }
+                }}"
             - event: zen_event
               event_data:
                 kind: partner_linked
@@ -1461,15 +1457,14 @@ script:
             - if: "{{ member_entity == '' or ai_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'unlink_partners',
-                          'status':  'error',
-                          'message': 'member_entity and ai_entity (the two entities to unlink) are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'unlink_partners',
+                        'status':  'error',
+                        'message': 'member_entity and ai_entity (the two entities to unlink) are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -1535,19 +1530,18 @@ script:
                 name_b: "{{ _b_name }}"
                 prompt_profile_update: true
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':      'unlink_partners',
-                      'status':    'ok',
-                      'entity_a':  member_entity,
-                      'name_a':    _a_name,
-                      'entity_b':  ai_entity,
-                      'name_b':    _b_name,
-                      'timestamp': now().isoformat(),
-                      'caller_token': caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':      'unlink_partners',
+                    'status':    'ok',
+                    'entity_a':  member_entity,
+                    'name_a':    _a_name,
+                    'entity_b':  ai_entity,
+                    'name_b':    _b_name,
+                    'timestamp': now().isoformat(),
+                    'caller_token': caller_token | default('')
+                  }
+                }}"
             - stop: Partners unlinked
               response_variable: response
 
@@ -1558,15 +1552,14 @@ script:
             - if: "{{ member_entity == '' or family_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'set_default_family',
-                          'status':  'error',
-                          'message': 'member_entity (user cabinet) and family_entity are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'set_default_family',
+                        'status':  'error',
+                        'message': 'member_entity (user cabinet) and family_entity are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -1599,18 +1592,17 @@ script:
                 volume_entity: "{{ member_entity }}"
                 set_timestamp: true
             - variables:
-                response: >-
-                  {{
-                    {
-                      'mode':           'set_default_family',
-                      'status':         'ok',
-                      'member_entity':  member_entity,
-                      'family_entity':  family_entity,
-                      'family_guid':    _fam_guid,
-                      'timestamp':      now().isoformat(),
-                      'caller_token':   caller_token | default('')
-                    } | tojson
-                  }}
+                response: "{{
+                  {
+                    'mode':           'set_default_family',
+                    'status':         'ok',
+                    'member_entity':  member_entity,
+                    'family_entity':  family_entity,
+                    'family_guid':    _fam_guid,
+                    'timestamp':      now().isoformat(),
+                    'caller_token':   caller_token | default('')
+                  }
+                }}"
             - stop: Default family set
               response_variable: response
 
@@ -1743,17 +1735,16 @@ script:
                             } | tojson
                           }}
                     - variables:
-                        response: >-
-                          {{
-                            {
-                              'mode':             'membership',
-                              'view':             'tree',
-                              'root_entity':      _root_entity,
-                              'tree':             _tree,
-                              'timestamp':        now().isoformat(),
-                              'caller_token':     caller_token | default('')
-                            } | tojson
-                          }}
+                        response: "{{
+                          {
+                            'mode':             'membership',
+                            'view':             'tree',
+                            'root_entity':      _root_entity,
+                            'tree':             _tree,
+                            'timestamp':        now().isoformat(),
+                            'caller_token':     caller_token | default('')
+                          }
+                        }}"
                     - stop: Membership tree returned
                       response_variable: response
 
@@ -1836,17 +1827,16 @@ script:
                           {%- endfor -%}
                           {{ _groups | tojson }}
                     - variables:
-                        response: >-
-                          {{
-                            {
-                              'mode':          'membership',
-                              'view':          'member_lookup',
-                              'member_entity': _root_entity,
-                              'memberships':   _memberships,
-                              'timestamp':     now().isoformat(),
-                              'caller_token':  caller_token | default('')
-                            } | tojson
-                          }}
+                        response: "{{
+                          {
+                            'mode':          'membership',
+                            'view':          'member_lookup',
+                            'member_entity': _root_entity,
+                            'memberships':   _memberships,
+                            'timestamp':     now().isoformat(),
+                            'caller_token':  caller_token | default('')
+                          }
+                        }}"
                     - stop: Member lookup returned
                       response_variable: response
 
@@ -1857,15 +1847,14 @@ script:
             - if: "{{ member_entity == '' or family_entity == '' }}"
               then:
                 - variables:
-                    response: >-
-                      {{
-                        {
-                          'mode':    'is_member',
-                          'status':  'error',
-                          'message': 'member_entity (subject) and family_entity (container) are both required.',
-                          'timestamp': now().isoformat()
-                        } | tojson
-                      }}
+                    response: "{{
+                      {
+                        'mode':    'is_member',
+                        'status':  'error',
+                        'message': 'member_entity (subject) and family_entity (container) are both required.',
+                        'timestamp': now().isoformat()
+                      }
+                    }}"
                 - stop: Missing required fields
                   response_variable: response
             - variables:
@@ -1907,20 +1896,19 @@ script:
                     {%- endif -%}
                   {%- endif -%}
             - variables:
-                response: >-
-                  {%- set _r = _check | from_json if _check is string else _check -%}
-                  {%- set _r = _r if _r is mapping else {'is_member': false, 'depth': none} -%}
-                  {{
-                    {
-                      'mode':             'is_member',
-                      'member_entity':    member_entity,
-                      'container_entity': family_entity,
-                      'is_member':        _r.get('is_member', false),
-                      'depth':            _r.get('depth', none),
-                      'timestamp':        now().isoformat(),
-                      'caller_token':     caller_token | default('')
-                    } | tojson
-                  }}
+                _r: "{{ _check if _check is mapping else (_check | from_json if _check is string else {'is_member': false, 'depth': none}) }}"
+            - variables:
+                response: "{{
+                  {
+                    'mode':             'is_member',
+                    'member_entity':    member_entity,
+                    'container_entity': family_entity,
+                    'is_member':        _r.get('is_member', false),
+                    'depth':            _r.get('depth', none),
+                    'timestamp':        now().isoformat(),
+                    'caller_token':     caller_token | default('')
+                  }
+                }}"
             - stop: is_member check complete
               response_variable: response
 
