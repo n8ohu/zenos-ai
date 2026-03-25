@@ -442,6 +442,8 @@ script:
               caller_token: "{{ caller_token }}"
         - stop: hammer blocked
           response_variable: result
+    - variables:
+        inspect_acc: {}
     - repeat:
         for_each: '{{ effective_targets }}'
         sequence:
