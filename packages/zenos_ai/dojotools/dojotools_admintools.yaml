@@ -5,14 +5,14 @@
 # Scripts:
 #   zen_admintools_reset_template        — Kata + Dojo template press (v1.1.0)
 #   zen_admintools_cabinetadmin          — Cabinet inspect/restore/reset/hammer (v4.5.x)
-#   zen_dojotools_kungfu_writer          — Dojo component writer (v4.5.x)
 #   zen_admintools_cabinetadmin_stamp   — Cabinet factory stamper/repairer (v1.x)
 #   zen_admintools_zenos_prompt_loader   — Cortex/Directives/Purpose loader
 #
+# NOTE: zen_dojotools_kungfu_writer removed 2026-03-25 — superseded by zen_dojotools_scribe
+#
 # MIGRATED FROM: scripts.yaml (2026-03-06)
 #
-# FG-14 FIXED: boolean: {} in cabinetadmin, 10x text: {} + boolean: {} in kungfu_writer (now zen_dojotools_kungfu_writer),
-#              5x boolean: {} + 2x text: {} in cabinetadmin_stamp
+# FG-14 FIXED: boolean: {} in cabinetadmin, 5x boolean: {} + 2x text: {} in cabinetadmin_stamp
 # FG (sandbox) FIXED: mounts.append() -> namespace(mounts=[]) in cabinetadmin_stamp
 #
 # === UAT PASS — 2026-03-06 ===
@@ -20,8 +20,6 @@
 # HALMark: 0.9.11-draft — PASS Level 3 (Steward Safe) — no remaining FG hits
 # UAT Cases: 1/1 PASS (non-destructive only; destructive scripts load-verified only)
 #
-# zen_dojotools_kungfu_writer:
-#   help action → response clean ✓
 # zen_admintools_reset_template, cabinetadmin, cabinetadmin_stamp, prompt_loader:
 #   not MCP-exposed; verified via config check pass + clean restart ✓
 #
@@ -703,311 +701,6 @@ script:
           target_count: "{{ effective_targets | length }}"
           caller_token: "{{ caller_token }}"
     - stop: complete
-      response_variable: result
-
-  zen_dojotools_kungfu_writer:
-    alias: Zen DojoTools KungFu Writer
-    mode: parallel
-    max: 5
-    description: >-
-      Zen AdminTools KungFu Writer (1.2.0). Creates or updates a Kung Fu component
-      registration drawer in the Zen Dojo Cabinet.
-
-      Each KFC drawer tells the Ninja Summarizer what a component does, what data
-      it needs, and WHEN to run it (trigger_subscriptions + delay_seconds). The
-      Scheduler reads these drawers to auto-dispatch — no manual scheduler edits
-      needed after writing a component here.
-
-      Fields kata_key and friendly_name are required for write. All others are
-      recommended. Read kfc_template from the Dojo cabinet for the full schema.
-
-      action=help returns the live kfc_template schema from the Dojo cabinet.
-      action=write with confirm_action=true performs the upsert.
-    icon: mdi:pencil-box-outline
-    fields:
-      action:
-        name: Action
-        description: "'write' to upsert a component, 'help' to return the kfc_template schema."
-        default: help
-        required: true
-        selector:
-          select:
-            options:
-            - write
-            - help
-      kata_key:
-        name: Kata Key
-        description: >-
-          Unique component ID (will be slugified). Used as the Dojo drawer key and
-          the Kata cabinet drawer key. Example: 'Alert Manager' → 'alert_manager'.
-        required: false
-        selector:
-          text:
-      friendly_name:
-        name: Friendly Name
-        description: "Human-readable component title. Example: 'Alert Manager'."
-        required: false
-        selector:
-          text:
-      component_summary:
-        name: Component Summary
-        description: One-sentence description of what this component monitors or manages.
-        required: false
-        selector:
-          text:
-      label:
-        name: HyperIndex Label
-        description: >-
-          Label passed to zen_dojotools_index for entity discovery. Leave blank if
-          this component does not use the HyperIndex.
-        required: false
-        selector:
-          text:
-      command:
-        name: Library Command
-        description: >-
-          Library macro token (e.g. ~ALERTS~) passed to command_interpreter.
-          Leave blank if not applicable.
-        required: false
-        selector:
-          text:
-      trigger_subscriptions:
-        name: Trigger Subscriptions
-        description: >-
-          Comma-separated list of scheduler trigger IDs this component should
-          run on. Valid IDs: ha_start, daily_midnight, daily_noon, hourly_trigger,
-          quarter_hour, every_10_minutes, every_5_minutes, home_mode_updates,
-          alarm_panel, door_opens_or_closes, lock_changes, window_opens_or_closes,
-          garage_door, home_occupancy_change, nathan_bed_changes, kim_bed_changes,
-          water_flow_stop, hot_tub_state, elec_panel_door_change, start_home_wake,
-          start_home_evening, mb_wake, force_summary, force_gc, test_button.
-        required: false
-        selector:
-          text:
-      delay_seconds:
-        name: Delay (seconds)
-        description: >-
-          Stagger delay before the Ninja runs this component after the trigger
-          fires. Use to sequence components and avoid LLM overload. Default 0.
-        required: false
-        default: 0
-        selector:
-          number:
-            min: 0
-            max: 300
-            step: 5
-      enabled:
-        name: Component Enabled
-        description: >-
-          Whether this component is active. Stored in meta.enabled.
-          Default true. Lifecycle control in 1.2.0+.
-        required: false
-        default: true
-        selector:
-          boolean:
-      requires_cert:
-        name: Required Cert
-        description: >-
-          Capability certificate required to run this component (stub — not
-          enforced until SP1). Example: zen_level_2.
-        required: false
-        selector:
-          text:
-      requires_level:
-        name: Required Level
-        description: >-
-          Numeric capability level required (stub — not enforced until SP1).
-          Default 0.
-        required: false
-        default: 0
-        selector:
-          number:
-            min: 0
-            max: 10
-            step: 1
-      tool:
-        name: Tool
-        description: Associated tool name or breadcrumb (optional).
-        required: false
-        selector:
-          text:
-      version:
-        name: Component Version
-        description: "Semantic version string. Example: 1.0.0."
-        required: false
-        selector:
-          text:
-      component_instructions:
-        name: Component Instructions
-        description: Long-form operational notes for the monk (10–40 lines recommended).
-        required: false
-        selector:
-          text:
-            multiline: true
-      more_info:
-        name: More Info
-        description: Extended rationale, context, or integration notes.
-        required: false
-        selector:
-          text:
-            multiline: true
-      confirm_action:
-        name: Confirm Write
-        description: Must be true to perform the write. Prevents accidental overwrites.
-        required: true
-        default: false
-        selector:
-          boolean:
-      caller_token:
-        name: Caller Token
-        description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
-        required: false
-        selector:
-          text:
-    sequence:
-
-    # --------------------------------------------------------------
-    # Always normalize User/AI inputs so we don't have to react JIT
-    # --------------------------------------------------------------
-    - variables:
-        caller_token: "{{- caller_token | default('') -}}"
-
-    - variables:
-        _act: "{{ action | default('help') }}"
-        _dojo_cab: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
-
-    - choose:
-
-      # ── HELP ──────────────────────────────────────────────────────────────────
-      - alias: Help — return live kfc_template from Dojo
-        conditions:
-        - condition: template
-          value_template: "{{ _act == 'help' }}"
-        sequence:
-        - variables:
-            _kfc_tmpl: >-
-              {%- set _drawer = (state_attr(_dojo_cab, 'variables') | default({}, true))
-                                .get('kfc_template', {}) if _dojo_cab != '' else {} -%}
-              {%- set _val = _drawer.get('value', _drawer) if _drawer is mapping else {} -%}
-              {%- set _parsed = (_val | from_json) if _val is string else _val -%}
-              {{ _parsed if _parsed is mapping else {} }}
-            result: >-
-              {{
-                {
-                  "result": "help",
-                  "kfc_template": _kfc_tmpl,
-                  "usage": "Call with action=write, confirm_action=true, and the fields from kfc_template.structure filled in."
-                }
-              }}
-
-      # ── VALIDATION ────────────────────────────────────────────────────────────
-      - alias: Error — missing kata_key or friendly_name
-        conditions:
-        - condition: template
-          value_template: >-
-            {{
-              _act == 'write'
-              and (
-                (kata_key | default('')) | trim == ''
-                or (friendly_name | default('')) | trim == ''
-              )
-            }}
-        sequence:
-        - variables:
-            result: >-
-              {{
-                {
-                  "result": "error",
-                  "reason": "kata_key and friendly_name are required for write.",
-                  "usage": "Provide both fields and retry."
-                }
-              }}
-
-      - alias: Error — confirm_action not set
-        conditions:
-        - condition: template
-          value_template: "{{ _act == 'write' and not (confirm_action | default(false) | bool) }}"
-        sequence:
-        - variables:
-            result: >-
-              {{
-                {
-                  "result": "error",
-                  "reason": "confirm_action must be true to write.",
-                  "usage": "Set confirm_action=true and retry."
-                }
-              }}
-
-      # ── WRITE ─────────────────────────────────────────────────────────────────
-      - alias: Write — upsert Dojo drawer
-        conditions:
-        - condition: template
-          value_template: "{{ _act == 'write' and (confirm_action | default(false) | bool) }}"
-        sequence:
-        - variables:
-            _slug: "{{ kata_key | slugify | default('unknown') }}"
-            _trigger_list: >-
-              {%- set raw = (trigger_subscriptions | default('')) | string | trim -%}
-              {%- if raw | length > 0 -%}
-                {{ raw | regex_findall('[^,\\s]+') }}
-              {%- else -%}
-                []
-              {%- endif -%}
-            _payload: >-
-              {{
-                {
-                  "version":               version | default(''),
-                  "friendly_name":         friendly_name | default(''),
-                  "label":                 label | default(''),
-                  "command":               command | default(''),
-                  "component_summary":     component_summary | default(''),
-                  "component_instructions": component_instructions | default(''),
-                  "more_info":             more_info | default(''),
-                  "tool":                  tool | default(''),
-                  "trigger_subscriptions": _trigger_list,
-                  "delay_seconds":         delay_seconds | default(0) | int(0),
-                  "kata_key":              _slug,
-                  "meta": {
-                    "enabled":  enabled | default(true) | bool,
-                    "requires": {
-                      "cert":  requires_cert  | default(''),
-                      "level": requires_level | default(0) | int(0)
-                    }
-                  }
-                } | tojson
-              }}
-        - action: script.zen_dojotools_filecabinet
-          data:
-            action_type: update
-            show_hidden_volumes: false
-            force_action: true
-            set_timestamp: true
-            volume_entity_id:
-              - "{{ _dojo_cab }}"
-            key: "{{ _slug }}"
-            value: "{{ _payload }}"
-            label_input: "{{ 'kfc, dojo, zen, ' ~ (label | default('')) }}"
-            meta:
-              no_autoexpire: true
-              no_autorecycle: true
-              description: "KFC component definition — permanent, do not expire"
-          response_variable: _write_response
-        - variables:
-            result: >-
-              {{
-                {
-                  "result":     "success",
-                  "component":  _slug,
-                  "drawer_key": _slug,
-                  "dojo_cab":   _dojo_cab,
-                  "triggers":   _trigger_list,
-                  "write":      _write_response | default({})
-                }
-              }}
-
-    - variables:
-        result: "{{ result | combine({'caller_token': caller_token | default('')}) if result is mapping else result }}"
-    - stop: Return Result
       response_variable: result
 
   zen_admintools_cabinetadmin_stamp:
@@ -2032,7 +1725,7 @@ script:
                   mass_operations: {threshold: any operation affecting more than a handful
                     of entities, require: dry_run_and_approval}
                   high_risk: {examples: [locks, breakers, emergency systems], require: explicit_confirmation}
-                  dojo_writes: {tool: script.zen_dojotools_kungfu_writer,
+                  dojo_writes: {tool: script.zen_dojotools_scribe,
                     require_confirm_action: true, dry_run_first: true, include_diff: true}
                 audit:
                   queue: /cabinets/{ai_entity_cabinet}/audit_queue
@@ -2241,7 +1934,7 @@ script:
                   mass_operations: {threshold: any operation affecting more than a handful
                     of entities, require: dry_run_and_approval}
                   high_risk: {examples: [locks, breakers, emergency systems], require: explicit_confirmation}
-                  dojo_writes: {tool: script.zen_dojotools_kungfu_writer,
+                  dojo_writes: {tool: script.zen_dojotools_scribe,
                     require_confirm_action: true, dry_run_first: true, include_diff: true}
                 audit:
                   queue: /cabinets/{ai_entity_cabinet}/audit_queue
@@ -2843,19 +2536,19 @@ script:
           set_timestamp: true
 
     # ── Default KFC Components ────────────────────────────────────────────────
-    # Ship default KFCs via KF Writer. Each KFC gets a checkbox field (default
+    # Ship default KFCs via Scribe. Each KFC gets a checkbox field (default
     # off) except zen_system which ships ON — it is the proof KFC and guidepost.
     # Pattern for adding a new default KFC:
     #   1. Add a boolean field: ship_<kata_key> with default: false
-    #   2. Add an if-gated action block below calling zen_dojotools_kungfu_writer
+    #   2. Add a 3-step if-gated block below: new_thought → formalize_scroll → publish_kfc
     #   3. zen_system stays default: true — all others ship unchecked
     - if: "{{ ship_zen_system | default(true) | bool }}"
       then:
-        - alias: 'Ship default KFC: zen_system'
-          action: script.zen_dojotools_kungfu_writer
+        - alias: 'Ship default KFC: zen_system (Scribe — new_thought)'
+          action: script.zen_dojotools_scribe
           data:
-            action: write
-            kata_key: zen_system
+            mode: new_thought
+            key: zen_system
             friendly_name: ZenOS System Health
             component_summary: >-
               Monitors ZenOS pipeline health: cabinet resolvers, kill switches,
@@ -2885,8 +2578,20 @@ script:
               Alert format: "ZenOS [warn|critical]: [specific issue]. [switch name|sensor name|cabinet name]."
             label: zen_system
             trigger_subscriptions: ha_start,daily_midnight
-            version: 1.2.0
-            confirm_action: true
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: zen_system (Scribe — formalize_scroll)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: formalize_scroll
+            key: zen_system
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: zen_system (Scribe — publish_kfc)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: publish_kfc
+            key: zen_system
+            publish_confirm: true
+            caller_id: zen_admintools_zenos_prompt_loader
           response_variable: _zen_system_kfc_result
 
     # ── Idempotent: ensure syscab VolumeInfo carries cabinet_ro: true ─────────

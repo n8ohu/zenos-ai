@@ -230,30 +230,6 @@ automation:
                   caller_token: "{{ _payload.get('caller_token', '') }}"
                 response_variable: _result
 
-          # ── zen_dojotools_kungfu_writer v1 ───────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_kungfu_writer' and _ver == '1' }}"
-            sequence:
-              - action: script.zen_dojotools_kungfu_writer
-                data:
-                  action:                "{{ _payload.get('action', 'help') }}"
-                  kata_key:              "{{ _payload.get('kata_key', '') }}"
-                  friendly_name:         "{{ _payload.get('friendly_name', '') }}"
-                  component_summary:     "{{ _payload.get('component_summary', '') }}"
-                  label:                 "{{ _payload.get('label', '') }}"
-                  command:               "{{ _payload.get('command', '') }}"
-                  trigger_subscriptions: "{{ _payload.get('trigger_subscriptions', '') }}"
-                  delay_seconds:         "{{ _payload.get('delay_seconds', 0) }}"
-                  enabled:               "{{ _payload.get('enabled', true) }}"
-                  requires_cert:         "{{ _payload.get('requires_cert', '') }}"
-                  requires_level:        "{{ _payload.get('requires_level', 0) }}"
-                  tool:                  "{{ _payload.get('tool', '') }}"
-                  version:               "{{ _payload.get('version', '') }}"
-                  component_instructions: "{{ _payload.get('component_instructions', '') }}"
-                  more_info:             "{{ _payload.get('more_info', '') }}"
-                  confirm_action:        "{{ _payload.get('confirm_action', false) }}"
-                  caller_token:          "{{ _payload.get('caller_token', '') }}"
-                response_variable: _result
-
         # ── Unknown tool — structured fault, NOT a hard crash ─────────────
         default:
           - variables:
