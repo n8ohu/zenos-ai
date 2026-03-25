@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Summarizers Package
-# Version: 4.5.0
+# Version: 4.5.1
 #
 # Migrated from scripts.yaml. Fixes applied (v1.0.0):
 #   - supersummary: active_components namespace() fix (Jinja2 scoping — was always {})
@@ -159,6 +159,19 @@ script:
         then:
           - stop: "ai_task entity unset — aborting supersummary"
             error: true
+
+      # ── 0b. Start timer + emit summarizer_start ──────────────────────────
+      - alias: Capture start time and emit summarizer_start
+        variables:
+          started_at: "{{ now().isoformat() }}"
+      - event: zen_event
+        event_data:
+          kind: summarizer_start
+          component: super_summary
+          severity: info
+          summary: SuperSummary run started
+          metadata:
+            started_at: "{{ started_at }}"
 
       # ── 1. Resolve cabinets ───────────────────────────────────────────────
       - alias: Resolve cabinets
@@ -330,6 +343,11 @@ script:
         variables:
           zen_summary: "{{ monk_response.data | default({}) }}"
 
+      # ── 8a. Compute run duration ──────────────────────────────────────────
+      - alias: Compute run duration
+        variables:
+          duration_seconds: "{{ ((now() - (started_at | as_datetime)).total_seconds()) | round(1) }}"
+
       # ── 8b. Write supersummary status drawer ─────────────────────────────
       - alias: Write supersummary status drawer
         action: script.zen_dojotools_filecabinet
@@ -346,7 +364,8 @@ script:
               {
                 "status": "ok" if (zen_summary and zen_summary != {}) else "error",
                 "components": active_component_ids | default([]) | length,
-                "component_ids": active_component_ids | default([])
+                "component_ids": active_component_ids | default([]),
+                "duration_seconds": duration_seconds | default(0)
               } | tojson
             }}
           label_input: zen_summary
@@ -383,7 +402,9 @@ script:
                 "monk":                 monk_response | default({}),
                 "post":                 post_to_kata_cabinet | default(false),
                 "filecabinet_write":    filecabinet_response | default({}),
-                "caller_token":         caller_token | default('')
+                "caller_token":         caller_token | default(''),
+                "duration_seconds":     duration_seconds | default(0),
+                "run_started_at":       started_at | default('')
               }
             }}
 
@@ -408,6 +429,8 @@ script:
             post_to_kata: "{{ final_response.post }}"
             filecabinet_status: "{{ final_response.filecabinet_write.status | default('unknown') }}"
             filecabinet_message: "{{ final_response.filecabinet_write.message | default('') }}"
+            duration_seconds: "{{ final_response.duration_seconds | default(0) }}"
+            run_started_at: "{{ final_response.run_started_at | default('') }}"
           kata: >-
             {{
               final_response.monk.data.kata_excerpt
@@ -498,6 +521,20 @@ script:
         then:
           - stop: "ai_task entity unset — aborting ninja summarizer"
             error: true
+
+      # ── 0b. Start timer + emit summarizer_start ──────────────────────────
+      - alias: Capture start time and emit summarizer_start
+        variables:
+          started_at: "{{ now().isoformat() }}"
+      - event: zen_event
+        event_data:
+          kind: summarizer_start
+          component: ninja_summary
+          severity: info
+          summary: "Ninja Summarizer run started for {{ kung_fu_component_id | slugify }}"
+          metadata:
+            started_at: "{{ started_at }}"
+            component: "{{ kung_fu_component_id | slugify }}"
 
       # ── 1. Resolve cabinets + slug ────────────────────────────────────────
       - alias: Resolve cabinets and component slug
@@ -687,6 +724,11 @@ script:
               label_input: "{{ (index_command + ', ') if index_command else '' }}Ninja Summary"
             response_variable: filecabinet_response
 
+      # ── 8b. Compute run duration ──────────────────────────────────────────
+      - alias: Compute run duration
+        variables:
+          duration_seconds: "{{ ((now() - (started_at | as_datetime)).total_seconds()) | round(1) }}"
+
       # ── 9. Build response + emit ──────────────────────────────────────────
       - alias: Build final response
         variables:
@@ -699,7 +741,9 @@ script:
                 "post":              post_to_kata_cabinet | default(false),
                 "dojo_drawer":       dojo_drawer | default(''),
                 "filecabinet_write": filecabinet_response | default({}),
-                "caller_token":      caller_token | default('')
+                "caller_token":      caller_token | default(''),
+                "duration_seconds":  duration_seconds | default(0),
+                "run_started_at":    started_at | default('')
               }
             }}
 
@@ -715,6 +759,9 @@ script:
             post_to_kata: "{{ final_response.post }}"
             dojo_drawer: "{{ final_response.dojo_drawer }}"
             filecabinet_write: "{{ final_response.filecabinet_write }}"
+            duration_seconds: "{{ final_response.duration_seconds | default(0) }}"
+            run_started_at: "{{ final_response.run_started_at | default('') }}"
+            component_slug: "{{ component_slug | default('') }}"
           kata: "{{ final_response.monk.data.kata_excerpt | default({}) }}"
           monk: "{{ final_response.monk.data.event_excerpt | default({}) }}"
 
