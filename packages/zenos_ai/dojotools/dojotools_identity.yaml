@@ -1170,7 +1170,7 @@ script:
                     'timestamp':        now().isoformat(),
                     'caller_token':     caller_token | default('')
                   }
-                  }}
+                  }}"
             - stop: Family member added
               response_variable: response
 
