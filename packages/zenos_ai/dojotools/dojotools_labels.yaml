@@ -242,7 +242,7 @@ script:
               response_variable: response
         - action: homeassistant.add_label_to_entity
           data:
-            label_id: '{{ user_labels }}'
+            label_id: '{{ user_labels | map("slugify") | list }}'
             entity_id: '{{ target_ent_list }}'
         - variables:
             response:
@@ -287,7 +287,7 @@ script:
               response_variable: response
         - action: homeassistant.remove_label_from_entity
           data:
-            label_id: '{{ user_labels }}'
+            label_id: '{{ user_labels | map("slugify") | list }}'
             entity_id: '{{ target_ent_list }}'
         - variables:
             response:
