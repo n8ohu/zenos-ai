@@ -822,9 +822,10 @@ script:
             - event: set_variable_legacy
               event_data:
                 key: '{{ repeat.item[0] }}'
-                value: '{{ repeat.item[1] | from_json | default({}) }}'
+                value: '{{ repeat.item[1] }}'
                 set_timestamp: true
                 volume_entity: '{{ cabinet_entity }}'
+                _cabinetadmin_init: true
         - event: zen_event
           event_data:
             kind: cabinet_boot_touch
@@ -862,10 +863,10 @@ script:
             - event: set_variable_legacy
               event_data:
                 key: AI_Cabinet_VolumeInfo
-                value: '{{ drawers_to_init[''AI_Cabinet_VolumeInfo''] | from_json |
-                  default({}) }}'
+                value: '{{ drawers_to_init[''AI_Cabinet_VolumeInfo''] }}'
                 set_timestamp: true
                 volume_entity: '{{ cabinet_entity }}'
+                _cabinetadmin_init: true
         - event: zen_event
           event_data:
             kind: cabinet_boot_touch
