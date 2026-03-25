@@ -267,6 +267,8 @@ Use this when a cabinet is missing its metadata header — for example, after cr
 
 > **Backup first.** While cabinetadmin_stamp is designed to preserve existing data (Repair/Restamp path preserves GUID and mounts), a full HA backup before any schema repair operation is strongly recommended. Cabinet data is not version-controlled — a bad stamp cannot be undone except from backup.
 
+> **RP2 note.** On a live RP2 installation, any write to `AI_Cabinet_VolumeInfo` triggers a full state re-derivation on the cabinet sensor — the state will briefly show `init` until the boot-touch event advances it. `cabinetadmin_stamp` automatically fires `cabinet_boot_touch` after every write (both Init and Repair paths), so the cabinet will advance to `online_mounted` within seconds. No manual intervention needed.
+
 ---
 
 ## zen_admintools_kfc_migration_press
@@ -312,6 +314,8 @@ Loads the AI's identity substrate: **Cortex**, **Directives**, and **Purpose**. 
 ### System Cabinet Authorization
 
 `sensor.zenos_system_cabinet` (syscab) is **hard read-only** to `zen_dojotools_filecabinet` — all write actions are wire-blocked, no force bypass. The prompt loader is the designated write path for syscab. This is intentional: it prevents any agent or automation from rewriting the AI's own prompt substrate at runtime.
+
+On every run, the prompt loader also stamps `meta.mounted: true` on syscab — ensuring the cabinet is in `online_mounted` state after load. This is idempotent and safe to re-run.
 
 > **Backup first.** Before running the prompt loader against a production install — especially a version upgrade — take a full HA backup. The syscab Cortex is not version-controlled at the drawer level. If a load is interrupted or the wrong version is selected, restoring from backup is the only recovery path.
 

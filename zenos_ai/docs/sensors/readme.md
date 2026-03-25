@@ -220,8 +220,8 @@ Use `current_gate` and `next_step` when troubleshooting a stuck boot — they te
 |---|---|
 | `critical` | label_health or cabinet_health = `critical` or `error` |
 | `error` | label/cabinet = `error`, 0 agents bootable |
-| `warmup` | Inside boot warmup window (≤5 min) with cabinet `warn` or monastery not yet settled — system initializing, check again shortly |
-| `warn` | Structural gates blocking; or ≥1 agent bootable but monastery ≠ `ok`; or cabinet `warn` (non-blocking) |
+| `warmup` | Inside boot warmup window (≤5 min) with monastery not yet settled — system initializing, check again shortly |
+| `warn` | Structural gates blocking; or ≥1 agent bootable but monastery ≠ `ok` |
 | `ok` | Infrastructure ok, ≥1 agent bootable, monastery ok, cabinet ok |
 
 **Agent bootability gates (per agent):**

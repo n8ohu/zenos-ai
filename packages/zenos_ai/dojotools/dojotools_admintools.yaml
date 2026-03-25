@@ -1098,7 +1098,7 @@ script:
             \        if cabinet_type | lower == 'chat history cabinet'\n         else
             [\"system\",\"cabinet\",\"volumeinfo\"])\n  } | tojson\n}}"
           _label_index: '{{ {} | tojson }}'
-          meta: '{{ {"mounted": false} | tojson }}'
+          meta: "{{ {'mounted': cabinet_entity == 'sensor.zenos_system_cabinet'} | tojson }}"
           _zen_relationships: "{{\n  {\n    \"mounts_out\": mounts_out,\n
             \     \"mounts_in\": [],\n      \"mount_policy\": \"allow_all\" if flag_profile
             == 'system' else \"restricted\"\n  } | tojson\n}}"
@@ -2583,6 +2583,13 @@ script:
             key: AI_Cabinet_VolumeInfo
             value: "{{ {'value': _pl_vi_val | combine({'flags': _pl_flags_mapped | combine({'cabinet_ro': true})})} }}"
             set_timestamp: true
+
+    - alias: 'Stamp meta.mounted: true on syscab (idempotent — ensures online_mounted state)'
+      event: set_variable_zenos_system_cabinet
+      event_data:
+        key: meta
+        value: "{{ {'mounted': true} }}"
+        set_timestamp: true
 
     alias: Zen AdminTools ZenOS-AI Prompt Loader (v27/v29/v30)
     description: 'Sets the ''Cortex'', ''Directives'', and ''Purpose'' sections for

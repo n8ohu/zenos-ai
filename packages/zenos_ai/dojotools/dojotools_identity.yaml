@@ -698,12 +698,11 @@ script:
               then:
                 - variables:
                     response: "{{
-                      {%- set _slot = 'prime AI partner' if member_type == 'ai_user' else 'Head of Household' -%}
                       {
                         'mode':          'household_add_member',
                         'status':        'error',
                         'code':          'slot_occupied',
-                        'message':       _slot ~ ' slot is already occupied for this household. Use an admin operation to transfer.',
+                        'message':       ('prime AI partner' if member_type == 'ai_user' else 'Head of Household') ~ ' slot is already occupied for this household. Use an admin operation to transfer.',
                         'member_entity': member_entity,
                         'member_type':   member_type,
                         'timestamp':     now().isoformat()

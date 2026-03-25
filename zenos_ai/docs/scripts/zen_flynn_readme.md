@@ -95,9 +95,9 @@ One or more required cabinet entities are uninitialized or unavailable. Flynn fi
 
 **What to do:** Open a conversation and say "initialize my cabinets", or run `script.zen_admintools_cabinetadmin` with `mode: initialize` directly. Check `sensor.zen_cabinet_health` → `missing_cabinets` to see which slots are affected.
 
-**Case B — `warn`, outside warmup window, not `ha_start` (non-blocking stop)**
+**Case B — `warn`, outside warmup window, not `ha_start` (notify + continue)**
 
-Legacy schema detected — one or more cabinets are on the pre-4.5 schema (state: `Variables`). The system is **fully operational**. Flynn fires a non-urgent notification ("Cabinet Upgrade Available") and stops.
+Legacy schema detected — one or more cabinets are on the pre-4.5 schema (state: `Variables`). The system is **fully operational**. Flynn fires a non-urgent notification ("Cabinet Upgrade Available") and continues — no stop.
 
 **What to do:** When convenient, open a conversation and say "upgrade my cabinets". No urgency — nothing is broken.
 

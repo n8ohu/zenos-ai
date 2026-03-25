@@ -401,8 +401,7 @@ automation:
                   message: >-
                     Flynn Gate 2: cabinet_health=warn (legacy schema),
                     reason={{ state_attr('sensor.zen_cabinet_health', 'reason') }}.
-                    Non-blocking — schema upgrade available.
-              - stop: "Gate 2: Cabinet schema upgrade available — non-blocking stop"
+                    Non-blocking — schema upgrade available. Continuing.
           # Case C: warn during warmup OR ha_start — log only, continue
           - conditions: "{{ _cab_warn }}"
             sequence:

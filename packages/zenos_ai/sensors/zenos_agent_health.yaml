@@ -139,7 +139,7 @@ template:
               gate_1
             {%- elif cab_st in ['error', 'critical'] %}
               gate_2
-            {%- elif _in_warmup and (cab_st == 'warn' or mon_st not in ['ok', 'disabled']) %}
+            {%- elif _in_warmup and mon_st not in ['ok', 'disabled'] %}
               warmup
             {%- elif mon_st != 'ok' %}
               gate_3
@@ -233,9 +233,9 @@ template:
 
             {%- if ns.ok_count == 0 %}
               error
-            {%- elif _in_warmup and (cab_st == 'warn' or mon_st not in ['ok', 'disabled']) %}
+            {%- elif _in_warmup and mon_st not in ['ok', 'disabled'] %}
               warmup
-            {%- elif mon_st != 'ok' or cab_st == 'warn' %}
+            {%- elif mon_st != 'ok' %}
               warn
             {%- else %}
               ok
