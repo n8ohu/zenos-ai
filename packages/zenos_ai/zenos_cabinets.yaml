@@ -169,9 +169,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -303,9 +304,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -437,9 +439,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -571,9 +574,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -705,9 +709,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -839,9 +844,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -977,9 +983,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1111,9 +1118,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1249,9 +1257,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1383,9 +1392,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1521,9 +1531,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1655,9 +1666,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1793,9 +1805,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -1927,9 +1940,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2070,9 +2084,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2203,9 +2218,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2336,9 +2352,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2469,9 +2486,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2602,9 +2620,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
@@ -2735,9 +2754,10 @@ template:
           log_events: false
           variables: >
             {% set current = this.attributes.get('variables', none) %}
-            {% if current is none %}
+            {% if current is none and not trigger.event.data.get('force', false) %}
               {{ none }}
             {% else %}
+            {% set current = current if current is mapping else {} %}
             {% set evt = trigger.event.event_type %}
             {% set key = trigger.event.data.key %}
             {% set val = trigger.event.data.value %}
