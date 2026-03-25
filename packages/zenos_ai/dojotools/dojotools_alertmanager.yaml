@@ -63,7 +63,7 @@ automation:
           _ev:        "{{ trigger.event.data.event }}"
           _kind:      "{{ trigger.id }}"
           _key:       "{{ _ev.alert_key | default('') | trim }}"
-          _household: "{{ states('sensor.zen_household_cabinet_resolved') }}"
+          _household: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
 
       # ── Gate: alert_key required ────────────────────────────────────────────
       - if:
