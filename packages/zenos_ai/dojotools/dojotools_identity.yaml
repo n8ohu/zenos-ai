@@ -286,7 +286,10 @@ script:
             - variables:
                 _capsule_raw: >-
                   {% import 'zenos_ai/zen_os_1.jinja' as zen %}
-                  {%- set identity_block = cab | from_json -%}
+                  {%- set identity_block = cab if cab is mapping else (cab | from_json) -%}
+                  {%- if not identity_block.get('identity', {}).get('name', '') -%}
+                    {%- set identity_block = zen.identity_resolve_source(states('sensor.zen_default_ai_user_cabinet_resolved')) -%}
+                  {%- endif -%}
                   {{ zen.ai_capsule(identity_block) }}
                 _health_raw: >-
                   {% import 'zenos_ai/zen_os_1.jinja' as zen %}
