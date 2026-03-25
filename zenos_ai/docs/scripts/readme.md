@@ -41,15 +41,14 @@ Below is the official documentation index for all ZenOS-AI DojoTools modules.
 **Summary:**
 Ring-2 administrative tools for component registration, cabinet repair, template management, and AI identity loading.
 
-* `zen_dojotools_kungfu_writer` — MCP-exposed. Register or update Kung Fu Components in the Dojo
 * `zen_admintools_reset_template` — Press zen_template and kfc_template into cabinets (Flynn gate-3)
 * `zen_admintools_reset_labels` — **Nuclear.** Delete all `zen_` labels and assignments; Flynn auto-rebuilds via Gate 0/1
 * `zen_admintools_cabinetadmin` — Inspect, restore, reset, hammer, init, or `reset_all` Ring-0 cabinets
 * `zen_admintools_cabinetadmin_stamp` — Factory-stamp or repair a cabinet's VolumeInfo header
 * `zen_admintools_kfc_migration_press` — One-time migration: seed KF4 scheduling fields into existing drawers
-* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose (v29/latest = GA Ninja Fusion, v30 = Living Index opt-in, v27 = RC2)
+* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose (v29/latest = GA Ninja Fusion, v30 = Living Index opt-in, v27 = RC2, v31 = Signal Frame)
 
-KungFu Writer is the only AI-accessible tool here. All others are admin-only and should not be exposed to the conversation agent.
+All tools in this module are admin-only. For KFC component registration, use `zen_dojotools_scribe` (DojoTools namespace, fully MCP-exposed).
 
 ---
 

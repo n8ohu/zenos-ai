@@ -6,9 +6,9 @@
 
 ## Overview
 
-AdminTools is the **Ring-2 administrative layer** of ZenOS-AI. It handles tasks that fall outside normal runtime behavior: registering new Kung Fu components, repairing cabinets, pressing schema templates, and loading the AI's identity substrate.
+AdminTools is the **Ring-2 administrative layer** of ZenOS-AI. It handles tasks that fall outside normal runtime behavior: repairing cabinets, pressing schema templates, and loading the AI's identity substrate.
 
-Most tools in this module are **admin-only** — they are not exposed to the AI agent and should not be called by Friday during normal operation. The exception is `zen_dojotools_kungfu_writer`, which is fully MCP-exposed and is the correct way for Friday or any operator to register a new KFC component.
+All tools in this module are **admin-only** — they are not exposed to the AI agent and should not be called by Friday during normal operation. For KFC component registration (writing Dojo drawers), use `zen_dojotools_scribe` — it is a DojoTools script (fully MCP-exposed) and is the correct tool for Friday and operators alike.
 
 ---
 
@@ -16,96 +16,14 @@ Most tools in this module are **admin-only** — they are not exposed to the AI 
 
 | Script | Version | MCP-Exposed | Purpose |
 |---|---|---|---|
-| `zen_dojotools_kungfu_writer` | 4.5.0 | **Yes** | Register or update a Kung Fu component in the Dojo |
 | `zen_admintools_reset_template` | 1.1.0 | No | Press zen_template and kfc_template into cabinets |
 | `zen_admintools_reset_labels` | 4.5.0 | No | Nuclear: delete all zen_ labels and assignments, trigger Flynn rebuild |
 | `zen_admintools_cabinetadmin` | 4.5.0 | No | Inspect, restore, reset, hammer, init, or reset_all Ring-0 cabinets |
 | `zen_admintools_cabinetadmin_stamp` | 1.x | No | Factory-stamp or repair a cabinet's VolumeInfo drawer |
 | `zen_admintools_kfc_migration_press` | 1.1.0 | No | One-time migration: seed scheduling fields into KFC drawers |
-| `zen_admintools_zenos_prompt_loader` | 4.5.0 | No | Load versioned Cortex, Directives, and Purpose (v27 = RC2, v29/latest = GA Ninja Fusion, v30 = Living Index) |
+| `zen_admintools_zenos_prompt_loader` | 4.5.0 | No | Load versioned Cortex, Directives, and Purpose (v27 = RC2, v29/latest = GA Ninja Fusion, v30 = Living Index, v31 = Signal Frame) |
 
----
-
-## zen_dojotools_kungfu_writer
-
-The primary tool for registering a new Kung Fu Component (KFC) into the Zen Dojo Cabinet. This is the only AdminTools script accessible to AI agents.
-
-Each call creates or updates a drawer in the Dojo cabinet. That drawer becomes the component's canonical spec: it tells the Scheduler when to run, the Ninja Summarizer what data to gather, and the AI how to interpret what it finds.
-
-### Input Fields
-
-| Field | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `action` | select | Yes | `help` | `write` or `help` |
-| `kata_key` | text | write | — | Unique component ID, slugified (e.g., `hot_tub_manager`) |
-| `friendly_name` | text | write | — | Human-readable component title |
-| `component_summary` | text | No | — | One-sentence description of what this component monitors |
-| `label` | text | No | — | HyperIndex label used to discover relevant entities |
-| `command` | text | No | — | Library macro token (e.g., `~ALERTS~`) |
-| `trigger_subscriptions` | text | No | — | Comma-separated trigger IDs this component subscribes to |
-| `delay_seconds` | number | No | `0` | Stagger delay (0–300s, step 5) to spread inference load |
-| `enabled` | boolean | No | `true` | Maps to `meta.enabled`. Set to `false` to disable the component. |
-| `requires_cert` | text | No | — | Maps to `meta.requires.cert`. HALMark capability certificate required for dispatch. |
-| `requires_level` | number | No | — | Maps to `meta.requires.level`. Minimum licensure level (1–4) required for dispatch. |
-| `master_switch` | entity | No | — | **Deprecated** — use `enabled` (`meta.enabled`) instead. Legacy `input_boolean` gate; honored if present but no longer written by default. |
-| `tool` | text | No | — | Associated tool name |
-| `version` | text | No | — | Semantic version string |
-| `component_instructions` | text | No | — | Operational notes passed to the monk during summarization |
-| `more_info` | text | No | — | Extended context for the monk |
-| `confirm_action` | boolean | Yes | `false` | Must be `true` to execute a write |
-
-### Valid Trigger IDs
-
-```
-ha_start              daily_midnight        daily_noon
-hourly_trigger        quarter_hour          every_10_minutes
-every_5_minutes       home_mode_updates     alarm_panel
-door_opens_or_closes  lock_changes          window_opens_or_closes
-garage_door           home_occupancy_change force_summary
-force_ninja           force_supersummary    force_gc
-```
-
-> Hardware triggers (`nathan_bed_changes`, `kim_bed_changes`, `water_flow_stop`, `hot_tub_state`, `elec_panel_door_change`, `mb_wake`, `test_button`, `start_home_wake`, `start_home_evening`) are available in the trigger ID list but only active if you have added them to a custom scheduler. See `docs/examples/zen_dojotools_scheduler_custom.yaml`.
-
-### Actions
-
-**`help`** — Returns the live `kfc_template` schema from the Dojo cabinet. Safe to call anytime. Use this to see the current schema before writing a new component.
-
-**`write`** — Upserts the component drawer in the Dojo cabinet. Requires `confirm_action: true`. Idempotent — re-running with the same `kata_key` updates the existing drawer in place.
-
-### Response Format
-
-```json
-{
-  "status": "success",
-  "message": "KFC drawer written: hot_tub_manager",
-  "drawer": "hot_tub_manager",
-  "cabinet": "zen_dojo_cabinet"
-}
-```
-
-### Example: Register a New Component
-
-```yaml
-action: write
-kata_key: hot_tub_manager
-friendly_name: Hot Tub Manager
-enabled: true
-component_summary: Monitors hot tub temperature, chemistry, and filter status
-label: hot_tub
-command: ~HOT_TUB~
-trigger_subscriptions: quarter_hour, hot_tub_state
-delay_seconds: 30
-confirm_action: true
-```
-
-### Example: Inspect the KFC Schema
-
-```yaml
-action: help
-```
-
-Returns the live `kfc_template` — the canonical field reference for all KFC drawers.
+> **KFC registration:** `zen_dojotools_kungfu_writer` has been removed. Use `zen_dojotools_scribe` — see `dojotools_scribe.yaml` for full documentation.
 
 ---
 
@@ -293,7 +211,7 @@ This script has already been run on all production installs. It exists for refer
 
 ### When to Use
 
-Only needed if you are importing KFC drawers that were written before KF4 RC2. New installs and components written via `zen_dojotools_kungfu_writer` already include these fields.
+Only needed if you are importing KFC drawers that were written before KF4 RC2. New installs and components written via `zen_dojotools_scribe` already include these fields.
 
 ---
 

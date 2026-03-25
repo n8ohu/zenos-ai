@@ -45,7 +45,7 @@ These trigger IDs are active in the core scheduler. Components subscribe to them
 
 ## How Components Subscribe
 
-Components register in their KFC drawer (via `zen_dojotools_kungfu_writer`). The relevant fields:
+Components register in their KFC drawer (via `zen_dojotools_scribe`). The relevant fields:
 
 ```yaml
 trigger_subscriptions:
