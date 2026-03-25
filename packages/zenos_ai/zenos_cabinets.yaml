@@ -2857,12 +2857,9 @@ automation:
         manifest_key: zen_library_manifest
         manifest_entity: sensor.zenos_default_household_cabinet
         manifest_data: >
-          {{
-            (
-              state_attr(manifest_entity, 'variables') or {}
-            ).get(manifest_key, {})
-            .get('value', {})
-          }}
+          {% set vars = state_attr(manifest_entity, 'variables') | default({}, true) %}
+          {% set slot = vars.get(manifest_key, {}) if vars is mapping else {} %}
+          {{ slot.get('value', {}) if slot is mapping else {} }}
 
         # Incoming event data
         event_type: "{{ trigger.event.event_type }}"
@@ -2875,14 +2872,20 @@ automation:
 
         # Manifest → volume entry
         manifest_volume_entry: >
-          {% set md = manifest_data if manifest_data is mapping else {} %}
-          {{ md.get(volume_entity | string, {}) }}
+          {% set md = manifest_data if manifest_data is mapping else (manifest_data | from_json if manifest_data is string else {}) %}
+          {% set entry = md.get(volume_entity | string, {}) %}
+          {{ entry if entry is mapping else (entry | from_json if entry is string else {}) }}
 
-        manifest_metadata: "{{ manifest_volume_entry.get('metadata', {}) }}"
-        manifest_flags: "{{ manifest_metadata.get('flags', {}) }}"
+        manifest_metadata: >
+          {% set mve = manifest_volume_entry if manifest_volume_entry is mapping else (manifest_volume_entry | from_json if manifest_volume_entry is string else {}) %}
+          {{ mve.get('metadata', {}) }}
+        manifest_flags: >
+          {% set mm = manifest_metadata if manifest_metadata is mapping else (manifest_metadata | from_json if manifest_metadata is string else {}) %}
+          {{ mm.get('flags', {}) }}
         manifest_guid: >
-          {% if manifest_metadata.get('id') %}
-            {{ manifest_metadata.get('id') }}
+          {% set mm = manifest_metadata if manifest_metadata is mapping else (manifest_metadata | from_json if manifest_metadata is string else {}) %}
+          {% if mm.get('id') %}
+            {{ mm.get('id') }}
           {% else %}
             ''
           {% endif %}
@@ -2893,10 +2896,13 @@ automation:
           {% set entry = vars.get('AI_Cabinet_VolumeInfo', {}) %}
           {{ entry if entry is mapping else {} }}
 
-        cabinet_info_value: "{{ cabinet_info.get('value', {}) }}"
+        cabinet_info_value: >
+          {% set val = cabinet_info.get('value', {}) if cabinet_info is mapping else {} %}
+          {{ val if val is mapping else (val | from_json if val is string else {}) }}
         cabinet_guid: >
-          {% if cabinet_info_value.get('id') %}
-            {{ cabinet_info_value.get('id') }}
+          {% set civ = cabinet_info_value if cabinet_info_value is mapping else (cabinet_info_value | from_json if cabinet_info_value is string else {}) %}
+          {% if civ.get('id') %}
+            {{ civ.get('id') }}
           {% else %}
             ''
           {% endif %}
