@@ -390,6 +390,7 @@ script:
                     {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
                     {%- set _fm = _fv.get('members', {}) -%}
                     {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                    {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
                     {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
                     {%- set _facls = _facls if _facls is mapping else {} -%}
                     {%- set _fowners = _facls.get('owner', []) -%}
@@ -404,6 +405,7 @@ script:
                       {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
                       {%- set _sfm = _sfv.get('members', {}) -%}
                       {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
+                      {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
                       {%- set _nsf.subfams = _nsf.subfams + [{
                         'entity_id': sf.get('entity_id', ''),
                         'guid': _sfvi.get('guid', ''),
@@ -1841,6 +1843,7 @@ script:
                             {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
                             {%- set _fm = _fv.get('members', {}) -%}
                             {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                    {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
                             {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
                             {%- set _facls = _facls if _facls is mapping else {} -%}
                             {%- set _fowners = _facls.get('owner', []) -%}
@@ -1856,6 +1859,7 @@ script:
                               {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
                               {%- set _sfm = _sfv.get('members', {}) -%}
                               {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
+                      {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
                               {%- set _nsf.subfams = _nsf.subfams + [{
                                 'entity_id': sf.get('entity_id', ''),
                                 'guid': _sfvi.get('guid', ''),
@@ -1966,6 +1970,7 @@ script:
                             {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
                             {%- set _fm = _fv.get('members', {}) -%}
                             {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                    {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
                             {%- set _f_users = _fm.get('users', []) + _fm.get('ai_users', []) -%}
                             {%- set _in_fam = _f_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                             {%- if _in_fam -%}
@@ -1987,6 +1992,7 @@ script:
                               {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
                               {%- set _sfm = _sfv.get('members', {}) -%}
                               {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
+                      {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
                               {%- set _sf_users = _sfm.get('users', []) + _sfm.get('ai_users', []) -%}
                               {%- set _in_sf = _sf_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- if _in_sf -%}
@@ -2051,6 +2057,7 @@ script:
                         {%- set _fv = _fv if _fv is mapping else {} -%}
                         {%- set _fm = _fv.get('members', {}) -%}
                         {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
+                    {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
                         {%- set _d2_all = _fm.get('users', []) + _fm.get('ai_users', []) -%}
                         {%- set _in_d2 = _d2_all | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                         {%- if _in_d2 -%}
