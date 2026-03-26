@@ -384,8 +384,9 @@ script:
                   {%- for fam in _m.get('families', []) -%}
                     {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
                     {%- set _fv = _fv if _fv is mapping else {} -%}
-                    {%- set _fvi = _fv.get('AI_Cabinet_VolumeInfo', _fv) -%}
-                    {%- set _fvi = _fvi.get('value', _fvi) if _fvi is mapping else {} -%}
+                    {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
+                    {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
+                    {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
                     {%- set _fm = _fv.get('members', {}) -%}
                     {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
                     {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
@@ -397,14 +398,15 @@ script:
                     {%- for sf in _fm.get('families', []) -%}
                       {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
                       {%- set _sfv = _sfv if _sfv is mapping else {} -%}
-                      {%- set _sfvi = _sfv.get('AI_Cabinet_VolumeInfo', _sfv) -%}
-                      {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
+                      {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
+                      {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
+                      {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
                       {%- set _sfm = _sfv.get('members', {}) -%}
                       {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
                       {%- set _nsf.subfams = _nsf.subfams + [{
                         'entity_id': sf.get('entity_id', ''),
                         'guid': _sfvi.get('guid', ''),
-                        'name': _sfvi.get('name', sf.get('entity_id', '')),
+                        'name': _sfvi.get('friendly_name', sf.get('entity_id', '')),
                         'depth': 2,
                         'members': {'users': _sfm.get('users', []), 'ai_users': _sfm.get('ai_users', [])}
                       }] -%}
@@ -412,7 +414,7 @@ script:
                     {%- set _ns.fams = _ns.fams + [{
                       'entity_id': fam.get('entity_id', ''),
                       'guid': _fvi.get('guid', ''),
-                      'name': _fvi.get('name', fam.get('entity_id', '')),
+                      'name': _fvi.get('friendly_name', fam.get('entity_id', '')),
                       'depth': fam.get('depth', 1),
                       'principals': {'hoh': _fowners[0] if _fowners | count > 0 else none, 'prime': _fprime[0] if _fprime | count > 0 else none},
                       'members': {'users': _fm.get('users', []), 'ai_users': _fm.get('ai_users', []), 'families': _nsf.subfams}
@@ -422,7 +424,7 @@ script:
                     {
                       'entity_id': _hh_cab,
                       'guid': _vi.get('guid', ''),
-                      'name': _vi.get('name', _hh_cab),
+                      'name': _vi.get('friendly_name', _hh_cab),
                       'principals': {'hoh': _owners[0] if _owners | count > 0 else none, 'prime': _prime[0] if _prime | count > 0 else none},
                       'members': {'users': _m.get('users', []), 'ai_users': _m.get('ai_users', []), 'families': _ns.fams}
                     } | tojson
@@ -511,7 +513,7 @@ script:
                 _fam_name: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('name', family_entity) }}
+                  {{ _vi.get('friendly_name', family_entity) }}
                 _hh_members: "{{ _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw }}"
             - if: "{{ _fam_guid_is_new | bool }}"
               then:
@@ -717,7 +719,7 @@ script:
                 _mem_name: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('name', member_entity) }}
+                  {{ _vi.get('friendly_name', member_entity) }}
             - if: "{{ _mem_guid_is_new | bool }}"
               then:
                 - variables:
@@ -1003,7 +1005,7 @@ script:
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _mem_name: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
-                  {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
+                  {{ (_vi if _vi is mapping else {}).get('friendly_name', member_entity) }}
                 _hh_vi_updated: >-
                   {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
@@ -1108,7 +1110,7 @@ script:
                 _mem_name: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('name', member_entity) }}
+                  {{ _vi.get('friendly_name', member_entity) }}
                 _fam_guid: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
@@ -1116,7 +1118,7 @@ script:
                 _fam_name: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('name', family_entity) }}
+                  {{ _vi.get('friendly_name', family_entity) }}
                 _list_key: >-
                   {%- if member_type == 'ai_user' -%}ai_users
                   {%- elif member_type == 'family' -%}families
@@ -1277,7 +1279,7 @@ script:
                 _fam_name: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('name', family_entity) }}
+                  {{ _vi.get('friendly_name', family_entity) }}
                 _mem_guid: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
@@ -1285,7 +1287,7 @@ script:
                 _mem_name: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('name', member_entity) }}
+                  {{ _vi.get('friendly_name', member_entity) }}
                 _list_key: >-
                   {%- if member_type == 'ai_user' -%}ai_users
                   {%- elif member_type == 'family' -%}families
@@ -1423,7 +1425,7 @@ script:
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _a_name: >-
                   {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
-                  {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
+                  {{ (_vi if _vi is mapping else {}).get('friendly_name', member_entity) }}
                 _a_type: >-
                   {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('cab_type', 'user') }}
@@ -1432,7 +1434,7 @@ script:
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _b_name: >-
                   {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
-                  {{ (_vi if _vi is mapping else {}).get('name', ai_entity) }}
+                  {{ (_vi if _vi is mapping else {}).get('friendly_name', ai_entity) }}
                 _b_type: >-
                   {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('cab_type', 'user') }}
@@ -1541,10 +1543,10 @@ script:
             - variables:
                 _a_name: >-
                   {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
-                  {{ (_vi if _vi is mapping else {}).get('name', member_entity) }}
+                  {{ (_vi if _vi is mapping else {}).get('friendly_name', member_entity) }}
                 _b_name: >-
                   {%- set _vi = _b_vi_raw | from_json if _b_vi_raw is string else _b_vi_raw -%}
-                  {{ (_vi if _vi is mapping else {}).get('name', ai_entity) }}
+                  {{ (_vi if _vi is mapping else {}).get('friendly_name', ai_entity) }}
                 # — remove B from A's acls.partner —
                 _a_vi_updated: >-
                   {%- set _vi = _a_vi_raw | from_json if _a_vi_raw is string else _a_vi_raw -%}
@@ -1730,8 +1732,9 @@ script:
                           {%- for fam in _m.get('families', []) -%}
                             {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
                             {%- set _fv = _fv if _fv is mapping else {} -%}
-                            {%- set _fvi = _fv.get('AI_Cabinet_VolumeInfo', _fv) -%}
-                            {%- set _fvi = _fvi.get('value', _fvi) if _fvi is mapping else {} -%}
+                            {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
+                            {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
+                            {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
                             {%- set _fm = _fv.get('members', {}) -%}
                             {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
                             {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
@@ -1744,14 +1747,15 @@ script:
                             {%- for sf in _fm.get('families', []) -%}
                               {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
                               {%- set _sfv = _sfv if _sfv is mapping else {} -%}
-                              {%- set _sfvi = _sfv.get('AI_Cabinet_VolumeInfo', _sfv) -%}
-                              {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
+                              {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
+                              {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
+                              {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
                               {%- set _sfm = _sfv.get('members', {}) -%}
                               {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
                               {%- set _nsf.subfams = _nsf.subfams + [{
                                 'entity_id': sf.get('entity_id', ''),
                                 'guid': _sfvi.get('guid', ''),
-                                'name': _sfvi.get('name', sf.get('entity_id', '')),
+                                'name': _sfvi.get('friendly_name', sf.get('entity_id', '')),
                                 'depth': 2,
                                 'members': {
                                   'users': _sfm.get('users', []),
@@ -1762,7 +1766,7 @@ script:
                             {%- set _ns.fams = _ns.fams + [{
                               'entity_id': fam.get('entity_id', ''),
                               'guid': _fvi.get('guid', ''),
-                              'name': _fvi.get('name', fam.get('entity_id', '')),
+                              'name': _fvi.get('friendly_name', fam.get('entity_id', '')),
                               'depth': fam.get('depth', 1),
                               'principals': {
                                 'hoh': _fowners[0] if _fowners | count > 0 else none,
@@ -1779,7 +1783,7 @@ script:
                             {
                               'entity_id': _root_entity,
                               'guid': _vi.get('guid', ''),
-                              'name': _vi.get('name', _root_entity),
+                              'name': _vi.get('friendly_name', _root_entity),
                               'cab_type': _vi.get('cab_type', ''),
                               'principals': {
                                 'hoh': _hoh,
@@ -1846,14 +1850,15 @@ script:
                             {%- set _is_hoh = _own | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                             {%- set _is_prime = _prt | selectattr('entity_id', 'equalto', _eid) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
                             {%- set _role = 'hoh' if _is_hoh else ('prime' if _is_prime else 'member') -%}
-                            {%- set _groups = _groups + [{'container': _lookup_root, 'container_type': 'household', 'guid': _hvi.get('guid', ''), 'name': _hvi.get('name', _lookup_root), 'depth': 0, 'role': _role}] -%}
+                            {%- set _groups = _groups + [{'container': _lookup_root, 'container_type': 'household', 'guid': _hvi.get('guid', ''), 'name': _hvi.get('friendly_name', _lookup_root), 'depth': 0, 'role': _role}] -%}
                           {%- endif -%}
                           {# scan depth-1 families #}
                           {%- for fam in _hm.get('families', []) -%}
                             {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
                             {%- set _fv = _fv if _fv is mapping else {} -%}
-                            {%- set _fvi = _fv.get('AI_Cabinet_VolumeInfo', _fv) -%}
-                            {%- set _fvi = _fvi.get('value', _fvi) if _fvi is mapping else {} -%}
+                            {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
+                            {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
+                            {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
                             {%- set _fm = _fv.get('members', {}) -%}
                             {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
                             {%- set _f_users = _fm.get('users', []) + _fm.get('ai_users', []) -%}
@@ -1866,20 +1871,21 @@ script:
                               {%- set _is_fhoh = _fown | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- set _is_fprime = _fprt | selectattr('entity_id', 'equalto', _eid) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
                               {%- set _frole = 'hoh' if _is_fhoh else ('prime' if _is_fprime else 'member') -%}
-                              {%- set _groups = _groups + [{'container': fam.get('entity_id', ''), 'container_type': 'family', 'guid': _fvi.get('guid', ''), 'name': _fvi.get('name', fam.get('entity_id', '')), 'depth': 1, 'role': _frole}] -%}
+                              {%- set _groups = _groups + [{'container': fam.get('entity_id', ''), 'container_type': 'family', 'guid': _fvi.get('guid', ''), 'name': _fvi.get('friendly_name', fam.get('entity_id', '')), 'depth': 1, 'role': _frole}] -%}
                             {%- endif -%}
                             {# scan depth-2 sub-families #}
                             {%- for sf in _fm.get('families', []) -%}
                               {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
                               {%- set _sfv = _sfv if _sfv is mapping else {} -%}
-                              {%- set _sfvi = _sfv.get('AI_Cabinet_VolumeInfo', _sfv) -%}
-                              {%- set _sfvi = _sfvi.get('value', _sfvi) if _sfvi is mapping else {} -%}
+                              {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
+                              {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
+                              {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
                               {%- set _sfm = _sfv.get('members', {}) -%}
                               {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
                               {%- set _sf_users = _sfm.get('users', []) + _sfm.get('ai_users', []) -%}
                               {%- set _in_sf = _sf_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- if _in_sf -%}
-                                {%- set _groups = _groups + [{'container': sf.get('entity_id', ''), 'container_type': 'family', 'guid': _sfvi.get('guid', ''), 'name': _sfvi.get('name', sf.get('entity_id', '')), 'depth': 2, 'role': 'member'}] -%}
+                                {%- set _groups = _groups + [{'container': sf.get('entity_id', ''), 'container_type': 'family', 'guid': _sfvi.get('guid', ''), 'name': _sfvi.get('friendly_name', sf.get('entity_id', '')), 'depth': 2, 'role': 'member'}] -%}
                               {%- endif -%}
                             {%- endfor -%}
                           {%- endfor -%}
