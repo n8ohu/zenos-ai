@@ -318,31 +318,12 @@ script:
   zen_admintools_cabinetadmin:
     alias: Zen AdminTools CabinetAdmin
     description: >-
-      Zen AdminTools CabinetAdmin (4.5.x). Pattern A — strict redirector
-      mode. All writes routed exclusively through set_variable_legacy /
-      clear_variables_legacy for safe cabinet volume routing.
+      Cabinet admin tool. Use this to provision new expansion cabinets, inspect
+      cabinet state, recover broken cabinets, and manage mount state. Normal
+      household operations (adding members, writing drawers) don't require this
+      tool — it's for provisioning new hardware and troubleshooting.
 
-      Ops: inspect, restore, reset, hammer, init, reset_all, mount_status,
-      repair_mount, repair_dismount, flip_schema_version.
-
-      Mount repair ops (repair_mount, repair_dismount): force-write meta.mounted
-      true/false on stuck cabinets, bypassing normal state guards. Use when a
-      cabinet is stuck in the wrong state after a failed mount/dismount cycle.
-
-      mount_status: read current mount state across all zen_cabinet labeled
-      entities. Returns {entity: {state, mounted}} dict. No target needed.
-
-      flip_schema_version: toggle cab_schema_version in syscab between 0 and 1.
-      Optional schema_version field overrides the auto-flip. Controls whether
-      Flynn runs in legacy mode (0) or mount-aware mode (>=1).
-
-      ⚠️  reset_all is NUCLEAR — wipes ALL ring-0 canonical cabinets, reseeds
-      schemas, and triggers Flynn bootstrap. No undo. User cabinets are NOT
-      touched. This tool calls zen_admintools_reset_template and fires Flynn
-      sentinel via cabinet health sensor change. If you want to customize the
-      sequence (skip a cabinet, change order), read the docs and call the
-      individual tools directly — that is exactly what reset_all does under
-      the hood. confirm: true required for reset_all.
+      Run mode: help for a full guide to all operations and when to use them.
     mode: parallel
     max: 10
     fields:
@@ -351,17 +332,18 @@ script:
         selector:
           select:
             options:
+            - help
             - inspect
+            - init
+            - hammer
             - restore
             - reset
-            - hammer
-            - init
-            - reset_all
             - mount_status
             - repair_mount
             - repair_dismount
+            - reset_all
             - flip_schema_version
-        default: inspect
+        default: help
       target_cabinet:
         name: Target Cabinet
         selector:
@@ -460,6 +442,110 @@ script:
           {%- else -%}
             {{- [target_cabinet] -}}
           {%- endif -%}
+    - if:
+      - condition: template
+        value_template: '{{ op == ''help'' }}'
+      then:
+      - variables:
+          _help:
+            status: info
+            tool: zen_admintools_cabinetadmin
+            summary: >-
+              Cabinet admin tool for provisioning, inspection, and recovery of
+              ZenOS cabinet sensors. Use for new hardware setup and
+              troubleshooting. Not needed for normal household/member operations.
+            when_to_use:
+              provisioning_new_cab: >-
+                New expansion cabinet added to HA → run inspect first to confirm
+                state, then init (set cab_type to match intended role, e.g.
+                'AI Data Storage Cabinet'). The cabinet must be in 'init' state
+                (no VolumeInfo). Init is safe — it refuses if already initialized.
+              cab_has_old_or_broken_volumeinfo: >-
+                Provisioner fails because cabinet has stale VolumeInfo (e.g. old
+                schema with 'guid' instead of 'id'). Run hammer with
+                confirm_init: true and the correct cab_type. Hammer wipes the
+                cabinet and stamps a fresh VolumeInfo in one step. Re-provision
+                after.
+              cab_stuck_mounted_or_dismounted: >-
+                Cabinet sensor shows wrong mount state after a failed cycle.
+                Use repair_mount or repair_dismount to force the correct state.
+                Does not touch any drawer data.
+              want_to_see_all_drawers: >-
+                Run inspect on the target cabinet. Returns every drawer and its
+                current value. Do this before any destructive operation.
+              full_system_reset: >-
+                reset_all wipes ALL ring-0 system cabinets and triggers Flynn
+                bootstrap. Only use after a bad deployment or schema migration.
+                confirm: true required. No undo. User cabinets are NOT touched.
+            modes:
+              help: Return this help text. No target needed.
+              inspect: >-
+                Read all drawers on the target cabinet and return their current
+                values. Safe — read-only. No target = runs across all ring-0
+                cabinets. Run this first when troubleshooting any cabinet issue.
+              init: >-
+                Stamp a virgin cabinet with VolumeInfo, GUID, and initial
+                drawers. Refuses if cabinet is already initialized (good) or
+                has residue (potentially_bad — hammer first). Cabinet must be
+                in 'init' sensor state or 'unknown' (unknown requires
+                confirm_action: true). Requires cab_type if non-default.
+              hammer: >-
+                Wipe all drawers and mark cabinet as destroyed (_hammered marker).
+                Stronger than reset — the _hammered marker signals that the
+                cabinet was intentionally wiped. Requires hammer_ok: true.
+                Set confirm_init: true to immediately stamp a fresh VolumeInfo
+                after wiping — saves a separate init call. Use when a cabinet
+                has bad state that init refuses to overwrite.
+              restore: >-
+                Attempt to recover a cabinet that lost its VolumeInfo from HA
+                recorder. Reads existing drawer state and repairs where possible.
+              reset: >-
+                Wipe all drawers from the target cabinet. No _hammered marker.
+                Use when you want a clean cabinet without the destroyed tag.
+              mount_status: >-
+                Return mounted/unmounted state for every zen_cabinet entity.
+                No target needed. Useful to see which cabinets are online_mounted
+                vs online_unmounted at a glance.
+              repair_mount: >-
+                Force-write meta.mounted=true on a cabinet stuck in the wrong
+                state. Use when cabinet should be mounted but sensor disagrees
+                after a failed mount cycle. Does not modify any drawer content.
+              repair_dismount: >-
+                Force-write meta.mounted=false on a stuck cabinet. Mirror of
+                repair_mount for the dismounted direction.
+              reset_all: >-
+                NUCLEAR — wipes ALL ring-0 canonical cabinets, reseeds schemas,
+                and triggers Flynn bootstrap. No undo. User and expansion
+                cabinets are NOT touched. confirm: true required.
+              flip_schema_version: >-
+                Toggle cab_schema_version in syscab (0=legacy, 1+=mount-aware).
+                Controls Flynn operating mode. Normally not needed — only use
+                during schema migrations or to recover a stuck Flynn.
+            fields:
+              target_cabinet: >-
+                Cabinet entity to operate on. Leave blank for inspect, hammer,
+                init, restore, reset, and repair ops = operates on all ring-0
+                cabinets (inspect) or requires a target (others). mount_status
+                and reset_all ignore this field.
+              cab_type: >-
+                Required for init (and hammer with confirm_init). Sets the
+                cabinet type written into VolumeInfo. Common values: 'AI Data
+                Storage Cabinet', 'AI Household Cabinet', 'AI Family Cabinet',
+                'AI User Cabinet', 'Chat History Cabinet'. Default = factory
+                default type.
+              confirm_action: >-
+                Required when cab state is 'unknown' (no recorder history —
+                could be virgin or wiped-initialized). Explicit confirmation
+                before init stamps. Not needed when state is 'init' (unambiguously
+                virgin) or 'online_unmounted'.
+              confirm_init: >-
+                Hammer only. If true, stamps a fresh VolumeInfo immediately
+                after wiping the cabinet. Equivalent to hammer + init in one
+                call. Set cab_type accordingly.
+              hammer_ok: Required for hammer mode. Explicit safety gate.
+              confirm: Required for reset_all. Explicit safety gate.
+      - stop: help returned
+        response_variable: _help
     - choose:
       - conditions:
         - condition: template
