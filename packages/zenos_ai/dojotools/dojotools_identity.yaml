@@ -538,7 +538,7 @@ script:
                   {%- set _fp_r = _fv.get('_family_profile', _fv.get('family_profile', {})) -%}
                   {%- set _fp = _fp_r.get('value', _fp_r) if _fp_r is mapping else {} -%}
                   {%- set _fp = _fp | from_json if _fp is string else _fp -%}
-                  {%- set _d = _fp.get('display_name', _fp.get('name', '')) | trim -%}
+                  {%- set _d = _fp.get('display_name', _fp.get('friendly_name', _fp.get('name', ''))) | trim -%}
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _d if _d != '' else _vi.get('friendly_name', family_entity) }}
@@ -1204,7 +1204,7 @@ script:
                   {%- set _fp_r = _fv.get('_family_profile', _fv.get('family_profile', {})) -%}
                   {%- set _fp = _fp_r.get('value', _fp_r) if _fp_r is mapping else {} -%}
                   {%- set _fp = _fp | from_json if _fp is string else _fp -%}
-                  {%- set _d = _fp.get('display_name', _fp.get('name', '')) | trim -%}
+                  {%- set _d = _fp.get('display_name', _fp.get('friendly_name', _fp.get('name', ''))) | trim -%}
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _d if _d != '' else _vi.get('friendly_name', family_entity) }}
@@ -1378,7 +1378,7 @@ script:
                   {%- set _fp_r = _fv.get('_family_profile', _fv.get('family_profile', {})) -%}
                   {%- set _fp = _fp_r.get('value', _fp_r) if _fp_r is mapping else {} -%}
                   {%- set _fp = _fp | from_json if _fp is string else _fp -%}
-                  {%- set _d = _fp.get('display_name', _fp.get('name', '')) | trim -%}
+                  {%- set _d = _fp.get('display_name', _fp.get('friendly_name', _fp.get('name', ''))) | trim -%}
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _d if _d != '' else _vi.get('friendly_name', family_entity) }}
