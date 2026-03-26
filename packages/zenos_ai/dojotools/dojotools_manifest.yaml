@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Manifest
-# Version: 4.5.1
+# Version: 4.5.2
 #
 # Scripts:
 #   zen_dojotools_manifest — Runtime health and volume manifest (v4.5.x)
@@ -122,8 +122,7 @@ script:
           | list %}\n  {%- set vars = state_attr(ent, 'variables') %}\n\n  {%- if vars
           is mapping and (vars.get('AI_Cabinet_VolumeInfo') is not none) and (states(ent) in ['online_mounted', 'Variables'] or (read_stacks and states(ent) == 'online_unmounted')) %}\n    {%-
           set _vi_raw = vars.AI_Cabinet_VolumeInfo -%}\n    {%- set _vi_norm = (_vi_raw
-          | from_json) if _vi_raw is string else _vi_raw -%}\n    {%- set info = _vi_norm.get('value',
-          _vi_norm) if _vi_norm is mapping else {} %}\n    {%- set st = states[ent]
+          | from_json) if _vi_raw is string else _vi_raw -%}\n    {%- set _vi_val = _vi_norm.get('value', {}) if _vi_norm is mapping else {} -%}\n    {%- set info = _vi_val if _vi_val is mapping else (_vi_val | from_json if _vi_val is string else {}) %}\n    {%- set st = states[ent]
           %}\n    {%- set friendly = st.attributes.friendly_name | default(ent) %}\n
           \   {%- set lc = st.last_changed.isoformat() %}\n    {%- set lu = st.last_updated.isoformat()
           %}\n    {%- set volume_labels = labels(ent) | default([]) %}\n\n    {%- set
