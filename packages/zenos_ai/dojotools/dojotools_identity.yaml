@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Identity
-# Version: 4.3.0
+# Version: 4.5.0
 #
 # Scripts:
 #   zen_dojotools_identity — Household identity resolver + family group management
@@ -28,6 +28,24 @@
 #   any time the roster changes.
 #
 # v4.3.0 — family group management + membership visibility
+#
+# v4.4.0 — RP2 identity fixes (2026-03-26)
+#   FG-38/FG-40 guards on _new_entry/_new_fam_entry (variables: + tojson → HA
+#     auto-parses to native dict; guard with 'if is string else')
+#   _fvi/_sfvi FG-38 full three-round guard in all 3 tree paths × 2 depths
+#     (resolve, membership tree, member_lookup)
+#   friendly_name: VolumeInfo.friendly_name not .name — 20 call sites fixed
+#   Dedup guards on household_add_family, household_add_member, family_add_member
+#   Manifest auto-rebuild fires after all 6 roster-change operations
+#   GUID stamping on add operations when member/family cab has no GUID yet
+#   Name baked into member/family roster entries at add-time (not read at query-time)
+#   FG-38 from_json guard on all _vi_raw reads + profile-first name resolution
+#   mode: prompt — FG-40 guard on cab + no-target AI user fallback
+#   _fm/_sfm value-unwrap in all tree builder paths
+#
+# v4.5.0 — RP2 GA (2026-03-26)
+#   All response: >- blocks converted to inline {{ {...} }} format (BUG 8)
+#   VolumeInfo reads: inline response blocks, zero >- remaining
 #   Membership model: System → Household (occupancy) → Family (belonging, unlimited depth)
 #   Security resolution caps at depth 2. Data model is unrestricted.
 #   First user provisioned auto-joins household + default family.

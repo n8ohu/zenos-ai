@@ -321,6 +321,38 @@ script.zen_dojotools_identity:
 
 ---
 
+### Deprovisioning a Family Cabinet
+
+> ⚠️ **Order matters.** `deprovision` does **not** remove a family from the household. Skipping the identity teardown steps first leaves a stale entry in the household's `members.families` list — re-provisioning and re-adding the family creates a duplicate.
+
+Correct teardown sequence:
+
+```yaml
+# 1. Remove all members from the family
+script.zen_dojotools_identity:
+  mode: family_remove_member
+  family_entity: sensor.<family_cabinet>
+  member_entity: sensor.<member_cabinet>
+  member_type: user  # repeat for each member
+
+# 2. Remove the family from the household
+script.zen_dojotools_identity:
+  mode: household_remove_family
+  family_entity: sensor.<family_cabinet>
+
+# 3. Deprovision member cabinets (if applicable)
+script.zen_dojotools_provisioner:
+  mode: deprovision
+  cabinet_entity: sensor.<member_cabinet>
+
+# 4. Deprovision the family cabinet
+script.zen_dojotools_provisioner:
+  mode: deprovision
+  cabinet_entity: sensor.<family_cabinet>
+```
+
+---
+
 ### Link Partners (Delegation Authority)
 
 **Partner in this model means: authorized to delegate on your behalf.** This is a governance relationship, not a social one. No token is issued without an explicit allow — the link records who has delegation authority, it does not grant it automatically.

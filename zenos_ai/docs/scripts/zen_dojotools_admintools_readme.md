@@ -87,16 +87,19 @@ Two tool calls. Order matters — labels first, then cabinets.
 
 ## zen_admintools_cabinetadmin
 
-Ring-2 cabinet maintenance tool. Supports inspecting, restoring, resetting, and hammering the 14 Ring-0 system cabinets.
+Ring-2 cabinet maintenance tool. Provisions new expansion cabinets, inspects cabinet state, recovers broken cabinets, and manages mount state. Also handles Ring-0 system cabinet repair and nuclear resets.
 
-**Not MCP-exposed.** Admin use only. Destructive modes require explicit confirmation.
+**Not MCP-exposed.** Admin use only. Destructive modes require explicit safety gates — do not bypass them. Run `mode: help` for a full operation guide.
 
 ### Input Fields
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `mode` | select | `inspect` | `inspect`, `restore`, `reset`, `hammer`, `init`, `reset_all` |
-| `target_cabinet` | entity (sensor) | — | Single cabinet to target; leave empty to target all Ring-0 cabinets |
+| `mode` | select | `help` | See modes table below |
+| `target_cabinet` | entity (sensor) | — | Cabinet to operate on; leave empty for Ring-0 scope (inspect) or not applicable (mount_status, reset_all) |
+| `cab_type` | text | `''` | Cabinet type for `init` and `hammer + confirm_init`. E.g. `AI Data Storage Cabinet`, `AI Household Cabinet` |
+| `confirm_action` | boolean | `false` | Required for `init` when target state is `unknown` (no recorder history) |
+| `confirm_init` | boolean | `false` | `hammer` only — re-stamp fresh VolumeInfo immediately after wipe. Set `cab_type` accordingly |
 | `hammer_ok` | boolean | `false` | Required `true` for `hammer` mode |
 | `confirm` | boolean | `false` | Required `true` for `reset_all` |
 
@@ -104,12 +107,29 @@ Ring-2 cabinet maintenance tool. Supports inspecting, restoring, resetting, and 
 
 | Mode | Destructive | Description |
 |---|---|---|
-| `inspect` | No | List all drawers in targeted cabinet(s) with counts |
-| `restore` | No | Stamp a `_restored_marker` drawer if cabinet is empty |
-| `reset` | **Yes** | Clear all drawers in targeted cabinet(s) |
-| `hammer` | **Yes** | Clear all drawers + stamp `_hammered` marker. Requires `hammer_ok: true` |
-| `init` | **Yes** | Initialize cabinet with `AI_Cabinet_VolumeInfo` drawer; clears if targeting all |
-| `reset_all` | **NUCLEAR** | Wipe all Ring-0 cabinets + reseed schemas + trigger Flynn bootstrap. `confirm: true` required |
+| `help` | No | Return structured guide: all modes, when to use, field reference |
+| `inspect` | No | Read all drawers on the target cabinet and return their values. Always run before any destructive op |
+| `init` | Conditional | Stamp a virgin cabinet with VolumeInfo + GUID. Refuses if already initialized (`good`) or has residue (`potentially_bad` — hammer first). Requires `confirm_action: true` when state is `unknown` |
+| `hammer` | **Yes** | Clear all drawers + stamp `_hammered` marker. Set `confirm_init: true` to re-stamp immediately. Requires `hammer_ok: true` |
+| `restore` | No | Attempt recovery of a cabinet that lost VolumeInfo after HA restart |
+| `reset` | **Yes** | Clear all drawers with no audit marker |
+| `mount_status` | No | Return mounted/unmounted state for all `zen_cabinet` entities. No target needed |
+| `repair_mount` | No | Force `meta.mounted: true` on a stuck cabinet. Does not touch drawer content |
+| `repair_dismount` | No | Force `meta.mounted: false` on a stuck cabinet. Mirror of `repair_mount` |
+| `reset_all` | **NUCLEAR** | Wipe all Ring-0 cabinets + reseed schemas + trigger Flynn bootstrap. `confirm: true` required. User and expansion cabinets untouched |
+| `flip_schema_version` | No | Toggle `cab_schema_version` in syscab (0=legacy, 1+=mount-aware). Controls Flynn operating mode |
+
+### Init classifier
+
+`init` mode classifies the target before acting:
+
+| Class | Conditions | Action |
+|---|---|---|
+| `virgin` | No VolumeInfo, no `_label_index`, no `_context`, no non-system drawers, no GUID | Delegate to `cabinetadmin_factory` → stamp |
+| `good` | VolumeInfo present + GUID present | Refuse: `already_initialized` |
+| `potentially_bad` | Any other residue | Refuse: `repair_required` — hammer first |
+
+`unavailable` state (recorder not yet restored) always blocks init. `unknown` state (no recorder history) blocks unless `confirm_action: true`.
 
 ### Ring-0 Cabinets
 

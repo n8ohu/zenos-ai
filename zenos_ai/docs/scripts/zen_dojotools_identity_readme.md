@@ -150,6 +150,14 @@ zen_dojotools_identity:
   family_entity: sensor.<family_cabinet>
 ```
 
+> ⚠️ **Family teardown order matters.** `deprovision` does NOT remove a family from the household. Skipping `household_remove_family` before deprovisioning leaves a stale entry in `members.families` — re-provisioning and re-adding the family then creates a duplicate.
+>
+> Correct teardown sequence:
+> 1. `family_remove_member` for each member
+> 2. `household_remove_family`
+> 3. Deprovision member cabinets
+> 4. Deprovision family cabinet
+
 ---
 
 ### `household_add_member`
