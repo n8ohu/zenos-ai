@@ -572,7 +572,7 @@ script:
                   }}
             - variables:
                 _already_member: >-
-                  {%- set _fams = _existing_fams | from_json if _existing_fams is string else [] -%}
+                  {%- set _fams = _existing_fams | from_json if _existing_fams is string else _existing_fams -%}
                   {%- set _fams = _fams if _fams is iterable and _fams is not string else [] -%}
                   {{ _fams | selectattr('entity_id', 'equalto', family_entity) | list | count > 0 }}
             - if: "{{ _already_member | bool }}"
@@ -823,7 +823,7 @@ script:
                   {{ _m.get(_list_key, []) | tojson }}
             - variables:
                 _already_member: >-
-                  {%- set _lst = _existing_list | from_json if _existing_list is string else [] -%}
+                  {%- set _lst = _existing_list | from_json if _existing_list is string else _existing_list -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
                   {{ _lst | selectattr('entity_id', 'equalto', member_entity) | list | count > 0 }}
             - if: "{{ _already_member | bool }}"
@@ -1225,7 +1225,7 @@ script:
                   {%- endif -%}
             - variables:
                 _already_member: >-
-                  {%- set _lst = _existing_list | from_json if _existing_list is string else [] -%}
+                  {%- set _lst = _existing_list | from_json if _existing_list is string else _existing_list -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
                   {{ _lst | selectattr('entity_id', 'equalto', member_entity) | list | count > 0 }}
             - if: "{{ _already_member | bool }}"
