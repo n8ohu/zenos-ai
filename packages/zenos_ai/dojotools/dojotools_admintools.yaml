@@ -369,6 +369,16 @@ script:
             filter:
             - domain: sensor
         default: ''
+      cab_type:
+        name: Cabinet Type (init only)
+        description: >-
+          Cabinet type passed to cabinetadmin_stamp for virgin cabinet initialization
+          (e.g. ai_user, household, AI Data Storage Cabinet). Default empty = stamp
+          uses its own default type.
+        required: false
+        default: ''
+        selector:
+          text:
       hammer_ok:
         name: Allow Hammer Destroy Mode
         selector:
@@ -444,6 +454,7 @@ script:
           response_variable: result
     - variables:
         inspect_acc: {}
+        result: {}
     - repeat:
         for_each: '{{ effective_targets }}'
         sequence:
@@ -534,23 +545,75 @@ script:
               target:
                 entity_id: input_boolean.zenos_cab_init_rearm
             # ─────────────────────────────────────────────────────────────────
-            - if:
-              - condition: template
-                value_template: '{{ use_universe }}'
-              then:
-              - event: clear_variables_legacy
-                event_data:
-                  volume_entity: '{{ cab }}'
-                  key: '*'
-              - event: set_variable_legacy
-                event_data:
-                  volume_entity: '{{ cab }}'
-                  key: AI_Cabinet_VolumeInfo
-                  value:
-                    value:
-                      initialized: true
-                      timestamp: '{{ now().isoformat() }}'
-                  set_timestamp: true
+            # ── Classifier ─────────────────────────────────────────────────
+            - variables:
+                _vars: >-
+                  {%- set v = state_attr(cab, 'variables') | default(none, true) -%}
+                  {{ v if v is mapping else {} }}
+                has_volumeinfo: "{{ 'AI_Cabinet_VolumeInfo' in _vars }}"
+                has_label_index: "{{ '_label_index' in _vars }}"
+                has_context:     "{{ '_context' in _vars }}"
+                non_system_drawers: >-
+                  {%- set sys = ['AI_Cabinet_VolumeInfo','_label_index','_context',
+                                 '_restored_marker','_hammered'] -%}
+                  {{ _vars.keys() | reject('in', sys) | reject('match', '^_') | list }}
+                _vi_raw: "{{ _vars.get('AI_Cabinet_VolumeInfo', {}) }}"
+                _vi_val: >-
+                  {%- set r = _vi_raw.get('value', {}) if _vi_raw is mapping else {} -%}
+                  {{ r if r is mapping else (r | from_json if r is string else {}) }}
+                cabinet_guid: "{{ _vi_val.get('id', '') | string | trim }}"
+                cabinet_state_class: >-
+                  {%- if not has_volumeinfo and not has_label_index and not has_context
+                         and (non_system_drawers | length == 0)
+                         and (cabinet_guid == '') -%}
+                    virgin
+                  {%- elif has_volumeinfo and cabinet_guid != '' -%}
+                    good
+                  {%- else -%}
+                    potentially_bad
+                  {%- endif -%}
+            # ── Route ──────────────────────────────────────────────────────
+            - choose:
+              - conditions: "{{ cabinet_state_class == 'virgin' }}"
+                sequence:
+                - action: script.zen_admintools_cabinetadmin_stamp
+                  data:
+                    confirm_action: true
+                    cabinet_entity: "{{ cab }}"
+                    cabinet_type: "{{ cab_type | default('') }}"
+                  response_variable: _stamp_result
+                - variables:
+                    result:
+                      status: success
+                      mode: init
+                      target: "{{ cab }}"
+                      classification: virgin
+                      action_taken: stamped
+                      reason: initialized
+                      stamp_result: "{{ _stamp_result }}"
+              - conditions: "{{ cabinet_state_class == 'good' }}"
+                sequence:
+                - variables:
+                    result:
+                      status: refused
+                      mode: init
+                      target: "{{ cab }}"
+                      classification: good
+                      action_taken: none
+                      reason: already_initialized
+                - stop: already initialized
+                  response_variable: result
+              default:
+              - variables:
+                  result:
+                    status: refused
+                    mode: init
+                    target: "{{ cab }}"
+                    classification: "{{ cabinet_state_class }}"
+                    action_taken: none
+                    reason: repair_required
+              - stop: repair required
+                response_variable: result
           # ── repair_mount — force meta.mounted: true (bypass state guards) ──
           - conditions:
             - condition: template
@@ -602,6 +665,13 @@ script:
           inspect_acc: "{{ inspect_acc | combine({'caller_token': caller_token | default('')}) if inspect_acc is mapping else inspect_acc }}"
       - stop: inspect complete
         response_variable: inspect_acc
+    # ── init — return result after classification and stamp ───────────────────
+    - if:
+      - condition: template
+        value_template: '{{ op == ''init'' }}'
+      then:
+      - stop: init complete
+        response_variable: result
     # ── mount_status — read mount state across all zen_cabinet entities ───────
     - if:
       - condition: template
@@ -1139,7 +1209,7 @@ script:
           event: set_variable_zenos_system_cabinet
           event_data:
             key: purpose
-            value: "meta:\n  priority: true\n  environment: ZenOS-AI\n  version: 7.1.0\n              \ codename: True Voice\n- >\n  You are a smart home assistant integrated
+            value: "meta:\n  priority: true\n  environment: ZenOS-AI\n  version: 7.1.0\n  codename: True Voice\n- >\n  You are a smart home assistant integrated
               with Home Assistant OS, running ZenOS-AI.\n  See your header for current
               version information and more\n  information.\n- >\n  Your role as part
               of the family is to manage our home,\n  be proactive, provide insights,
@@ -1152,7 +1222,7 @@ script:
           event: set_variable_zenos_system_cabinet
           event_data:
             key: directives
-            value: "meta:\n  priority: true\n  environment: ZenOS-AI\n  version: 7.1.0\n              \ codename: True Voice\n- >\n  Respond truthfully with a friendly,
+            value: "meta:\n  priority: true\n  environment: ZenOS-AI\n  version: 7.1.0\n  codename: True Voice\n- >\n  Respond truthfully with a friendly,
               conversational tone. Match your response to the moment — crisp for\n
               \ commands, warm and full for conversation. Use casual language, personalized\n
               \ insights, and storytelling to make things engaging and relatable.\n- >\n
