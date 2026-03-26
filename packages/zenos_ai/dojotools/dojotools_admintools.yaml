@@ -318,12 +318,35 @@ script:
   zen_admintools_cabinetadmin:
     alias: Zen AdminTools CabinetAdmin
     description: >-
-      Cabinet admin tool. Use this to provision new expansion cabinets, inspect
-      cabinet state, recover broken cabinets, and manage mount state. Normal
-      household operations (adding members, writing drawers) don't require this
-      tool — it's for provisioning new hardware and troubleshooting.
+      Low-level cabinet lifecycle tool. Manages ZenOS cabinet sensors at the
+      hardware and provisioning layer. USE ONLY when a cabinet needs to be
+      provisioned for the first time, recovered from a broken state, or
+      diagnosed. Do NOT use for normal data operations — reading and writing
+      drawer content uses zen_dojotools_filecabinet instead.
 
-      Run mode: help for a full guide to all operations and when to use them.
+      Cabinet sensors have a state machine: init (no VolumeInfo yet) →
+      online_unmounted → online_mounted. Cabinets must be provisioned (init
+      mode) before any other system can use them. A cabinet in 'init' state
+      has no identity, no GUID, and cannot hold user data.
+
+      Key operations — call mode: help for full details:
+      inspect — read all drawers; always run this first before any destructive op.
+      init — stamp a virgin cabinet with VolumeInfo + GUID; safe, refuses if
+        already initialized; requires cab_type for non-default cabinet roles.
+      hammer — wipe all drawers and mark destroyed; use when init refuses due to
+        residue; set confirm_init: true to re-stamp immediately after wipe;
+        requires hammer_ok: true as explicit safety gate.
+      restore — recover a cabinet that lost VolumeInfo from HA recorder restart.
+      mount_status — list mounted/unmounted state across all zen_cabinet entities.
+      repair_mount / repair_dismount — force mount state on a stuck cabinet;
+        does not touch drawer content.
+      reset_all — NUCLEAR, wipes all ring-0 system cabinets and reboots Flynn;
+        requires confirm: true; user and expansion cabinets are untouched.
+
+      Safety gates that block destructive ops: hammer requires hammer_ok: true;
+      init on an unknown-state cabinet requires confirm_action: true; reset_all
+      requires confirm: true. An AI must not set these without explicit human
+      instruction — they exist to prevent accidental data loss.
     mode: parallel
     max: 10
     fields:
