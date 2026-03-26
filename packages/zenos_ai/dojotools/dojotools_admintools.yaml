@@ -1767,7 +1767,7 @@ script:
                 learned_reference: /cabinets/{ai_entity_cabinet}/learned_items
                 retention: {max_records: 50, rotation: by_date}
                 note: Many learned items — ask Boss to update cortex or toolset.
-          set_timestamp: true
+            set_timestamp: true
       default:
       - alias: 'set_variable: Cortex (v29 — 2026 GA)'
         event: set_variable_zenos_system_cabinet
