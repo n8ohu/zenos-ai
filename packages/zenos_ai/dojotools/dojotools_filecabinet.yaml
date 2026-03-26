@@ -38,7 +38,13 @@ script:
             ''
           {% endif %}
         raw_key: "{{ key | default('') | trim }}"
-        key: "{{ key | default('') | slugify }}"
+        key: >-
+          {%- set _rk = key | default('') | trim -%}
+          {%- if _rk.startswith('_') and (force_action | default(false)) -%}
+            _{{ _rk[1:] | slugify }}
+          {%- else -%}
+            {{ _rk | slugify }}
+          {%- endif -%}
         raw_value: "{{ value | default('') }}"
         label_input: "{{ label_input | default('') }}"
         label_targets: "{{ label_targets | default('') }}"
