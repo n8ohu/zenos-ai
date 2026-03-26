@@ -2887,6 +2887,7 @@ automation:
         value: "{{ trigger.event.data.value | default('') }}"
         volume_entity: "{{ trigger.event.data.volume_entity | default('') }}"
         set_timestamp: "{{ trigger.event.data.set_timestamp | default(false) }}"
+        force: "{{ trigger.event.data.get('force', false) }}"
         log_events: "{{ trigger.event.data.log_events | default(false) }}"
         is_cabinetadmin_init: "{{ trigger.event.data._cabinetadmin_init | default(false) }}"
 
@@ -3073,6 +3074,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_system_cabinet
@@ -3098,6 +3100,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_system_history_cabinet
@@ -3126,6 +3129,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_dojo_cabinet
@@ -3151,6 +3155,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_kata_cabinet
@@ -3176,6 +3181,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_history_cabinet
@@ -3201,6 +3207,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_scratchpad_cabinet
@@ -3229,6 +3236,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_household_cabinet
@@ -3254,6 +3262,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_household_history_cabinet
@@ -3282,6 +3291,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_family_cabinet
@@ -3307,6 +3317,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_family_history_cabinet
@@ -3335,6 +3346,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_user_cabinet
@@ -3360,6 +3372,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_user_history_cabinet
@@ -3388,6 +3401,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_ai_user_cabinet
@@ -3413,6 +3427,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_default_ai_user_history_cabinet
@@ -3441,6 +3456,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_expansion_cabinet_1
@@ -3466,6 +3482,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_expansion_cabinet_2
@@ -3491,6 +3508,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_expansion_cabinet_3
@@ -3516,6 +3534,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_expansion_cabinet_4
@@ -3541,6 +3560,7 @@ automation:
                         key: "{{ key }}"
                         value: "{{ value }}"
                         set_timestamp: "{{ set_timestamp }}"
+                        force: "{{ force }}"
                 - conditions: "{{ trigger.id == 'remove' }}"
                   sequence:
                     - event: remove_variable_zenos_expansion_cabinet_5
