@@ -498,7 +498,7 @@ script:
       - conditions:
         - alias: Error - Reserved key (leading underscore)
           condition: template
-          value_template: "{{ is_write_action and raw_key.startswith('_') }}"
+          value_template: "{{ is_write_action and raw_key.startswith('_') and not force_action }}"
         sequence:
         - variables:
             final_response:
@@ -506,8 +506,8 @@ script:
               failure: reserved_key
               message: >-
                 Write blocked: key '{{ raw_key }}' starts with '_'.
-                System-reserved keys cannot be written via FileCabinet.
-                Use the appropriate admin tool for system drawer operations.
+                System-reserved keys require force_action: true to write via FileCabinet.
+                Use the appropriate admin tool or pass force_action: true for system drawer operations.
               key_raw: "{{ raw_key }}"
               key_slugified: "{{ key }}"
               volume_entity: "{{ volume_entity }}"

@@ -401,16 +401,19 @@ script:
         - condition: template
           value_template: "{{ _profile | length > 0 }}"
         then:
-        - event: set_variable_legacy
-          event_data:
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: create
+            force_action: true
+            set_timestamp: true
+            volume_entity_id:
+              - "{{ _target }}"
             key: >-
               {%- if _cab_type == 'user' -%}_user_profile
               {%- elif _cab_type == 'family' -%}_family_profile
               {%- elif _cab_type == 'household' -%}_household_profile
               {%- else -%}profile{%- endif -%}
-            value: "{{ {'value': _profile} }}"
-            volume_entity: "{{ _target }}"
-            set_timestamp: true
+            value: "{{ _profile | tojson }}"
 
       # ── Fire completion events ────────────────────────────────────────────
       - event: zen_event
