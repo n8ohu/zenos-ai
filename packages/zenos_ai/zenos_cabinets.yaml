@@ -2800,7 +2800,7 @@ automation:
       event_type: remove_variable_legacy
       id: remove
     - trigger: event
-      event_type: clear_variable_legacy
+      event_type: clear_variables_legacy
       id: clear
     - trigger: event
       event_type: dojo_volume_redirector_probe
@@ -3085,6 +3085,7 @@ automation:
                     - event: clear_variables_zenos_system_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3111,6 +3112,7 @@ automation:
                     - event: clear_variables_zenos_system_history_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3140,6 +3142,7 @@ automation:
                     - event: clear_variables_zenos_dojo_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3166,6 +3169,7 @@ automation:
                     - event: clear_variables_zenos_kata_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3192,6 +3196,7 @@ automation:
                     - event: clear_variables_zenos_history_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3218,6 +3223,7 @@ automation:
                     - event: clear_variables_zenos_scratchpad_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3247,6 +3253,7 @@ automation:
                     - event: clear_variables_zenos_default_household_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3273,6 +3280,7 @@ automation:
                     - event: clear_variables_zenos_default_household_history_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3302,6 +3310,7 @@ automation:
                     - event: clear_variables_zenos_default_family_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3328,6 +3337,7 @@ automation:
                     - event: clear_variables_zenos_default_family_history_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3357,6 +3367,7 @@ automation:
                     - event: clear_variables_zenos_default_user_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3383,6 +3394,7 @@ automation:
                     - event: clear_variables_zenos_default_user_history_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3412,6 +3424,7 @@ automation:
                     - event: clear_variables_zenos_default_ai_user_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3438,6 +3451,7 @@ automation:
                     - event: clear_variables_zenos_default_ai_user_history_cabinet
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3467,6 +3481,7 @@ automation:
                     - event: clear_variables_zenos_expansion_cabinet_1
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3493,6 +3508,7 @@ automation:
                     - event: clear_variables_zenos_expansion_cabinet_2
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3519,6 +3535,7 @@ automation:
                     - event: clear_variables_zenos_expansion_cabinet_3
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3545,6 +3562,7 @@ automation:
                     - event: clear_variables_zenos_expansion_cabinet_4
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
@@ -3571,6 +3589,7 @@ automation:
                     - event: clear_variables_zenos_expansion_cabinet_5
                       event_data:
                         key: "{{ key }}"
+                        confirm: true
             - variables:
                 routing_status: success
                 routing_action: "{{ trigger.id }}"
