@@ -834,11 +834,9 @@ script:
                     value_template: "{{ autosign | default(false) | bool }}"
                 then:
                   - variables:
-                      _as_raw: "{{ state_attr(_target, 'variables') | default({}, true) }}"
-                      _as_ess: "{{ _as_raw.get('zenai_essence', {}) if _as_raw is mapping else {} }}"
                       _as_val: >-
-                        {%- set _av_raw = _as_ess.get('value', {}) if _as_ess is mapping else {} -%}
-                        {{ _av_raw if _av_raw is mapping else (_av_raw | from_json if _av_raw is string else {}) }}
+                        {%- set _av = _assembled | from_json if _assembled is string else _assembled -%}
+                        {{ _av if _av is mapping else {} }}
                       _as_core: "{{ _as_val.get('core', {}) if _as_val is mapping else {} }}"
                       _as_jack: "{{ _as_val.get('jacket', {}) if _as_val is mapping else {} }}"
                       _as_comp: "{{ _as_val.get('companion', {}) if _as_val is mapping else {} }}"
@@ -1262,7 +1260,9 @@ script:
             sequence:
               - variables:
                   _ess_raw: "{{ _cab_vars.get('zenai_essence', {}) }}"
-                  _ess_val: "{{ _ess_raw.get('value', _ess_raw) if _ess_raw is mapping else {} }}"
+                  _ess_val: >-
+                    {%- set _ev_r = _ess_raw.get('value', {}) if _ess_raw is mapping else {} -%}
+                    {{ _ev_r if _ev_r is mapping else (_ev_r | from_json if _ev_r is string else {}) }}
                   _s_core:  "{{ _ess_val.get('core', {}) if _ess_val is mapping else {} }}"
                   _s_jack:  "{{ _ess_val.get('jacket', {}) if _ess_val is mapping else {} }}"
                   _s_comp:  "{{ _ess_val.get('companion', {}) if _ess_val is mapping else {} }}"
