@@ -2,7 +2,7 @@
 
 ### **Deterministic Entity Selector for Home Assistant**
 
-**Version:** 4.5.x 'Ready Player Two'
+**Version:** 4.5.5 'Ready Player Two'
 **Namespace:** `script.zen_dojotools_query`
 **Icon:** `mdi:filter-cog`
 

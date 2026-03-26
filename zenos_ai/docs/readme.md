@@ -1,6 +1,6 @@
 # 📘 **ZenOS-AI Documentation Hub**
 
-> **Version:** 4.5.x 'Ready Player Two' | **Last Updated:** March 2026 | **License:** MIT
+> **Version:** 4.5.5 'Ready Player Two' | **Last Updated:** March 2026 | **License:** MIT
 
 → [Project Overview & Install](../../README.md)
 
@@ -242,13 +242,15 @@ This is Friday’s trust spine — the system that decides which parts of the wo
 
 **File:** `docs/roadmap.md`
 
-Current milestone: **1.0 GA**
+**4.5.5 'Ready Player Two' — Shipped (2026-03-26)**
 
-* RC2 — complete (KF4, Dojo-driven scheduler, FileCabinet v4)
-* GA Stability Gates — Highlander resolver architecture delivered (2026-03-19)
-* GA deliverables — bootstrap, legacy import, cabinet loader, governance, Flynn finalization
-* SP1 — queued post-GA
-* v.next — KFC v1.1 (state key, master-switch-free controller), deeper memory, governance modules
+* Identity and lifecycle release — cabinet provisioning, warmup state machine, full household/family group management
+* Profile editor, zenai_essence, provisioner — all FG-38/FG-40 hardened and GA-ready
+* Cortex 32 (True Voice) is now the default prompt primitive set
+* SP1 — queued: `caller_token` enforcement, KFC 1.1, security architecture
+* v.next — deeper memory, governance modules, cabinet import/export
+
+See: [Release Notes — Ready Player Two](releases/ready_player_two.md)
 
 ---
 

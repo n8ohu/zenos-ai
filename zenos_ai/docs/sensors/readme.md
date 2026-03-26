@@ -1,4 +1,4 @@
-# ZenOS-AI Health Sensors — 4.5.x 'Ready Player Two'
+# ZenOS-AI Health Sensors — 4.5.5 'Ready Player Two'
 
 *System observability stack — labels, cabinets, cognition, agents*
 

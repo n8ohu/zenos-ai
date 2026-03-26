@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI — System Health Helpers
-# Version: 4.5.1
+# Version: 4.5.5
 #
 # Label and cabinet health sensors migrated to dedicated files:
 #   zenos_label_health.yaml   — sensor.zen_label_health

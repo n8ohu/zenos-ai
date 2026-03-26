@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: AdminTools
-# Version: 4.5.1
+# Version: 4.5.5
 #
 # Scripts:
 #   zen_admintools_reset_template        — Kata + Dojo template press (v1.1.0)
@@ -1267,15 +1267,15 @@ script:
     fields:
       cortex_version:
         name: Cortex Version
-        description: "Prompt primitive set version to stamp. 32 = True Voice (latest opt-in).
-          30 = 2026 GA (Friday Delta). 29 = prior GA. Default: latest (30)."
+        description: "Prompt primitive set version to stamp. 32 = True Voice (GA default).
+          30 = 2026 GA (Friday Delta). 29 = prior GA. Default: latest (32)."
         required: false
         selector:
           select:
             options:
-              - label: latest (30 — 2026 GA, Friday Delta)
+              - label: latest (32 — True Voice)
                 value: latest
-              - label: 32 — True Voice (opt-in)
+              - label: 32 — True Voice
                 value: '32'
               - label: 30 — 2026 GA, Friday Delta
                 value: '30'
@@ -1305,7 +1305,7 @@ script:
     - variables:
         _cv: >-
           {%- set raw = cortex_version | default('latest') | string | lower | trim
-          -%} {%- if raw in ['30', 'latest'] -%}30{%- elif raw == '32' -%}32{%- else -%}29{%- endif -%}
+          -%} {%- if raw in ['32', 'latest'] -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
     - choose:
       - conditions: '{{ _cv | string == ''30'' }}'
         sequence:

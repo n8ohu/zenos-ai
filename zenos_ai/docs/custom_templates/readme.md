@@ -1,4 +1,4 @@
-# Custom Templates — ZenOS-AI 4.5.x 'Ready Player Two'
+# Custom Templates — ZenOS-AI 4.5.5 'Ready Player Two'
 
 *Jinja templates powering prompt assembly, context construction, and query processing*
 

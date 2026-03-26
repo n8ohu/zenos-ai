@@ -1,4 +1,4 @@
-# Getting Started — ZenOS-AI 4.5.x 'Ready Player Two'
+# Getting Started — ZenOS-AI 4.5.5 'Ready Player Two'
 
 *From fresh install to live agent*
 

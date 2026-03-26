@@ -1,4 +1,4 @@
-# Zen DojoTools Labels — 4.5.x 'Ready Player Two'
+# Zen DojoTools Labels — 4.5.5 'Ready Player Two'
 
 *Create, read, update, delete, and assign labels in the Home Assistant label index*
 

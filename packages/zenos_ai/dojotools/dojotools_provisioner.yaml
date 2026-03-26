@@ -1,7 +1,7 @@
 #####################################################################
-# zen_dojotools_provisioner — Ready Player 2 cabinet provisioner
+# zen_dojotools_provisioner — ZenOS-AI cabinet provisioner
 #
-# v1.1.0 — #93 feat/ready-player-2 (ZenOS-AI 4.5.2)
+# v1.1.0 (ZenOS-AI 4.5.5)
 #
 # Ops: provision, deprovision, replace
 #

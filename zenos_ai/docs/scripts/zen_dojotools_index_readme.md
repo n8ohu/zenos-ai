@@ -1,4 +1,4 @@
-# Zen DojoTools Index — 4.5.x 'Ready Player Two'
+# Zen DojoTools Index — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_zen_index_readme.md`  
 **Type:** Technical Documentation  
 
@@ -247,7 +247,7 @@ This is the *search brainstem* of ZenOS-AI.
 
 ## Summary
 
-The Zen Index 4.5.x 'Ready Player Two' provides:
+The Zen Index 4.5.5 'Ready Player Two' provides:
 
 - A fully featured, label/entity correlation engine
 - Integrated set logic with four operators

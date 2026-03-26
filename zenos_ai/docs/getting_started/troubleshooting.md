@@ -1,4 +1,4 @@
-# ZenOS-AI Troubleshooting Guide — 4.5.x 'Ready Player Two'
+# ZenOS-AI Troubleshooting Guide — 4.5.5 'Ready Player Two'
 
 *Gauges → Kill Switches → Repair Tools. Start at the top, work down.*
 

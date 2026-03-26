@@ -1,6 +1,6 @@
 {
-  "version": 8,
-  "generated": "2026-03-22",
+  "version": 9,
+  "generated": "2026-03-26",
   "description": "Index of ZenOS-AI documentation modules.",
   "sections": {
     "getting_started": {
@@ -92,7 +92,8 @@
       "title": "Release Notes",
       "path": "releases",
       "files": [
-        { "id": "meridian", "file": "meridian.md", "title": "Release Notes — Meridian (4.5.0)", "type": "doc" }
+        { "id": "meridian", "file": "meridian.md", "title": "Release Notes — Meridian (4.5.0)", "type": "doc" },
+        { "id": "ready_player_two", "file": "ready_player_two.md", "title": "Release Notes — Ready Player Two (4.5.5)", "type": "doc" }
       ]
     },
     "research": {

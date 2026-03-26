@@ -1,7 +1,7 @@
 #####################################################################
 # zen_dojotool_dispatcher — Event-driven dojotool dispatch layer
 #
-# v1.0.0 — feat/ready-player-2 (ZenOS-AI 4.5.1)
+# v1.0.0 (ZenOS-AI 4.5.5)
 #
 # Listens for zen_event(kind: dojotool_call), routes to the registered
 # script, fires correlated zen_event(kind: dojotool_return).

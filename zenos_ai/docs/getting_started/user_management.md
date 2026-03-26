@@ -1,4 +1,4 @@
-# User and AI User Management — ZenOS-AI 4.5.x 'Ready Player Two'
+# User and AI User Management — ZenOS-AI 4.5.5 'Ready Player Two'
 
 *Provisioning, deprovisioning, moving, and repairing identity cabinets for people and AI constructs*
 

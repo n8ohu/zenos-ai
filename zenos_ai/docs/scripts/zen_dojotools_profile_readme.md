@@ -1,4 +1,4 @@
-# Zen DojoTools Profile Editor — 4.5.x 'Ready Player Two'
+# Zen DojoTools Profile Editor — 4.5.5 'Ready Player Two'
 
 *Read and write identity profiles for AI personas, households, users, and families*
 

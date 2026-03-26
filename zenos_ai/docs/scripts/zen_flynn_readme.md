@@ -1,4 +1,4 @@
-# Flynn — Stepgate Sentinel & Bootstrap Engine — 4.5.x 'Ready Player Two'
+# Flynn — Stepgate Sentinel & Bootstrap Engine — 4.5.5 'Ready Player Two'
 
 *ZenOS-AI's boot guard, initializer, and onboarding driver*
 

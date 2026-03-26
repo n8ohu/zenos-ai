@@ -1,4 +1,4 @@
-# Zen DojoTools Manifest — 4.5.x 'Ready Player Two'
+# Zen DojoTools Manifest — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_manifest_readme.md`  
 **Type:** Technical Documentation  
 

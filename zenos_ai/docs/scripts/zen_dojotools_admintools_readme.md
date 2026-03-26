@@ -1,4 +1,4 @@
-# Zen DojoTools AdminTools — 4.5.x 'Ready Player Two'
+# Zen DojoTools AdminTools — 4.5.5 'Ready Player Two'
 
 *Ring-2 administrative tools: component registration, cabinet repair, template management, and prompt configuration*
 
@@ -21,7 +21,7 @@ All tools in this module are **admin-only** — they are not exposed to the AI a
 | `zen_admintools_cabinetadmin` | 4.5.0 | No | Inspect, restore, reset, hammer, init, or reset_all Ring-0 cabinets |
 | `zen_admintools_cabinetadmin_factory` | 1.x | No | Factory-stamp or repair a cabinet's VolumeInfo drawer |
 | `zen_admintools_kfc_migration_press` | 1.1.0 | No | One-time migration: seed scheduling fields into KFC drawers |
-| `zen_admintools_zenos_prompt_loader` | 4.5.0 | No | Load versioned Cortex, Directives, and Purpose (v27 = RC2, v29/latest = GA Ninja Fusion, v30 = Living Index, v31 = Signal Frame) |
+| `zen_admintools_zenos_prompt_loader` | 4.5.5 | No | Load versioned Cortex, Directives, and Purpose (v32 = True Voice (default/latest), v30 = Living Index, v29 = Ninja Fusion, v27 = RC2) |
 
 > **KFC registration:** `zen_dojotools_kungfu_writer` has been removed. Use `zen_dojotools_scribe` — see `dojotools_scribe.yaml` for full documentation.
 
@@ -267,7 +267,7 @@ On every run, the prompt loader also stamps `meta.mounted: true` on syscab — e
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `cortex_version` | select | `latest` | `latest` or `29` = 2026 GA Ninja Fusion. `30` = Living Index (opt-in). `27` = 2026 RC2 |
+| `cortex_version` | select | `latest` | `latest` or `32` = True Voice (GA default). `30` = Living Index. `29` = Ninja Fusion. `27` = RC2 |
 | `ship_zen_system` | boolean | `true` | If `true`, also writes the `zen_system` KFC drawer after loading. Set `false` to load Cortex only without touching the Dojo. |
 
 Use the `cortex_version` field to select which version to load. The three primitives (Purpose, Directives, Cortex) are versioned together as a set:
@@ -275,10 +275,11 @@ Use the `cortex_version` field to select which version to load. The three primit
 | Version | Codename | Notes |
 |---|---|---|
 | `27` | Quiet Fusion (RC2) | 2026 RC2 — 4.2.x series |
-| `29` / `latest` | Ninja Fusion | 2026 GA — includes Context Resolution directive and scope-aware context stack |
-| `30` | Living Index | Opt-in — adds label policy, memory policy, expanded audit schema, and `zen_dojotools_labels` as a core tool. Requires Friday Memory Delta Spec installed in AI user cabinet. |
+| `29` | Ninja Fusion | 2026 GA — Context Resolution directive and scope-aware context stack |
+| `30` | Living Index | Label policy, memory policy, expanded audit schema, `zen_dojotools_labels` as core tool. Requires Friday Memory Delta Spec. |
+| `32` / `latest` | True Voice | 4.5.5 GA default — signal frame, environment schema, native wake path |
 
-Cortex 30 is an explicit opt-in. Selecting `latest` or passing no `cortex_version` loads v29.
+Selecting `latest` or passing no `cortex_version` loads v32.
 
 ### Custom Prompt Material
 

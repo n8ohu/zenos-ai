@@ -1,6 +1,6 @@
 # ZenOS-AI: Install Guide
 
-> **Version:** 4.5.x 'Ready Player Two' | **Last Updated:** March 2026
+> **Version:** 4.5.5 'Ready Player Two' | **Last Updated:** March 2026
 
 ---
 

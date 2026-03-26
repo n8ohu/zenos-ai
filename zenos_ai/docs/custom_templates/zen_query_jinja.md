@@ -1,5 +1,5 @@
 ZenOS-AI Template Engine: Zen Query Engine (ZQ-1) Technical Specification  
-Version: 4.5.x 'Ready Player Two'  
+Version: 4.5.5 'Ready Player Two'  
 Status: Stable and required for all Zen DojoTools Query flows  
 
 ---
