@@ -692,7 +692,7 @@
 
   {#- Final safety: if ns.result was never set (silent template failure in success path),
       guarantee identity key is present so callers never see a bare {} -#}
-  {%- if ns.result is mapping and 'identity' not in ns.result -%}
+  {%- if ns.result is mapping and 'identity' not in ns.result and 'roster' not in ns.result -%}
     {%- set ns.result = ns.result | combine({
       "identity": {
         "name": "",
