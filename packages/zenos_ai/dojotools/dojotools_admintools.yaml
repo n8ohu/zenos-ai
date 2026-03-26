@@ -532,19 +532,6 @@ script:
             - condition: template
               value_template: '{{ op == ''init'' }}'
             sequence:
-            # ── REARM GATE ────────────────────────────────────────────────────
-            # input_boolean.zenos_cab_init_rearm must be ON to proceed.
-            # Any successful init fires turns it back off immediately (double latch).
-            # Prevents accidental or autonomous init. Must be manually rearmed each time.
-            - if:
-              - condition: template
-                value_template: "{{ not is_state('input_boolean.zenos_cab_init_rearm', 'on') }}"
-              then:
-              - stop: "Init blocked — rearm input_boolean.zenos_cab_init_rearm to proceed"
-            - action: input_boolean.turn_off
-              target:
-                entity_id: input_boolean.zenos_cab_init_rearm
-            # ─────────────────────────────────────────────────────────────────
             # ── Classifier ─────────────────────────────────────────────────
             - variables:
                 _vars: >-
@@ -604,6 +591,27 @@ script:
                 - stop: already initialized
                   response_variable: result
               default:
+              # ── REARM GATE (potentially_bad only) ────────────────────────
+              # Virgin and good cabs proceed automatically. Only potentially_bad
+              # requires manual confirmation — residue present, human decides:
+              # hammer or repair. Must rearm input_boolean.zenos_cab_init_rearm.
+              - if:
+                - condition: template
+                  value_template: "{{ not is_state('input_boolean.zenos_cab_init_rearm', 'on') }}"
+                then:
+                - variables:
+                    result:
+                      status: refused
+                      mode: init
+                      target: "{{ cab }}"
+                      classification: potentially_bad
+                      action_taken: none
+                      reason: rearm_required
+                - stop: rearm required — potentially_bad cabinet
+                  response_variable: result
+              - action: input_boolean.turn_off
+                target:
+                  entity_id: input_boolean.zenos_cab_init_rearm
               - variables:
                   result:
                     status: refused
