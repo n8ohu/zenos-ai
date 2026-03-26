@@ -561,7 +561,8 @@ script:
                       } }}
                     {%- else -%}
                       {%- set key = '_family_profile' if _type == 'family' else '_user_profile' -%}
-                      {%- set raw = _cab_vars.get(key, {}) -%}
+                      {%- set key_legacy = 'family_profile' if _type == 'family' else 'user_profile' -%}
+                      {%- set raw = _cab_vars.get(key, _cab_vars.get(key_legacy, {})) -%}
                       {%- set pv  = raw.get('value', raw) if raw is mapping else {} -%}
                       {{ {
                         'name':           pv.get('name', ''),
@@ -1032,6 +1033,26 @@ script:
                   key: "{{ _u_key }}"
                   value: "{{ _u_new }}"
                   caller_token: '{{ caller_token }}'
+                response_variable: _write_result
+                continue_on_error: true
+
+              - variables:
+                  _write_ok: "{{ _write_result is mapping and _write_result.get('success', false) | bool }}"
+                  _write_err: "{{ _write_result.get('error', _write_result.get('message', 'unknown filecabinet error')) if not _write_ok else '' }}"
+
+              - choose:
+                  - conditions: "{{ not _write_ok }}"
+                    sequence:
+                      - variables:
+                          final_response:
+                            status: error
+                            mode: write
+                            target_type: "{{ _type }}"
+                            target: "{{ _target }}"
+                            message: "Profile write failed — filecabinet rejected the write: {{ _write_err }}"
+                            caller_token: '{{ caller_token }}'
+                      - stop: user/family write failed
+                        response_variable: final_response
 
               - variables:
                   final_response:

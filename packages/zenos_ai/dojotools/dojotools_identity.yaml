@@ -361,6 +361,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _hh_members_raw: >-
                   {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
@@ -485,6 +486,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _hh_members_raw: >-
                   {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
@@ -511,9 +513,15 @@ script:
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') | string | trim == '' }}
                 _fam_name: >-
+                  {%- set _fv = state_attr(family_entity, 'variables') | default({}, true) -%}
+                  {%- set _fv = _fv if _fv is mapping else {} -%}
+                  {%- set _fp_r = _fv.get('_family_profile', _fv.get('family_profile', {})) -%}
+                  {%- set _fp = _fp_r.get('value', _fp_r) if _fp_r is mapping else {} -%}
+                  {%- set _fp = _fp | from_json if _fp is string else _fp -%}
+                  {%- set _d = _fp.get('display_name', _fp.get('name', '')) | trim -%}
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('friendly_name', family_entity) }}
+                  {{ _d if _d != '' else _vi.get('friendly_name', family_entity) }}
                 _hh_members: "{{ _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw }}"
             - if: "{{ _fam_guid_is_new | bool }}"
               then:
@@ -690,6 +698,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _hh_members_raw: >-
                   {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
@@ -703,6 +712,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _hh_vi: "{{ _hh_vi_raw | from_json if _hh_vi_raw is string else (_hh_vi_raw if _hh_vi_raw is mapping else {}) }}"
@@ -727,9 +737,18 @@ script:
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') | string | trim == '' }}
                 _mem_name: >-
+                  {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
+                  {%- set _mv = _mv if _mv is mapping else {} -%}
+                  {%- set _up_r = _mv.get('_user_profile', _mv.get('user_profile', _mv.get('_family_profile', _mv.get('family_profile', {})))) -%}
+                  {%- set _up = _up_r.get('value', _up_r) if _up_r is mapping else {} -%}
+                  {%- set _up = _up | from_json if _up is string else _up -%}
+                  {%- set _pn = _up.get('preferred_name', '') | trim -%}
+                  {%- set _fn = _up.get('first_name', '') | trim -%}
+                  {%- set _ln = _up.get('last_name', '') | trim -%}
+                  {%- set _d = _pn if _pn != '' else ((_fn + ' ' + _ln) | trim) -%}
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('friendly_name', member_entity) }}
+                  {{ _d if _d != '' else _vi.get('friendly_name', member_entity) }}
             - if: "{{ _mem_guid_is_new | bool }}"
               then:
                 - variables:
@@ -921,6 +940,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _updated_members: >-
@@ -1012,20 +1032,31 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _mem_vi_raw: >-
                   {%- set _v = state_attr(member_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _mem_guid: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {{ (_vi if _vi is mapping else {}).get('guid', '') }}
                 _mem_name: >-
+                  {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
+                  {%- set _mv = _mv if _mv is mapping else {} -%}
+                  {%- set _up_r = _mv.get('_user_profile', _mv.get('user_profile', _mv.get('_family_profile', _mv.get('family_profile', {})))) -%}
+                  {%- set _up = _up_r.get('value', _up_r) if _up_r is mapping else {} -%}
+                  {%- set _up = _up | from_json if _up is string else _up -%}
+                  {%- set _pn = _up.get('preferred_name', '') | trim -%}
+                  {%- set _fn = _up.get('first_name', '') | trim -%}
+                  {%- set _ln = _up.get('last_name', '') | trim -%}
+                  {%- set _d = _pn if _pn != '' else ((_fn + ' ' + _ln) | trim) -%}
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
-                  {{ (_vi if _vi is mapping else {}).get('friendly_name', member_entity) }}
+                  {{ _d if _d != '' else (_vi if _vi is mapping else {}).get('friendly_name', member_entity) }}
                 _hh_vi_updated: >-
                   {%- set _vi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
@@ -1108,12 +1139,14 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _fam_vi_raw: >-
                   {%- set _v = state_attr(family_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _mem_guid: >-
@@ -1128,17 +1161,32 @@ script:
                       range(0, 65536) | random, range(0, 65536) | random) }}
                   {%- endif -%}
                 _mem_name: >-
+                  {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
+                  {%- set _mv = _mv if _mv is mapping else {} -%}
+                  {%- set _up_r = _mv.get('_user_profile', _mv.get('user_profile', _mv.get('_family_profile', _mv.get('family_profile', {})))) -%}
+                  {%- set _up = _up_r.get('value', _up_r) if _up_r is mapping else {} -%}
+                  {%- set _up = _up | from_json if _up is string else _up -%}
+                  {%- set _pn = _up.get('preferred_name', '') | trim -%}
+                  {%- set _fn = _up.get('first_name', '') | trim -%}
+                  {%- set _ln = _up.get('last_name', '') | trim -%}
+                  {%- set _d = _pn if _pn != '' else ((_fn + ' ' + _ln) | trim) -%}
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('friendly_name', member_entity) }}
+                  {{ _d if _d != '' else _vi.get('friendly_name', member_entity) }}
                 _fam_guid: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _fam_name: >-
+                  {%- set _fv = state_attr(family_entity, 'variables') | default({}, true) -%}
+                  {%- set _fv = _fv if _fv is mapping else {} -%}
+                  {%- set _fp_r = _fv.get('_family_profile', _fv.get('family_profile', {})) -%}
+                  {%- set _fp = _fp_r.get('value', _fp_r) if _fp_r is mapping else {} -%}
+                  {%- set _fp = _fp | from_json if _fp is string else _fp -%}
+                  {%- set _d = _fp.get('display_name', _fp.get('name', '')) | trim -%}
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('friendly_name', family_entity) }}
+                  {{ _d if _d != '' else _vi.get('friendly_name', family_entity) }}
                 _list_key: >-
                   {%- if member_type == 'ai_user' -%}ai_users
                   {%- elif member_type == 'family' -%}families
@@ -1289,12 +1337,14 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _fam_vi_raw: >-
                   {%- set _v = state_attr(family_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _fam_guid: >-
@@ -1302,17 +1352,32 @@ script:
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _fam_name: >-
+                  {%- set _fv = state_attr(family_entity, 'variables') | default({}, true) -%}
+                  {%- set _fv = _fv if _fv is mapping else {} -%}
+                  {%- set _fp_r = _fv.get('_family_profile', _fv.get('family_profile', {})) -%}
+                  {%- set _fp = _fp_r.get('value', _fp_r) if _fp_r is mapping else {} -%}
+                  {%- set _fp = _fp | from_json if _fp is string else _fp -%}
+                  {%- set _d = _fp.get('display_name', _fp.get('name', '')) | trim -%}
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('friendly_name', family_entity) }}
+                  {{ _d if _d != '' else _vi.get('friendly_name', family_entity) }}
                 _mem_guid: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{ _vi.get('guid', '') }}
                 _mem_name: >-
+                  {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
+                  {%- set _mv = _mv if _mv is mapping else {} -%}
+                  {%- set _up_r = _mv.get('_user_profile', _mv.get('user_profile', _mv.get('_family_profile', _mv.get('family_profile', {})))) -%}
+                  {%- set _up = _up_r.get('value', _up_r) if _up_r is mapping else {} -%}
+                  {%- set _up = _up | from_json if _up is string else _up -%}
+                  {%- set _pn = _up.get('preferred_name', '') | trim -%}
+                  {%- set _fn = _up.get('first_name', '') | trim -%}
+                  {%- set _ln = _up.get('last_name', '') | trim -%}
+                  {%- set _d = _pn if _pn != '' else ((_fn + ' ' + _ln) | trim) -%}
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
-                  {{ _vi.get('friendly_name', member_entity) }}
+                  {{ _d if _d != '' else _vi.get('friendly_name', member_entity) }}
                 _list_key: >-
                   {%- if member_type == 'ai_user' -%}ai_users
                   {%- elif member_type == 'family' -%}families
@@ -1326,6 +1391,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _principal_warning: >-
                   {%- set _vi = _fam_vi_raw2 | from_json if _fam_vi_raw2 is string else _fam_vi_raw2 -%}
@@ -1442,12 +1508,14 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _b_vi_raw: >-
                   {%- set _v = state_attr(ai_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _a_guid: >-
@@ -1563,12 +1631,14 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _b_vi_raw: >-
                   {%- set _v = state_attr(ai_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _a_name: >-
@@ -1658,12 +1728,14 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _fam_vi_raw: >-
                   {%- set _v = state_attr(family_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
             - variables:
                 _fam_guid: >-
@@ -1720,6 +1792,7 @@ script:
                   {%- set _v = _v if _v is mapping else {} -%}
                   {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                   {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                   {{ _vi | tojson }}
                 _root_members_raw: >-
                   {%- set _v = state_attr(_root_entity, 'variables') | default({}, true) -%}
@@ -1853,6 +1926,7 @@ script:
                           {%- set _v = _v if _v is mapping else {} -%}
                           {%- set _vi = _v.get('AI_Cabinet_VolumeInfo', _v) -%}
                           {%- set _vi = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                          {%- set _vi = _vi | from_json if _vi is string else _vi -%}
                           {{ _vi | tojson }}
                         _hh_m_raw: >-
                           {%- set _v = state_attr(_lookup_root, 'variables') | default({}, true) -%}

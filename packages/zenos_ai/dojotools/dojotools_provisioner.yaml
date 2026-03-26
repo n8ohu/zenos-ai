@@ -403,7 +403,11 @@ script:
         then:
         - event: set_variable_legacy
           event_data:
-            key: profile
+            key: >-
+              {%- if _cab_type == 'user' -%}_user_profile
+              {%- elif _cab_type == 'family' -%}_family_profile
+              {%- elif _cab_type == 'household' -%}_household_profile
+              {%- else -%}profile{%- endif -%}
             value: "{{ {'value': _profile} }}"
             volume_entity: "{{ _target }}"
             set_timestamp: true
