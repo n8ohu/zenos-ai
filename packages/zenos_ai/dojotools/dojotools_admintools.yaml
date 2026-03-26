@@ -1026,7 +1026,7 @@ script:
         response: "{{ response | combine({'caller_token': caller_token | default('')}) if response is mapping else response }}"
     - stop: complete
       response_variable: response
-    alias: Zen AdminTools CabinetAdmin (BACKUP)
+    alias: Zen AdminTools CabinetAdmin Stamp
     description: 'Factory tool for stamping or repairing Cabinet sensors. Requires confirm_action:
       true to run. Auto-detects flag profiles from cabinet type or manifest labels.
       Parses mount:[GUID] drawers into _zen_relationships. Accepts person.* entities
