@@ -226,7 +226,7 @@ script:
         - condition: template
           value_template: "{{ _needs_stamp }}"
         then:
-        - action: script.zen_admintools_cabinetadmin_stamp
+        - action: script.zen_admintools_cabinetadmin_factory
           data:
             cabinet_entity: "{{ _target }}"
             cabinet_type: "{{ _cab_type_friendly }}"

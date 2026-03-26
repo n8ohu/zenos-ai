@@ -114,10 +114,10 @@ automation:
                   caller_token:    "{{ _payload.get('caller_token', '') }}"
                 response_variable: _result
 
-          # ── zen_admintools_cabinetadmin_stamp v1 ─────────────────────────
-          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin_stamp' and _ver == '1' }}"
+          # ── zen_admintools_cabinetadmin_factory v1 ─────────────────────────
+          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin_factory' and _ver == '1' }}"
             sequence:
-              - action: script.zen_admintools_cabinetadmin_stamp
+              - action: script.zen_admintools_cabinetadmin_factory
                 data:
                   cabinet_entity: "{{ _payload.get('cabinet_entity', '') }}"
                   cabinet_type:   "{{ _payload.get('cabinet_type', '') }}"

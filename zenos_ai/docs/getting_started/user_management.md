@@ -392,7 +392,7 @@ Use these when one identity or cabinet is broken but the rest of the system is h
 If a cabinet is showing schema errors or a missing GUID in `sensor.zen_cabinet_health`:
 
 ```yaml
-script.zen_admintools_cabinetadmin_stamp:
+script.zen_admintools_cabinetadmin_factory:
   target_cabinet: sensor.<cabinet_entity>
   cabinet_type: "AI Data Storage Cabinet"  # or relevant type
   confirm_action: true
@@ -496,7 +496,7 @@ After the nuclear sequence completes, re-provision each identity cabinet via the
 | Change default family | `zen_dojotools_identity` | `set_default_family` |
 | Set/replace HoH or prime AI | `zen_dojotools_identity` | `set_principal` |
 | Transfer default label | `zen_dojotools_labels` | `untag` + `tag` |
-| Reseed cabinet header | `zen_admintools_cabinetadmin_stamp` | — |
+| Reseed cabinet header | `zen_admintools_cabinetadmin_factory` | — |
 | Reset one cabinet | `zen_admintools_cabinetadmin` | `reset` |
 | Reset label assignments | `zen_dojotools_labels` | `reset` |
 | Rebuild identity manifest | `zen_dojotools_identity` | `build_identity_manifest` |
