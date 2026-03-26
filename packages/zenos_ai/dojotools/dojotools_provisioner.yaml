@@ -1,12 +1,13 @@
 #####################################################################
 # zen_dojotools_provisioner — Ready Player 2 cabinet provisioner
 #
-# v1.0.0 — #93 feat/ready-player-2 (ZenOS-AI 4.5.1)
+# v1.1.0 — #93 feat/ready-player-2 (ZenOS-AI 4.5.2)
 #
 # Ops: provision, deprovision, replace
 #
 # provision: validates GUID, applies type label, mounts a stacks cab,
-#   directory-preloads profile data, fires identity manifest rebuild.
+#   directory-preloads profile data. ai_user: also seeds blank zenai_essence.
+#   Fires identity manifest rebuild.
 #   Rollback on health gate timeout: strips label, cab returns to stacks.
 #
 # deprovision: dismounts cab, strips type label, fires manifest rebuild.
@@ -414,6 +415,45 @@ script:
               {%- elif _cab_type == 'household' -%}_household_profile
               {%- else -%}profile{%- endif -%}
             value: "{{ _profile | tojson }}"
+
+      # ── ai_user: seed blank zenai_essence ────────────────────────────────
+      # Ensures profile editor read/write is live immediately after provision.
+      # mode: write with no fields will self-heal if this is ever deleted.
+      - if:
+        - condition: template
+          value_template: "{{ _cab_type == 'ai_user' }}"
+        then:
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: create
+            force_action: true
+            set_timestamp: true
+            volume_entity_id:
+              - "{{ _target }}"
+            key: zenai_essence
+            value: >-
+              {{ {
+                'core': {
+                  'id': _guid,
+                  'person_id': '',
+                  'minted_for': '',
+                  'minted_at': now().isoformat(),
+                  'household_guid': '',
+                  'signature': 'pending_x509'
+                },
+                'jacket': {
+                  'name': '',
+                  'presentation': '',
+                  'pronouns': '',
+                  'persona': {
+                    'appearance': {'visual': ''},
+                    'voice': {'register': '', 'identity': ''},
+                    'household': {'position': ''}
+                  },
+                  'traits': {'warm': ''}
+                },
+                'companion': {'name': '', 'species': '', 'visual': ''}
+              } | tojson }}
 
       # ── Fire completion events ────────────────────────────────────────────
       - event: zen_event

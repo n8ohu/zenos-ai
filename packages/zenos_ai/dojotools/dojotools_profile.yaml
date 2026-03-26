@@ -1,12 +1,13 @@
 ###############################################################################
-# ZENOS-AI DOJOTOOL: PROFILE EDITOR (v4.5.1)
+# ZENOS-AI DOJOTOOL: PROFILE EDITOR (v4.5.2)
 #
 # Script: zen_dojotools_profile_editor
 #   Universal read/write for ZenOS identity cabinets.
 #   Targets: ai_user | household | user | family
 #   Defaults to zen_default_{type}_cabinet when no target given.
 #   mode: read  — returns flattened current profile fields
-#   mode: write — leaf-level patch, non-destructive by default (force to overwrite)
+#   mode: write — leaf-level patch, non-destructive by default (force to overwrite).
+#                 Self-heals missing/corrupt zenai_essence — call with no fields to reseed.
 #   mode: help  — returns full field reference with samples
 #
 # Leaf merge strategy (ai_user / essence):
@@ -468,8 +469,9 @@ script:
               - variables:
                   _r_profile: >-
                     {%- if _type in ['ai_user'] -%}
-                      {%- set raw = _cab_vars.get('zenai_essence', {}) -%}
-                      {%- set ev  = raw.get('value', raw) if raw is mapping else {} -%}
+                      {%- set raw    = _cab_vars.get('zenai_essence', {}) -%}
+                      {%- set ev_raw = raw.get('value', {}) if raw is mapping else {} -%}
+                      {%- set ev     = ev_raw if ev_raw is mapping else (ev_raw | from_json if ev_raw is string else {}) -%}
                       {%- set _is_new = ev.get('core') is mapping and ev.get('jacket') is mapping -%}
                       {%- if _is_new -%}
                         {%- set _co  = ev.get('core', {}) -%}
@@ -547,8 +549,9 @@ script:
                         } }}
                       {%- endif -%}
                     {%- elif _type == 'household' -%}
-                      {%- set raw = _cab_vars.get('_household_profile', {}) -%}
-                      {%- set pv  = raw.get('value', raw) if raw is mapping else {} -%}
+                      {%- set raw    = _cab_vars.get('_household_profile', {}) -%}
+                      {%- set pv_raw = raw.get('value', {}) if raw is mapping else {} -%}
+                      {%- set pv     = pv_raw if pv_raw is mapping else (pv_raw | from_json if pv_raw is string else {}) -%}
                       {{ {
                         'household_name': pv.get('household_name', ''),
                         'address':        pv.get('address', ''),
@@ -562,8 +565,9 @@ script:
                     {%- else -%}
                       {%- set key = '_family_profile' if _type == 'family' else '_user_profile' -%}
                       {%- set key_legacy = 'family_profile' if _type == 'family' else 'user_profile' -%}
-                      {%- set raw = _cab_vars.get(key, _cab_vars.get(key_legacy, {})) -%}
-                      {%- set pv  = raw.get('value', raw) if raw is mapping else {} -%}
+                      {%- set raw    = _cab_vars.get(key, _cab_vars.get(key_legacy, {})) -%}
+                      {%- set pv_raw = raw.get('value', {}) if raw is mapping else {} -%}
+                      {%- set pv     = pv_raw if pv_raw is mapping else (pv_raw | from_json if pv_raw is string else {}) -%}
                       {{ {
                         'name':           pv.get('name', ''),
                         'first_name':     pv.get('first_name', ''),
@@ -617,7 +621,8 @@ script:
               - variables:
                   _cur_raw: "{{ _cab_vars.get('zenai_essence', {}) }}"
                   _cur_ev:  >-
-                    {{ _cur_raw.get('value', _cur_raw) if _cur_raw is mapping else {} }}
+                    {%- set _ev_raw = _cur_raw.get('value', {}) if _cur_raw is mapping else {} -%}
+                    {{ _ev_raw if _ev_raw is mapping else (_ev_raw | from_json if _ev_raw is string else {}) }}
                   _in_pname:  "{{ persona_name  | default('') | trim }}"
                   _in_puser:  "{{ primary_user  | default('') | trim }}"
                   _in_pron:   "{{ pronouns      | default('') | trim }}"
@@ -830,8 +835,10 @@ script:
                 then:
                   - variables:
                       _as_raw: "{{ state_attr(_target, 'variables') | default({}, true) }}"
-                      _as_ess: "{{ _as_raw.get('zenai_essence', {}) }}"
-                      _as_val: "{{ _as_ess.get('value', _as_ess) if _as_ess is mapping else {} }}"
+                      _as_ess: "{{ _as_raw.get('zenai_essence', {}) if _as_raw is mapping else {} }}"
+                      _as_val: >-
+                        {%- set _av_raw = _as_ess.get('value', {}) if _as_ess is mapping else {} -%}
+                        {{ _av_raw if _av_raw is mapping else (_av_raw | from_json if _av_raw is string else {}) }}
                       _as_core: "{{ _as_val.get('core', {}) if _as_val is mapping else {} }}"
                       _as_jack: "{{ _as_val.get('jacket', {}) if _as_val is mapping else {} }}"
                       _as_comp: "{{ _as_val.get('companion', {}) if _as_val is mapping else {} }}"
