@@ -1719,7 +1719,9 @@ script:
               {% for eid in label_entities('zen_cabinet') | list %}
                 {% set vinfo = state_attr(eid, 'variables') %}
                 {% if vinfo is mapping %}
-                  {% set vi = vinfo.get('AI_Cabinet_VolumeInfo', {}).get('value', {}) %}
+                  {%- set _vi_raw = vinfo.get('AI_Cabinet_VolumeInfo', {}) -%}
+                  {%- set vi = _vi_raw.get('value', {}) if _vi_raw is mapping else {} -%}
+                  {%- set vi = vi if vi is mapping else (vi | from_json if vi is string else {}) -%}
                   {% if vi is mapping and vi.get('id', '') == target_guid %}
                     {% set ns.found = eid %}
                   {% endif %}

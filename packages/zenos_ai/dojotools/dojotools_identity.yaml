@@ -564,7 +564,7 @@ script:
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _fams = _m.get('families', []) -%}
                   {%- set _fams = _fams if _fams is iterable and _fams is not string else [] -%}
-                  {%- set _entry = _new_fam_entry | from_json -%}
+                  {%- set _entry = _new_fam_entry | from_json if _new_fam_entry is string else _new_fam_entry -%}
                   {{
                     dict(_m, **{'families': _fams + [_entry]}) | tojson
                   }}
@@ -796,7 +796,7 @@ script:
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _lst = _m.get(_list_key, []) -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
-                  {%- set _entry = _new_entry | from_json -%}
+                  {%- set _entry = _new_entry | from_json if _new_entry is string else _new_entry -%}
                   {{ dict(_m, **{_list_key: _lst + [_entry]}) | tojson }}
             - action: script.zen_dojotools_filecabinet
               data:
@@ -1157,7 +1157,7 @@ script:
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _lst = _m.get(_list_key, []) -%}
                   {%- set _lst = _lst if _lst is iterable and _lst is not string else [] -%}
-                  {%- set _entry = _new_entry | from_json -%}
+                  {%- set _entry = _new_entry | from_json if _new_entry is string else _new_entry -%}
                   {{ dict(_m, **{_list_key: _lst + [_entry]}) | tojson }}
             - action: script.zen_dojotools_filecabinet
               data:
