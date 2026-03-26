@@ -532,6 +532,22 @@ script:
             - condition: template
               value_template: '{{ op == ''init'' }}'
             sequence:
+            # ── Boot guard — refuse if cab not yet restored from recorder ──
+            # unavailable = recorder hasn't restored yet, state is indeterminate.
+            # unknown = no recorder history at all = truly virgin. Allow.
+            - if:
+              - condition: template
+                value_template: "{{ states(cab) == 'unavailable' }}"
+              then:
+              - variables:
+                  result:
+                    status: refused
+                    mode: init
+                    target: "{{ cab }}"
+                    action_taken: none
+                    reason: cab_unavailable
+              - stop: cab unavailable — wait for HA to stabilize
+                response_variable: result
             # ── Classifier ─────────────────────────────────────────────────
             - variables:
                 _vars: >-
