@@ -546,6 +546,7 @@ script:
                     {
                       'guid':      _fam_guid,
                       'entity_id': family_entity,
+                      'name':      _fam_name,
                       'depth':     1
                     } | tojson
                   }}
@@ -821,7 +822,7 @@ script:
                   response_variable: response
             - variables:
                 _new_entry: >-
-                  {{ {'guid': _mem_guid, 'entity_id': member_entity} | tojson }}
+                  {{ {'guid': _mem_guid, 'entity_id': member_entity, 'name': _mem_name} | tojson }}
                 _updated_members: >-
                   {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
@@ -1198,9 +1199,9 @@ script:
                   {{ _m.get(_list_key, []) | tojson }}
                 _new_entry: >-
                   {%- if member_type == 'family' -%}
-                    {{ {'guid': _mem_guid, 'entity_id': member_entity, 'depth': 2} | tojson }}
+                    {{ {'guid': _mem_guid, 'entity_id': member_entity, 'name': _mem_name, 'depth': 2} | tojson }}
                   {%- else -%}
-                    {{ {'guid': _mem_guid, 'entity_id': member_entity} | tojson }}
+                    {{ {'guid': _mem_guid, 'entity_id': member_entity, 'name': _mem_name} | tojson }}
                   {%- endif -%}
             - variables:
                 _already_member: >-
