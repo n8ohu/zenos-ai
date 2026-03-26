@@ -852,7 +852,7 @@ script:
           }}'
         now_iso: '{{ now().isoformat() }}'
         schema_version: 1
-        cabinet_guid: "{{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random) if (force_new_guid or cabinet_guid in ['', none]) else cabinet_guid }}"
+        cabinet_guid: "{{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random) if (force_new_guid or not cabinet_guid) else cabinet_guid }}"
         labels_from_manifest: '{{ state_attr(''sensor.zen_library_manifest'',''value'')
           | default({}, true) }}'
         flag_profile: "{% if not auto_profile %}\n  {{ explicit_flag_profile | default('standard')
