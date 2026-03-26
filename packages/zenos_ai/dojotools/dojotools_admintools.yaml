@@ -898,6 +898,7 @@ script:
                 set_timestamp: true
                 volume_entity: '{{ cabinet_entity }}'
                 _cabinetadmin_init: true
+                force: true
         - event: zen_event
           event_data:
             kind: cabinet_boot_touch
@@ -939,6 +940,7 @@ script:
                 set_timestamp: true
                 volume_entity: '{{ cabinet_entity }}'
                 _cabinetadmin_init: true
+                force: true
         - event: zen_event
           event_data:
             kind: cabinet_boot_touch
