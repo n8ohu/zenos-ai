@@ -379,6 +379,16 @@ script:
         default: ''
         selector:
           text:
+      confirm_action:
+        name: Confirm Init (init only)
+        description: >-
+          Required when target cabinet state is unknown (no recorder history —
+          could be virgin or a wiped initialized cab). Explicit human confirmation
+          before stamping. Not required when state is init (unambiguously virgin).
+        required: false
+        default: false
+        selector:
+          boolean:
       hammer_ok:
         name: Allow Hammer Destroy Mode
         selector:
@@ -547,6 +557,26 @@ script:
                     action_taken: none
                     reason: cab_unavailable
               - stop: cab unavailable — wait for HA to stabilize
+                response_variable: result
+            # ── Unknown guard — require confirm_action when state is unknown ─
+            # unknown = no recorder history. Could be truly virgin OR a wiped
+            # initialized cab. Cannot distinguish without explicit confirmation.
+            # init state = triggered + no VolumeInfo = unambiguously virgin → skip.
+            - if:
+              - condition: template
+                value_template: "{{ states(cab) == 'unknown' and not (confirm_action | default(false)) }}"
+              then:
+              - variables:
+                  result:
+                    status: refused
+                    mode: init
+                    target: "{{ cab }}"
+                    action_taken: none
+                    reason: confirm_required
+                    message: >-
+                      Cabinet state is unknown (no recorder history). Cannot confirm
+                      virgin status. Set confirm_action: true to proceed.
+              - stop: confirm required — unknown cab state
                 response_variable: result
             # ── Classifier ─────────────────────────────────────────────────
             - variables:
