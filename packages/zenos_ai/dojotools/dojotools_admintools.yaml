@@ -389,6 +389,16 @@ script:
         default: false
         selector:
           boolean:
+      confirm_init:
+        name: Auto-Init After Hammer
+        description: >-
+          If true, run cabinetadmin_factory on the wiped cabinet immediately
+          after hammer completes. Cabinet is re-stamped with a fresh GUID and
+          VolumeInfo. Requires cab_type to set the correct cabinet type.
+        required: false
+        default: false
+        selector:
+          boolean:
       hammer_ok:
         name: Allow Hammer Destroy Mode
         selector:
@@ -538,6 +548,16 @@ script:
                   value: destroyed
                   timestamp: '{{ now().isoformat() }}'
                 set_timestamp: true
+            - if: "{{ confirm_init | default(false) | bool }}"
+              then:
+              - action: script.zen_admintools_cabinetadmin_factory
+                data:
+                  confirm_action: true
+                  cabinet_entity: "{{ cab }}"
+                  cabinet_type: "{{ cab_type | default('') }}"
+                response_variable: _hammer_init_result
+              - variables:
+                  _hammer_init_guid: "{{ _hammer_init_result.get('guid', '') if _hammer_init_result is mapping else '' }}"
           - conditions:
             - condition: template
               value_template: '{{ op == ''init'' }}'
@@ -719,6 +739,24 @@ script:
           inspect_acc: "{{ inspect_acc | combine({'caller_token': caller_token | default('')}) if inspect_acc is mapping else inspect_acc }}"
       - stop: inspect complete
         response_variable: inspect_acc
+    # ── hammer — return result with optional init_guid ────────────────────────
+    - if:
+      - condition: template
+        value_template: '{{ op == ''hammer'' }}'
+      then:
+      - variables:
+          _hammer_result: "{{
+            {
+              'status': 'ok',
+              'op': 'hammer',
+              'target': cab,
+              'init_guid': _hammer_init_guid | default(''),
+              'auto_init': confirm_init | default(false) | bool,
+              'caller_token': caller_token | default('')
+            }
+          }}"
+      - stop: hammer complete
+        response_variable: _hammer_result
     # ── init — return result after classification and stamp ───────────────────
     - if:
       - condition: template
@@ -958,6 +996,7 @@ script:
         - variables:
             response:
               status: success
+              guid: "{{ cabinet_guid }}"
               message: 'Cabinet ''{{ cabinet_entity }}'' initialized with GUID {{ cabinet_guid
                 }}, profile ''{{ flag_profile }}'', and {{ mounts_out | length }} mounts.
 
@@ -972,9 +1011,11 @@ script:
         sequence:
         - variables:
             existing: '{{ state_attr(cabinet_entity,''variables'') }}'
-            existing_guid: "{% set info = existing.get('AI_Cabinet_VolumeInfo',{}) %}
-              {% if info is mapping and info.get('value') is mapping %}\n  {{ info.value.get('id','')
-              }}\n{% else %}''{% endif %}"
+            existing_guid: >-
+              {%- set info = existing.get('AI_Cabinet_VolumeInfo', {}) if existing is mapping else {} -%}
+              {%- set _val = info.get('value', {}) if info is mapping else {} -%}
+              {%- set _val = _val if _val is mapping else (_val | from_json if _val is string else {}) -%}
+              {{ _val.get('id', '') }}
             guid_changed: '{{ force_new_guid or existing_guid != cabinet_guid }}'
         - choose:
           - conditions:
@@ -1000,6 +1041,7 @@ script:
         - variables:
             response:
               status: success
+              guid: "{{ cabinet_guid }}"
               message: 'Repaired ''{{ cabinet_entity }}'' (profile ''{{ flag_profile
                 }}''). {% if guid_changed %}GUID restamped: {{ cabinet_guid }}.{% endif
                 %}

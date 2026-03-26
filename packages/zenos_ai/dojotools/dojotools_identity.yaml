@@ -593,6 +593,11 @@ script:
                     'caller_token':      caller_token | default('')
                   }
                 }}"
+            - action: script.zen_dojotools_identity
+              data:
+                mode: build_identity_manifest
+                household_entity: "{{ _hh_cab }}"
+              continue_on_error: true
             - stop: Household family added
               response_variable: response
 
@@ -652,6 +657,11 @@ script:
                     'caller_token':      caller_token | default('')
                   }
                 }}"
+            - action: script.zen_dojotools_identity
+              data:
+                mode: build_identity_manifest
+                household_entity: "{{ _hh_cab }}"
+              continue_on_error: true
             - stop: Household family removed
               response_variable: response
 
@@ -870,6 +880,11 @@ script:
                     'caller_token':      caller_token | default('')
                   }
                 }}"
+            - action: script.zen_dojotools_identity
+              data:
+                mode: build_identity_manifest
+                household_entity: "{{ _hh_cab }}"
+              continue_on_error: true
             - stop: Household member added
               response_variable: response
 
@@ -958,6 +973,11 @@ script:
                     'caller_token':      caller_token | default('')
                   }
                 }}"
+            - action: script.zen_dojotools_identity
+              data:
+                mode: build_identity_manifest
+                household_entity: "{{ _hh_cab }}"
+              continue_on_error: true
             - stop: Household member removed
               response_variable: response
 
@@ -1231,6 +1251,11 @@ script:
                     'caller_token':     caller_token | default('')
                   }
                 }}"
+            - action: script.zen_dojotools_identity
+              data:
+                mode: build_identity_manifest
+                household_entity: "{{ _hh_target }}"
+              continue_on_error: true
             - stop: Family member added
               response_variable: response
 
@@ -1384,6 +1409,11 @@ script:
                     'caller_token':      caller_token | default('')
                   }
                 }}"
+            - action: script.zen_dojotools_identity
+              data:
+                mode: build_identity_manifest
+                household_entity: "{{ _hh_target }}"
+              continue_on_error: true
             - stop: Family member removed
               response_variable: response
 
