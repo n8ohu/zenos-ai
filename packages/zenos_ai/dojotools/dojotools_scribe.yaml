@@ -1390,7 +1390,7 @@ script:
                     {% set base = _k2 if _k2 is mapping else {} %}
                     {{
                       {
-                        "version": base.get('version', version | default('1.0.0')),
+                        "version": base.get('version', version_semantic | default('1.0.0')),
                         "friendly_name": base.get('friendly_name', friendly_name | default(_slug)),
                         "label": base.get('label', _base_label),
                         "primary_index_key": base.get('primary_index_key', _primary_index_key),
