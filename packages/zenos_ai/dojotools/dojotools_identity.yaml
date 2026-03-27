@@ -1693,13 +1693,13 @@ script:
             - event: set_variable_legacy
               event_data:
                 key: AI_Cabinet_VolumeInfo
-                value: "{{ _user_vi_updated }}"
+                value: "{{ _a_vi_updated }}"
                 volume_entity: "{{ member_entity }}"
                 set_timestamp: true
             - event: set_variable_legacy
               event_data:
                 key: AI_Cabinet_VolumeInfo
-                value: "{{ _ai_vi_updated }}"
+                value: "{{ _b_vi_updated }}"
                 volume_entity: "{{ ai_entity }}"
                 set_timestamp: true
             - event: zen_event

@@ -1055,6 +1055,7 @@ script:
           _b3_hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
           _b3_user_cab: "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
           _b3_ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
+          _b3_fam_cab: "{{ states('sensor.zen_default_family_cabinet_resolved') }}"
       - if: "{{ _b3_user_cab not in ['', 'unknown', 'unavailable'] }}"
         then:
           - action: script.zen_dojotools_identity
@@ -1078,6 +1079,33 @@ script:
               mode: link_partners
               member_entity: "{{ _b3_user_cab }}"
               ai_entity: "{{ _b3_ai_cab }}"
+      # Wire default family into household graph — idempotent, skips if already wired.
+      - if: "{{ _b3_fam_cab not in ['', 'unknown', 'unavailable'] }}"
+        then:
+          - action: script.zen_dojotools_identity
+            data:
+              mode: household_add_family
+              family_entity: "{{ _b3_fam_cab }}"
+      - if: >-
+          {{ _b3_user_cab not in ['', 'unknown', 'unavailable']
+             and _b3_fam_cab not in ['', 'unknown', 'unavailable'] }}
+        then:
+          - action: script.zen_dojotools_identity
+            data:
+              mode: family_add_member
+              family_entity: "{{ _b3_fam_cab }}"
+              member_entity: "{{ _b3_user_cab }}"
+              member_type: user
+      - if: >-
+          {{ _b3_ai_cab not in ['', 'unknown', 'unavailable']
+             and _b3_fam_cab not in ['', 'unknown', 'unavailable'] }}
+        then:
+          - action: script.zen_dojotools_identity
+            data:
+              mode: family_add_member
+              family_entity: "{{ _b3_fam_cab }}"
+              member_entity: "{{ _b3_ai_cab }}"
+              member_type: ai_user
       - action: script.zen_dojotools_identity
         data:
           mode: build_identity_manifest
