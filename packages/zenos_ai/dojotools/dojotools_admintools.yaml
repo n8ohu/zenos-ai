@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: AdminTools
-# Version: 4.5.5
+# Version: 4.5.6
 #
 # Scripts:
 #   zen_admintools_reset_template        — Kata + Dojo template press (v1.1.0)
@@ -980,6 +980,7 @@ script:
     sequence:
     - variables:
         confirm_action: '{{ confirm_action | default(false) }}'
+        caller_token: "{{- caller_token | default('') -}}"
     - choose:
       - conditions:
         - condition: template
