@@ -8,14 +8,16 @@ ZenOS-AI is a cabinet-centric AI framework for deterministic, inspectable househ
 
 ## Current Status
 
-**4.5.6 — In UAT (2026-03-27)**
+**4.5.6 — Shipped (2026-03-27)**
 
-Identity graph and alertmanager correctness batch. `unlink_partners` variable name fix (ACL
-removal now persists). Cold bootstrap now wires default family into household graph
-(`household_add_family` + `family_add_member`). Identity tree name resolution chain extended
-(friendly_name → name → entity_id). Home mode `input_datetime` helpers ship without `initial:`;
-Flynn seeds defaults on first boot per-timer. AlertManager deduplication fixed (`_zen_active_alerts`
-now persists). `run_repair` admin entry point in SystemTools with versioned picklist dispatch.
+Identity graph, alertmanager, and GUID correctness batch. `unlink_partners` variable name fix (ACL
+removal now persists). Cold bootstrap wires default family into household graph. Identity tree
+name resolution extended (friendly_name → name → entity_id). GUID id-preference fix (23 sites —
+`id` over legacy `guid`). Household root profile-first name resolution. Home mode `input_datetime`
+helpers ship without `initial:`; Flynn seeds defaults on first boot. AlertManager deduplication
+fixed. `run_repair` moved from SystemTools to AdminTools behind confirm gate; two new maint scripts
+(`stamp_cab_guid`, `roster_guid_repair`) for pre-provisioner installs. Family cabinet VolumeInfo
+rogue key repair script added (`maint/repair_fam_cab_volumeinfo.yaml`).
 
 See: [Patch 4.5.6 Release Notes](releases/patch_4_5_6.md)
 

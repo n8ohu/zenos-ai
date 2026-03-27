@@ -896,26 +896,6 @@ script:
               monk_status: "{{ _monk_status }}"
               active_components: "{{ _active_raw }}"
               diagnosis: "{{ _diagnosis }}"
-      - conditions:
-        - alias: Run Repair Script
-          condition: template
-          value_template: "{{ tool == 'run_repair' }}"
-        sequence:
-        - variables:
-            _repair: "{{ repair_action | default('') | trim }}"
-        - if: "{{ _repair == 'identity_family_repair_4_5_6' }}"
-          then:
-            - action: script.zen_maint_4_5_6_identity_family_repair
-              response_variable: _repair_result
-            - variables:
-                response: "{{ _repair_result | default({'status': 'error', 'message': 'Repair script returned no result.'}) }}"
-          else:
-            - variables:
-                response:
-                  tool: run_repair
-                  result: error
-                  message: "Unknown repair_action '{{ _repair }}'. Check available repairs."
-                  caller_token: "{{ caller_token }}"
       default:
       - variables:
           response: "{{\n  {\n    \"tool\": tool | default('N/A'),\n    \"confirm\":
@@ -959,17 +939,6 @@ script:
             - ha_update_install
             - ha_update_skip
             - ha_update_clear_skipped
-            - run_repair
-      repair_action:
-        name: Repair Action
-        description: >-
-          One-time maintenance repair to run. Only valid when tool=run_repair.
-          Scripts in maint/ are versioned, idempotent, and not LLM-exposed directly.
-        required: false
-        selector:
-          select:
-            options:
-            - identity_family_repair_4_5_6
       confirm_action:
         selector:
           boolean:
