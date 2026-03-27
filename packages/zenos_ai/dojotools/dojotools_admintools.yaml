@@ -2518,6 +2518,7 @@ script:
             key: zen_system
             publish_confirm: true
             caller_id: zen_admintools_zenos_prompt_loader
+          response_variable: _zen_system_kfc_result
 
     # ── Idempotent: ensure syscab VolumeInfo carries cabinet_ro: true ─────────
     # Prompt loader writes directly to syscab via set_variable_zenos_system_cabinet.
