@@ -109,6 +109,8 @@
       "files": [
         { "id": "scripts_readme", "file": "readme.md", "title": "Scripts Overview", "type": "readme" },
         { "id": "zen_flynn", "file": "zen_flynn_readme.md", "title": "Flynn — Stepgate Sentinel & Bootstrap Engine", "type": "doc" },
+        { "id": "zen_dojotools_scribe", "file": "zen_dojotools_scribe_readme.md", "title": "DojoTools Scribe — KF4 Artifact Authoring", "type": "doc" },
+        { "id": "zen_pipeline_trigger_pattern", "file": "zen_pipeline_trigger_pattern.md", "title": "Pipeline Trigger Pattern — Act on the Monk After Kata Is Written", "type": "doc" },
         { "id": "zen_dojotools_admintools", "file": "zen_dojotools_admintools_readme.md", "title": "DojoTools AdminTools", "type": "doc" },
         { "id": "zen_dojotools_profile", "file": "zen_dojotools_profile_readme.md", "title": "DojoTools Profile Editor", "type": "doc" },
         { "id": "zen_dojotools_labels", "file": "zen_dojotools_labels_readme.md", "title": "DojoTools Labels", "type": "doc" },

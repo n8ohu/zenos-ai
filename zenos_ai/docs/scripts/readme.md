@@ -33,6 +33,27 @@ Below is the official documentation index for all ZenOS-AI DojoTools modules.
 
 ---
 
+## **0. Zen DojoTools Scribe — 4.5.5 'Ready Player Two'**
+
+**File:** `zen_dojotools_scribe_readme.md`
+**Type:** Technical Documentation
+
+**Summary:**
+Guided authoring and lifecycle management for KF4 artifacts. Fully MCP-exposed — Friday can use it directly.
+
+* Three artifact classes: `thought` (mutable draft), `scroll` (formal, read-only), `kfc` (published, live in Dojo)
+* Full lifecycle: `new_thought` → `patch` → `formalize_scroll` → `publish_kfc`
+* Scope discovery built in — `new_thought` calls Index automatically to capture a live entity snapshot before the first line is written
+* `dry_run` — preview scope and guidance without committing
+* `list_triggers` — return all available scheduler trigger IDs
+* Non-destructive by default — `patch` preserves existing content; `replace`, `clear`, `delete`, and `publish_kfc` all require explicit confirmation
+* Component group model — one corpus, multiple component views, shared clock and labelset
+* Self-indexing and drawer feedback loop guards built in
+
+A capable LLM can run the full authoring loop — scope a domain, draft the component, refine iteratively, formalize, and publish to the Dojo — without operator intervention beyond initial label design. `zen_dojotools_kungfu_writer` is retired; Scribe is the replacement.
+
+---
+
 ## **1. Zen DojoTools AdminTools — 4.5.5 'Ready Player Two'**
 
 **File:** `zen_dojotools_admintools_readme.md`
@@ -140,6 +161,22 @@ Trigger orchestrator for the ZenOS-AI pipeline. Dojo-driven — components decla
 * Heartbeat drawer (`zen_scheduler`) written after every run — staleness detected by `sensor.zen_summarizer_health`
 * Hardware triggers: strip hardware entity IDs from core, use local `zen_dojotools_scheduler_custom.yaml`
 * Protected drawers: `zen_summary`, `zen_library_manifest`, `zen_identity_manifest` — never summarized
+
+---
+
+## **6b. Pipeline Trigger Pattern — Act on the Monk After Kata Is Written**
+
+**File:** `zen_pipeline_trigger_pattern.md`
+**Type:** Guide
+
+**Summary:**
+How to wire an HA automation that fires a component summarizer run on a real-world trigger and acts on the monk's output.
+
+* Fire `zen_event → summary_force` for a specific component from any automation trigger
+* Wait for the kata write (fixed delay or `wait_template`), then read the kata drawer and branch on urgency/summary
+* Direct MCP path: call Ninja Summarizer inline if the agent is the caller — synchronous response, no wait needed
+* Full working example: flow sensor → force summarize → announce if high urgency
+* Forward reference: post-pipeline event emission (kata-written signal) is a direction being explored — no ETA
 
 ---
 
