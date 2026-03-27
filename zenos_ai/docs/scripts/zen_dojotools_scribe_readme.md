@@ -129,9 +129,16 @@ Use this when one domain (e.g., `water_manager`) needs multiple summarizer views
 
 | Field | Purpose |
 |---|---|
-| `home_policy` | Home-level behavioral overlay |
-| `family_customizations` | Family-level overlay |
-| `user_customizations` | User-level overlay |
+| `home_policy` | Home-level behavioral overlay text |
+| `target_household` | Household cabinet entity or GUID — scopes `home_policy` to a specific household |
+| `family_customizations` | Family-level overlay text |
+| `target_family` | Family cabinet entity or GUID — scopes `family_customizations` to a specific family |
+| `user_customizations` | User-level overlay text |
+| `target_person` | `person.*` entity — scopes `user_customizations` to a specific person. Resolved via identity (covers user and ai_user cabinet types). |
+
+**Targeting:** Each overlay field has an optional target. If no target is supplied the overlay is anonymous — the monk applies it as a general policy without identity context. When a target is supplied, the resolved GUID, display name, and cabinet type are embedded in `policy_overlays` alongside the overlay text. The monk knows exactly who the customization applies to.
+
+`target_person` is a `person.*` entity — never a cabinet entity. The identity resolver determines whether the person backs a `user` or `ai_user` cabinet.
 
 ### Scope
 

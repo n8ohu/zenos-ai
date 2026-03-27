@@ -258,6 +258,28 @@ script:
           text:
             multiline: true
 
+      target_household:
+        name: Target Household
+        description: household cabinet entity or GUID to scope home_policy overlay
+        required: false
+        selector:
+          text:
+
+      target_family:
+        name: Target Family
+        description: family cabinet entity or GUID to scope family_customizations overlay
+        required: false
+        selector:
+          text:
+
+      target_person:
+        name: Target Person
+        description: person.* entity to scope user_customizations overlay — resolved via identity (covers user and ai_user)
+        required: false
+        selector:
+          entity:
+            domain: person
+
       what_it_does:
         name: What It Does
         description: what this bounded collection is for
@@ -488,6 +510,9 @@ script:
           _publish_confirm: "{{ publish_confirm | default(false) | bool }}"
           _prevent_self_indexing: "{{ prevent_self_indexing | default(true) | bool }}"
           _suppress_drawer_feedback: "{{ suppress_drawer_feedback | default(true) | bool }}"
+          _target_household: "{{ target_household | default('', true) | string | trim }}"
+          _target_family: "{{ target_family | default('', true) | string | trim }}"
+          _target_person: "{{ target_person | default('', true) | string | trim }}"
 
       # -------------------------------------------------------------------
       # STEP 2 — Derived computations (depend on step 1)
@@ -535,6 +560,68 @@ script:
             {{ p | slugify }}
 
       # -------------------------------------------------------------------
+      # STEP 2b — Target resolution (household/family via VolumeInfo, person via identity)
+      # -------------------------------------------------------------------
+      - if:
+          - condition: template
+            value_template: "{{ _target_household != '' }}"
+        then:
+          - variables:
+              _th_vars: >-
+                {%- set v = state_attr(_target_household, 'variables') | default(none, true) -%}
+                {{ v if v is mapping else {} }}
+              _th_vi_raw: "{{ _th_vars.get('AI_Cabinet_VolumeInfo', {}) if _th_vars is mapping else {} }}"
+              _th_vi_val: >-
+                {%- set r = _th_vi_raw.get('value', {}) if _th_vi_raw is mapping else {} -%}
+                {{ r if r is mapping else (r | from_json if r is string else {}) }}
+              _household_guid: "{{ _th_vi_val.get('id', _target_household) | string | trim }}"
+        else:
+          - variables:
+              _household_guid: "{{ _target_household }}"
+
+      - if:
+          - condition: template
+            value_template: "{{ _target_family != '' }}"
+        then:
+          - variables:
+              _tf_vars: >-
+                {%- set v = state_attr(_target_family, 'variables') | default(none, true) -%}
+                {{ v if v is mapping else {} }}
+              _tf_vi_raw: "{{ _tf_vars.get('AI_Cabinet_VolumeInfo', {}) if _tf_vars is mapping else {} }}"
+              _tf_vi_val: >-
+                {%- set r = _tf_vi_raw.get('value', {}) if _tf_vi_raw is mapping else {} -%}
+                {{ r if r is mapping else (r | from_json if r is string else {}) }}
+              _family_guid: "{{ _tf_vi_val.get('id', _target_family) | string | trim }}"
+        else:
+          - variables:
+              _family_guid: "{{ _target_family }}"
+
+      - if:
+          - condition: template
+            value_template: "{{ _target_person != '' }}"
+        then:
+          - action: script.zen_dojotools_identity
+            data:
+              target: "{{ _target_person }}"
+              caller_token: "{{ caller_token }}"
+            response_variable: _person_identity
+          - variables:
+              _pi_raw: >-
+                {%- set r = _person_identity | default({}, true) -%}
+                {{ r if r is mapping else {} }}
+              _pi_id: "{{ _pi_raw.get('id', '') | string | trim }}"
+              _pi_name: "{{ _pi_raw.get('name', _target_person) | string | trim }}"
+              _pi_cab_type: "{{ _pi_raw.get('cabinet_type', '') | string | trim }}"
+              _person_guid: "{{ _pi_id }}"
+              _person_name: "{{ _pi_name }}"
+              _person_cab_type: "{{ _pi_cab_type }}"
+        else:
+          - variables:
+              _person_guid: ""
+              _person_name: ""
+              _person_cab_type: ""
+
+      # -------------------------------------------------------------------
       # STEP 3 — Final derived (depend on step 2)
       # -------------------------------------------------------------------
       - variables:
@@ -563,6 +650,7 @@ script:
                   "Use expand_scope + output_fields when Inspect shaping is needed.",
                   "Patch preserves existing content. Replace / clear / delete require explicit intent.",
                   "Guard against self-indexing and drawer feedback loops.",
+                  "Use target_household, target_family, target_person to scope policy overlays. target_person accepts person.* entities (resolves via identity — covers user and ai_user). target_household and target_family accept cabinet entity IDs or GUIDs.",
                   "One corpus may host parent context plus one or more component views.",
                   "Parent and subcomponents may share one clock, one trigger set, and one labelset.",
                   "Use component_key for the published view and primary_index_key for shared corpus identity.",
@@ -820,8 +908,13 @@ script:
                         },
                         "policy_overlays": {
                           "home_policy": home_policy | default('', true),
+                          "home_policy_target": _household_guid,
                           "family_customizations": family_customizations | default('', true),
-                          "user_customizations": user_customizations | default('', true)
+                          "family_customizations_target": _family_guid,
+                          "user_customizations": user_customizations | default('', true),
+                          "user_customizations_target": _person_guid,
+                          "user_customizations_name": _person_name,
+                          "user_customizations_cab_type": _person_cab_type
                         },
                         "interpretation": {
                           "what_it_does": what_it_does | default('', true),
