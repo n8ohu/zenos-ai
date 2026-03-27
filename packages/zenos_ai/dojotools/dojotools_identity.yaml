@@ -427,7 +427,7 @@ script:
                       {%- set _nsf.subfams = _nsf.subfams + [{
                         'entity_id': sf.get('entity_id', ''),
                         'guid': _sfvi.get('guid', ''),
-                        'name': sf.get('name', _sfvi.get('friendly_name', sf.get('entity_id', ''))),
+                        'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', sf.get('entity_id', '')))),
                         'depth': 2,
                         'members': {'users': _sfm.get('users', []), 'ai_users': _sfm.get('ai_users', [])}
                       }] -%}
@@ -435,7 +435,7 @@ script:
                     {%- set _ns.fams = _ns.fams + [{
                       'entity_id': fam.get('entity_id', ''),
                       'guid': _fvi.get('guid', ''),
-                      'name': fam.get('name', _fvi.get('friendly_name', fam.get('entity_id', ''))),
+                      'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', fam.get('entity_id', '')))),
                       'depth': fam.get('depth', 1),
                       'principals': {'hoh': _fowners[0] if _fowners | count > 0 else none, 'prime': _fprime[0] if _fprime | count > 0 else none},
                       'members': {'users': _fm.get('users', []), 'ai_users': _fm.get('ai_users', []), 'families': _nsf.subfams}
@@ -445,7 +445,7 @@ script:
                     {
                       'entity_id': _hh_cab,
                       'guid': _vi.get('guid', ''),
-                      'name': _vi.get('friendly_name', _hh_cab),
+                      'name': _vi.get('friendly_name', _vi.get('name', _hh_cab)),
                       'principals': {'hoh': _owners[0] if _owners | count > 0 else none, 'prime': _prime[0] if _prime | count > 0 else none},
                       'members': {'users': _m.get('users', []), 'ai_users': _m.get('ai_users', []), 'families': _ns.fams}
                     } | tojson
@@ -1881,7 +1881,7 @@ script:
                               {%- set _nsf.subfams = _nsf.subfams + [{
                                 'entity_id': sf.get('entity_id', ''),
                                 'guid': _sfvi.get('guid', ''),
-                                'name': sf.get('name', _sfvi.get('friendly_name', sf.get('entity_id', ''))),
+                                'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', sf.get('entity_id', '')))),
                                 'depth': 2,
                                 'members': {
                                   'users': _sfm.get('users', []),
@@ -1892,7 +1892,7 @@ script:
                             {%- set _ns.fams = _ns.fams + [{
                               'entity_id': fam.get('entity_id', ''),
                               'guid': _fvi.get('guid', ''),
-                              'name': fam.get('name', _fvi.get('friendly_name', fam.get('entity_id', ''))),
+                              'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', fam.get('entity_id', '')))),
                               'depth': fam.get('depth', 1),
                               'principals': {
                                 'hoh': _fowners[0] if _fowners | count > 0 else none,
@@ -1909,7 +1909,7 @@ script:
                             {
                               'entity_id': _root_entity,
                               'guid': _vi.get('guid', ''),
-                              'name': _vi.get('friendly_name', _root_entity),
+                              'name': _vi.get('friendly_name', _vi.get('name', _root_entity)),
                               'cab_type': _vi.get('cab_type', ''),
                               'principals': {
                                 'hoh': _hoh,
@@ -1999,7 +1999,7 @@ script:
                               {%- set _is_fhoh = _fown | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- set _is_fprime = _fprt | selectattr('entity_id', 'equalto', _eid) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
                               {%- set _frole = 'hoh' if _is_fhoh else ('prime' if _is_fprime else 'member') -%}
-                              {%- set _groups = _groups + [{'container': fam.get('entity_id', ''), 'container_type': 'family', 'guid': _fvi.get('guid', ''), 'name': fam.get('name', _fvi.get('friendly_name', fam.get('entity_id', ''))), 'depth': 1, 'role': _frole}] -%}
+                              {%- set _groups = _groups + [{'container': fam.get('entity_id', ''), 'container_type': 'family', 'guid': _fvi.get('guid', ''), 'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', fam.get('entity_id', '')))), 'depth': 1, 'role': _frole}] -%}
                             {%- endif -%}
                             {# scan depth-2 sub-families #}
                             {%- for sf in _fm.get('families', []) -%}
@@ -2014,7 +2014,7 @@ script:
                               {%- set _sf_users = _sfm.get('users', []) + _sfm.get('ai_users', []) -%}
                               {%- set _in_sf = _sf_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- if _in_sf -%}
-                                {%- set _groups = _groups + [{'container': sf.get('entity_id', ''), 'container_type': 'family', 'guid': _sfvi.get('guid', ''), 'name': sf.get('name', _sfvi.get('friendly_name', sf.get('entity_id', ''))), 'depth': 2, 'role': 'member'}] -%}
+                                {%- set _groups = _groups + [{'container': sf.get('entity_id', ''), 'container_type': 'family', 'guid': _sfvi.get('guid', ''), 'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', sf.get('entity_id', '')))), 'depth': 2, 'role': 'member'}] -%}
                               {%- endif -%}
                             {%- endfor -%}
                           {%- endfor -%}

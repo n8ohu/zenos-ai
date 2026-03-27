@@ -1263,68 +1263,6 @@ script:
     icon: mdi:database-cog
   # zen_dojotools_ha_api — migrated to packages/zenos_ai/dojotools/dojotools_ha_api.yaml
 
-  zen_admintools_identity_family_repair:
-    sequence:
-    # Normalize inputs
-    - variables:
-        caller_token: "{{- caller_token | default('') -}}"
-    # Resolve canonical cabinets
-    - variables:
-        _fam_cab: "{{ states('sensor.zen_default_family_cabinet_resolved') }}"
-        _user_cab: "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
-        _ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
-    - if: "{{ _fam_cab in ['', 'unknown', 'unavailable'] }}"
-      then:
-        - variables:
-            result:
-              status: error
-              message: "Default family cabinet not resolved. Ensure sensor.zen_default_family_cabinet_resolved is online."
-              caller_token: "{{ caller_token }}"
-        - stop: Family cabinet not available
-          response_variable: result
-    # Wire family into household graph (idempotent — safe to re-run on already-wired installs)
-    - action: script.zen_dojotools_identity
-      data:
-        mode: household_add_family
-        family_entity: "{{ _fam_cab }}"
-    - if: "{{ _user_cab not in ['', 'unknown', 'unavailable'] }}"
-      then:
-        - action: script.zen_dojotools_identity
-          data:
-            mode: family_add_member
-            family_entity: "{{ _fam_cab }}"
-            member_entity: "{{ _user_cab }}"
-            member_type: user
-    - if: "{{ _ai_cab not in ['', 'unknown', 'unavailable'] }}"
-      then:
-        - action: script.zen_dojotools_identity
-          data:
-            mode: family_add_member
-            family_entity: "{{ _fam_cab }}"
-            member_entity: "{{ _ai_cab }}"
-            member_type: ai_user
-    - action: script.zen_dojotools_identity
-      data:
-        mode: build_identity_manifest
-    - variables:
-        result:
-          status: ok
-          message: "Default family graph repair complete. Family wired to household; user and AI members registered."
-          family_cabinet: "{{ _fam_cab }}"
-          user_cabinet: "{{ _user_cab }}"
-          ai_user_cabinet: "{{ _ai_cab }}"
-          timestamp: "{{ now().isoformat() }}"
-          caller_token: "{{ caller_token }}"
-    - stop: Family graph repair complete
-      response_variable: result
-    alias: Zen AdminTools — Identity Family Graph Repair
-    description: >-
-      One-time repair for installs where the default family cabinet was never wired
-      into the household identity graph. Calls household_add_family + family_add_member
-      for the default user and AI user, then rebuilds the identity manifest.
-      Idempotent — safe to run on already-correct installs.
-    icon: mdi:account-group
-
   zen_admintools_zenos_prompt_loader:
     fields:
       cortex_version:

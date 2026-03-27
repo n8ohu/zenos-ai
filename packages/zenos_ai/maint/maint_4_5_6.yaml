@@ -1,0 +1,77 @@
+###############################################################################
+# ZenOS-AI — Maintenance Scripts
+# Version: 4.5.6
+#
+# ONE-TIME REPAIR SCRIPTS — NOT intended for ongoing use or LLM exposure.
+# Do not add these to MCP, dojotools, or any AI-accessible interface.
+# Run manually via HA Developer Tools > Services, then retire.
+#
+# Scripts in this file:
+#   zen_maint_4_5_6_identity_family_repair
+#     Target: Installs that shipped before v4.5.6 and never had the default
+#             family cabinet wired into the household identity graph.
+#     Safe:   Idempotent — underlying identity ops are no-ops if already wired.
+#     After:  Run once, verify identity manifest, done. Script can be left in
+#             place (no-op on re-run) or removed after confirmation.
+#
+###############################################################################
+
+script:
+
+  zen_maint_4_5_6_identity_family_repair:
+    sequence:
+    # Resolve canonical cabinets
+    - variables:
+        _fam_cab: "{{ states('sensor.zen_default_family_cabinet_resolved') }}"
+        _user_cab: "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
+        _ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
+    - if: "{{ _fam_cab in ['', 'unknown', 'unavailable'] }}"
+      then:
+        - variables:
+            result:
+              status: error
+              message: "Default family cabinet not resolved. Ensure sensor.zen_default_family_cabinet_resolved is online."
+        - stop: Family cabinet not available
+          response_variable: result
+    # Wire family into household graph (idempotent — safe to re-run)
+    - action: script.zen_dojotools_identity
+      data:
+        mode: household_add_family
+        family_entity: "{{ _fam_cab }}"
+    - if: "{{ _user_cab not in ['', 'unknown', 'unavailable'] }}"
+      then:
+        - action: script.zen_dojotools_identity
+          data:
+            mode: family_add_member
+            family_entity: "{{ _fam_cab }}"
+            member_entity: "{{ _user_cab }}"
+            member_type: user
+    - if: "{{ _ai_cab not in ['', 'unknown', 'unavailable'] }}"
+      then:
+        - action: script.zen_dojotools_identity
+          data:
+            mode: family_add_member
+            family_entity: "{{ _fam_cab }}"
+            member_entity: "{{ _ai_cab }}"
+            member_type: ai_user
+    - action: script.zen_dojotools_identity
+      data:
+        mode: build_identity_manifest
+    - variables:
+        result:
+          status: ok
+          message: "4.5.6 identity family graph repair complete."
+          family_cabinet: "{{ _fam_cab }}"
+          user_cabinet: "{{ _user_cab }}"
+          ai_user_cabinet: "{{ _ai_cab }}"
+          timestamp: "{{ now().isoformat() }}"
+    - stop: Repair complete
+      response_variable: result
+    alias: "[MAINT 4.5.6] Identity Family Graph Repair"
+    description: >-
+      ONE-TIME REPAIR — v4.5.6 patch.
+      Wires the default family cabinet into the household identity graph for
+      installs that bootstrapped before v4.5.6. Calls household_add_family +
+      family_add_member for default user and AI user, then rebuilds manifest.
+      Idempotent. Do not expose to LLM or AI tools.
+    icon: mdi:wrench
