@@ -880,7 +880,10 @@ script:
                     cabinet_entity_id: "{{ _target_cab }}"
                     key: "{{ _storage_key }}"
                     label: "{{ _base_label }}"
-                    write: "{{ _thought_write | default({}, true) }}"
+                    write: >-
+                      {%- set _pw = _thought_write | default({}, true) -%}
+                      {%- set _pw = _pw if _pw is mapping else {} -%}
+                      {{ _pw | tojson | from_json }}
                     message: Thought created.
               - stop: new_thought
                 response_variable: result
@@ -952,7 +955,10 @@ script:
                     cabinet_entity_id: "{{ _target_cab }}"
                     key: "{{ _storage_key }}"
                     changes: "{{ _changes }}"
-                    write: "{{ _patch_write | default({}, true) }}"
+                    write: >-
+                      {%- set _pw = _patch_write | default({}, true) -%}
+                      {%- set _pw = _pw if _pw is mapping else {} -%}
+                      {{ _pw | tojson | from_json }}
                     message: Patched requested fields only. Existing content preserved.
               - stop: patch
                 response_variable: result
@@ -1000,7 +1006,10 @@ script:
                     artifact_class: "{{ _artifact_class }}"
                     cabinet_entity_id: "{{ _target_cab }}"
                     key: "{{ _storage_key }}"
-                    write: "{{ _replace_write | default({}, true) }}"
+                    write: >-
+                      {%- set _pw = _replace_write | default({}, true) -%}
+                      {%- set _pw = _pw if _pw is mapping else {} -%}
+                      {{ _pw | tojson | from_json }}
                     message: Explicit replace completed.
               - stop: replace
                 response_variable: result
@@ -1080,7 +1089,10 @@ script:
                     cabinet_entity_id: "{{ _target_cab }}"
                     key: "{{ _storage_key }}"
                     cleared: "{{ _clear_fields }}"
-                    write: "{{ _clear_write | default({}, true) }}"
+                    write: >-
+                      {%- set _pw = _clear_write | default({}, true) -%}
+                      {%- set _pw = _pw if _pw is mapping else {} -%}
+                      {{ _pw | tojson | from_json }}
                     message: Explicit fields cleared.
               - stop: clear_field
                 response_variable: result
@@ -1126,7 +1138,10 @@ script:
                     artifact_class: "{{ _artifact_class }}"
                     cabinet_entity_id: "{{ _target_cab }}"
                     key: "{{ _storage_key }}"
-                    write: "{{ _delete_write | default({}, true) }}"
+                    write: >-
+                      {%- set _pw = _delete_write | default({}, true) -%}
+                      {%- set _pw = _pw if _pw is mapping else {} -%}
+                      {{ _pw | tojson | from_json }}
                     message: Explicit delete completed.
               - stop: delete
                 response_variable: result
@@ -1211,7 +1226,10 @@ script:
                     artifact_class: scroll
                     cabinet_entity_id: "{{ _target_cab }}"
                     key: "{{ _storage_key }}"
-                    write: "{{ _formalize_write | default({}, true) }}"
+                    write: >-
+                      {%- set _pw = _formalize_write | default({}, true) -%}
+                      {%- set _pw = _pw if _pw is mapping else {} -%}
+                      {{ _pw | tojson | from_json }}
                     message: Thought formalized into scroll. Drawer is now read-only.
               - stop: formalize_scroll
                 response_variable: result
@@ -1342,7 +1360,10 @@ script:
                     source_cabinet: "{{ _target_cab }}"
                     target_cabinet: "{{ _dojo_cab }}"
                     key: "{{ _component_key if _component_key != '' else _slug }}"
-                    write: "{{ _publish_write | default({}, true) }}"
+                    write: >-
+                      {%- set _pw = _publish_write | default({}, true) -%}
+                      {%- set _pw = _pw if _pw is mapping else {} -%}
+                      {{ _pw | tojson | from_json }}
                     message: Scroll published as KFC.
               - stop: publish_kfc
                 response_variable: result
