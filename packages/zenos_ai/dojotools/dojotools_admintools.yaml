@@ -980,7 +980,9 @@ script:
   zen_admintools_cabinetadmin_factory:
     sequence:
     - variables:
+        cabinet_guid: "{{- cabinet_guid | default('') -}}"
         confirm_action: "{{- confirm_action | default(false) -}}"
+        force_new_guid: "{{- force_new_guid | default(false) -}}"
         caller_token: "{{- caller_token | default('') -}}"
     - choose:
       - conditions:
