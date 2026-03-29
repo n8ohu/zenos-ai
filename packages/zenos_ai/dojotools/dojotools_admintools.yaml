@@ -980,6 +980,7 @@ script:
   zen_admintools_cabinetadmin_factory:
     sequence:
     - variables:
+        owner_person: "{{- owner_person | default('') -}}"
         cabinet_guid: "{{- cabinet_guid | default('') -}}"
         auto_profile: "{{- auto_profile | default(true) -}}"
         confirm_action: "{{- confirm_action | default(false) -}}"
