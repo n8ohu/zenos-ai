@@ -981,6 +981,7 @@ script:
     sequence:
     - variables:
         owner_person: "{{- owner_person | default('') -}}"
+        partner_person: "{{- partner_person | default('') -}}"
         cabinet_guid: "{{- cabinet_guid | default('') -}}"
         auto_profile: "{{- auto_profile | default(true) -}}"
         confirm_action: "{{- confirm_action | default(false) -}}"
