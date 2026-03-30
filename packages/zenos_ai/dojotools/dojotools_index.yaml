@@ -1261,7 +1261,7 @@ script:
         is_index_command: '{{ index_command is defined and index_command | length >
           0 }}'
         correlation_id: "{% if is_index_command %}\n  {{ now().isoformat() ~ '-' ~ (range(1000)
-          | random) }}\n{% else %} '' {% endif %}"
+          | random) }}\n{% else %}{{- '' -}}{% endif %}"
         timeout_seconds: '{{ timeout | default(2) }}'
     - choose:
       - conditions:

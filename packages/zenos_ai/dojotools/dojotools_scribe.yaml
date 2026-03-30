@@ -80,8 +80,7 @@ script:
       mode:
         name: Mode
         description: help/read/new/patch/replace/clear/delete/formalize/publish/dry/list
-        required: false
-        default: help
+        required: true
         selector:
           select:
             options:
@@ -932,7 +931,15 @@ script:
                       caller_token: "{{ caller_token }}"
                     response_variable: _index_response
               - variables:
-                  _index_summary: "{{ _index_response | default({}, true) }}"
+                  _index_summary: >-
+                    {%- set _r = _index_response | default({}, true) -%}
+                    {%- set _simple = _r.get('result', {}).get('simple', []) -%}
+                    {%- set _op = _r.get('operator', '') -%}
+                    {%- if _simple | length == 0 and _op == '*' -%}
+                      {{ {"status": "label_not_found", "label_1": _label_1, "operator": _op, "entity_count": 0} }}
+                    {%- else -%}
+                      {{ _r }}
+                    {%- endif -%}
               - variables:
                   _thought_payload: >-
                     {{

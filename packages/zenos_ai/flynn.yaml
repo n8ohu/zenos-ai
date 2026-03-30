@@ -59,10 +59,6 @@ input_boolean:
     name: "ZenOS: Flynn Override"
     icon: mdi:wrench-outline
 
-  zen_silent_ok_handoff:
-    name: "ZenOS: Silent OK — Handoff Mode"
-    icon: mdi:transfer-right
-
 
 ###############################################################################
 # COMPANION SELECTS
