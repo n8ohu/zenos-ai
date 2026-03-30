@@ -1098,6 +1098,11 @@ script:
           - stop: legacy_missing_error
             response_variable: final
     # ===== END GUARD — file exists, proceed with mode dispatch =====
+    - variables:
+        raw:
+          stdout: ''
+          stderr: ''
+          returncode: -1
     - choose:
       - conditions:
         - condition: template
