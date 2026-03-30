@@ -1297,14 +1297,43 @@ script:
                 timeout_error_msg: Indexer call timeout {{ timeout_seconds }}s
     - variables:
         index_command: ''
-        op1: "{% set ents = simple if (simple is defined and simple) else [] %} {% if
-          ents | length == 0 %}\n  {% set ents = entities_1 | default([]) %}\n  {% if
-          ents | length == 0 and label_1 %}\n    {{ label_entities(label_1 | slugify) }}\n  {%
-          else %}\n    {{ ents }}\n  {% endif %}\n{% else %}\n  {{ ents }}\n{% endif
-          %}"
-        op2: "{% set ents = entities_2 | default([]) %} {% if ents | length == 0 and
-          label_2 %}\n  {{ label_entities(label_2 | slugify) }}\n{% else %}\n  {{ ents }}\n{%
-          endif %}"
+        op1: |-
+          {%- set _ents = simple if (simple is defined and simple) else [] -%}
+          {%- if _ents | length == 0 -%}{%- set _ents = entities_1 | default([]) | list -%}{%- endif -%}
+          {%- if _ents | length == 0 and label_1 | default('') | trim -%}{%- set _ents = label_entities(label_1 | slugify) | list -%}{%- endif -%}
+          {%- if _ents | length == 0 and device_1 | default('') | trim -%}
+            {%- set _devs = [device_1] if device_1 is string else (device_1 | list) -%}
+            {%- set _ns = namespace(e=[]) -%}
+            {%- for d in _devs -%}{%- set _ns.e = _ns.e + (device_entities(d | trim) | list) -%}{%- endfor -%}
+            {%- set _ents = _ns.e | unique | list -%}
+          {%- endif -%}
+          {%- if _ents | length == 0 and integration_1 | default('') | trim -%}{%- set _ents = integration_entities(integration_1 | trim) | list -%}{%- endif -%}
+          {%- if _ents | length == 0 and area_1 | default('') | trim -%}{%- set _ents = area_entities(area_1 | trim) | list -%}{%- endif -%}
+          {%- if _ents | length == 0 and floor_1 | default('') | trim -%}
+            {%- set _areas = floor_areas(floor_1 | trim) | list -%}
+            {%- set _ns = namespace(e=[]) -%}
+            {%- for a in _areas -%}{%- set _ns.e = _ns.e + (area_entities(a) | list) -%}{%- endfor -%}
+            {%- set _ents = _ns.e | unique | list -%}
+          {%- endif -%}
+          {{ _ents }}
+        op2: |-
+          {%- set _ents = entities_2 | default([]) | list -%}
+          {%- if _ents | length == 0 and label_2 | default('') | trim -%}{%- set _ents = label_entities(label_2 | slugify) | list -%}{%- endif -%}
+          {%- if _ents | length == 0 and device_2 | default('') | trim -%}
+            {%- set _devs = [device_2] if device_2 is string else (device_2 | list) -%}
+            {%- set _ns = namespace(e=[]) -%}
+            {%- for d in _devs -%}{%- set _ns.e = _ns.e + (device_entities(d | trim) | list) -%}{%- endfor -%}
+            {%- set _ents = _ns.e | unique | list -%}
+          {%- endif -%}
+          {%- if _ents | length == 0 and integration_2 | default('') | trim -%}{%- set _ents = integration_entities(integration_2 | trim) | list -%}{%- endif -%}
+          {%- if _ents | length == 0 and area_2 | default('') | trim -%}{%- set _ents = area_entities(area_2 | trim) | list -%}{%- endif -%}
+          {%- if _ents | length == 0 and floor_2 | default('') | trim -%}
+            {%- set _areas = floor_areas(floor_2 | trim) | list -%}
+            {%- set _ns = namespace(e=[]) -%}
+            {%- for a in _areas -%}{%- set _ns.e = _ns.e + (area_entities(a) | list) -%}{%- endfor -%}
+            {%- set _ents = _ns.e | unique | list -%}
+          {%- endif -%}
+          {{ _ents }}
         op1_empty: '{{ op1 | length == 0 }}'
         op2_empty: '{{ op2 | length == 0 }}'
         setop: '{{ operator | default(''AND'') | upper }}'
@@ -1337,6 +1366,13 @@ script:
           entities_base: "{% if strict_mode %}\n  {{ response_entities }}\n{% else %}\n
             \ {{ response_entities if response_entities else fallback_entities_base
             }}\n{% endif %}"
+    - variables:
+        _offset: '{{ [offset | default(0) | int, 0] | max }}'
+        _limit: '{{ limit | default(0) | int }}'
+        _total_before_page: '{{ entities_base | count }}'
+        entities_base: "{% set _sliced = entities_base[(_offset | int):] %}\n{% if\
+          \ (_limit | int) > 0 %}\n  {{ _sliced[:(_limit | int)] }}\n{% else %}\n\
+          \  {{ _sliced }}\n{% endif %}"
     - if:
       - condition: template
         value_template: "{{ dry_run | default(false) }}"
@@ -1345,6 +1381,9 @@ script:
           final_response:
             status: dry_run
             entity_count: "{{ entities_base | count }}"
+            total_count: "{{ _total_before_page }}"
+            offset: "{{ _offset }}"
+            limit: "{{ _limit }}"
             will_expand: "{{ expand_entities | default(false) }}"
             sample: "{{ entities_base[:5] }}"
             caller_token: "{{ caller_token }}"
@@ -1398,12 +1437,17 @@ script:
           | default({}),\n      \"hypergraph\": hypergraph | default({})\n    },\n
           \   \"inputs\": {\n      \"mode\": mode | default('normal'),\n      \"entities_1\":
           entities_1 | default([]) | list,\n      \"label_1\": label_1 | default(''),\n
-          \     \"entities_2\": entities_2 | default([]) | list,\n      \"label_2\":
-          label_2 | default(''),\n      \"strict\": strict | default(false),\n      \"expand_entities\":
-          expand_entities | default(false)\n      \n    },\n    \"operator\": \"*\"
-          if (op1_empty and op2_empty) else setop,\n    \"error\": timeout_error_msg
-          | default(None),\n    \"caller_token\": caller_token | default('')\n  }\n
-          \  | tojson\n}}"
+          \     \"device_1\": device_1 | default(''),\n      \"integration_1\": integration_1
+          | default(''),\n      \"area_1\": area_1 | default(''),\n      \"floor_1\":
+          floor_1 | default(''),\n      \"entities_2\": entities_2 | default([]) | list,\n
+          \     \"label_2\": label_2 | default(''),\n      \"device_2\": device_2 |
+          default(''),\n      \"integration_2\": integration_2 | default(''),\n      \"area_2\":
+          area_2 | default(''),\n      \"floor_2\": floor_2 | default(''),\n      \"limit\":
+          _limit | default(0),\n      \"offset\": _offset | default(0),\n      \"strict\":
+          strict | default(false),\n      \"expand_entities\": expand_entities | default(false)\n
+          \     \n    },\n    \"operator\": \"*\"\n          if (op1_empty and op2_empty)
+          else setop,\n    \"error\": timeout_error_msg\n          | default(None),\n
+          \   \"caller_token\": caller_token | default('')\n  }\n   | tojson\n}}"
         label_entity_logic_result: '{{ label_entity_logic_result_raw | from_json | default({})
           }}'
     - stop: Zen DojoTools Index Complete
@@ -1476,6 +1520,94 @@ script:
         required: false
         selector:
           text:
+      device_1:
+        name: Device 1
+        description: >-
+          Seed op1 from a device — expands to all entities belonging to this
+          device_id. Precedence: entities_1 > label_1 > device_1.
+        required: false
+        default: ''
+        selector:
+          text:
+      integration_1:
+        name: Integration 1
+        description: >-
+          Seed op1 from an integration (domain slug or config entry title).
+          Precedence: entities_1 > label_1 > device_1 > integration_1.
+        required: false
+        default: ''
+        selector:
+          text:
+      area_1:
+        name: Area 1
+        description: >-
+          Seed op1 from an area — expands to all entities in this area_id.
+          Precedence: ...> integration_1 > area_1.
+        required: false
+        default: ''
+        selector:
+          text:
+      floor_1:
+        name: Floor 1
+        description: >-
+          Seed op1 from a floor — expands via floor_areas() then area_entities().
+          Lowest-precedence op1 seed.
+        required: false
+        default: ''
+        selector:
+          text:
+      device_2:
+        name: Device 2
+        description: Seed op2 from a device_id. Same precedence chain as Device 1 but for op2.
+        required: false
+        default: ''
+        selector:
+          text:
+      integration_2:
+        name: Integration 2
+        description: Seed op2 from an integration. Same precedence chain as Integration 1 but for op2.
+        required: false
+        default: ''
+        selector:
+          text:
+      area_2:
+        name: Area 2
+        description: Seed op2 from an area_id. Same precedence chain as Area 1 but for op2.
+        required: false
+        default: ''
+        selector:
+          text:
+      floor_2:
+        name: Floor 2
+        description: Seed op2 from a floor_id. Same precedence chain as Floor 1 but for op2.
+        required: false
+        default: ''
+        selector:
+          text:
+      limit:
+        name: Limit
+        description: >-
+          Maximum entities to return after set resolution and ZQ-1 filter.
+          Use with offset for pagination. 0 = no limit (default).
+        required: false
+        default: 0
+        selector:
+          number:
+            min: 0
+            max: 1000
+            step: 1
+      offset:
+        name: Offset
+        description: >-
+          Skip first N entities after set resolution. Use with limit for pagination.
+          dry_run returns total_count so you can page: dry_run → loop offset.
+        required: false
+        default: 0
+        selector:
+          number:
+            min: 0
+            max: 10000
+            step: 1
       operator:
         name: Set Operator
         description: Boolean set operator - Default AND if not provided. Use * for full label graph (no label_1 required).
