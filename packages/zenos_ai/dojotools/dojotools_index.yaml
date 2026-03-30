@@ -335,9 +335,10 @@ script:
                     "drawer_key_only": ["drawer"]
                   },
                   "non_entity_modes": {
-                    "area_info": "Returns: area_id, name, floor_id, aliases, labels, entity_ids, entity_count, device_ids, device_count.",
-                    "floor_info": "Returns: floor_id, name, level, aliases, area_ids, area_count.",
-                    "device_info": "Returns: device_id, name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entity_ids, entity_count."
+                    "area_info": "Returns: area_id, name, floor_id, labels, entity_ids, entity_count, device_ids, device_count.",
+                    "floor_info": "Returns: floor_id, name, area_ids, area_count.",
+                    "device_info": "Returns: device_id, name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entity_ids, entity_count.",
+                    "_note": "aliases and level dropped — no native HA read path. floor_id() / area_name() / floor_name() / labels() are the native functions used."
                   },
                   "top_level_output": {
                     "results": "Array of per-entity result objects.",
@@ -396,10 +397,9 @@ script:
               {{ {
                 'mode': 'area_info',
                 'area_id': _target_area,
-                'name': area_attr(_target_area, 'name') | default('', true),
-                'floor_id': area_attr(_target_area, 'floor_id') | default(none, true),
-                'aliases': (area_attr(_target_area, 'aliases') or []) | list,
-                'labels': (area_attr(_target_area, 'labels') or []) | list,
+                'name': area_name(_target_area) | default('', true),
+                'floor_id': floor_id(_target_area) | default(none, true),
+                'labels': (labels(_target_area) or []) | list,
                 'entity_ids': _ents,
                 'entity_count': _ents | length,
                 'device_ids': _devs,
@@ -431,9 +431,7 @@ script:
               {{ {
                 'mode': 'floor_info',
                 'floor_id': _target_floor,
-                'name': floor_attr(_target_floor, 'name') | default('', true),
-                'level': floor_attr(_target_floor, 'level') | default(none, true),
-                'aliases': (floor_attr(_target_floor, 'aliases') or []) | list,
+                'name': floor_name(_target_floor) | default('', true),
                 'area_ids': _areas,
                 'area_count': _areas | length,
                 'caller_token': caller_token
@@ -462,7 +460,7 @@ script:
               {%- set _ents = device_entities(_target_dev) | list -%}
               {%- set _cfg = (device_attr(_target_dev, 'config_entries') or []) | list -%}
               {%- set _area = device_attr(_target_dev, 'area_id') -%}
-              {%- set _floor = area_attr(_area, 'floor_id') if _area is not none else none -%}
+              {%- set _floor = floor_id(_area) if _area is not none else none -%}
               {{ {
                 'mode': 'device_info',
                 'device_id': _target_dev,
@@ -471,8 +469,8 @@ script:
                 'model': device_attr(_target_dev, 'model') | default('', true),
                 'area_id': _area,
                 'floor_id': _floor,
-                'labels': (device_attr(_target_dev, 'labels') or []) | list,
-                'area_labels': (area_attr(_area, 'labels') or []) | list if _area is not none else [],
+                'labels': (labels(_target_dev) or []) | list,
+                'area_labels': (labels(_area) or []) | list if _area is not none else [],
                 'config_entries': _cfg,
                 'entity_ids': _ents,
                 'entity_count': _ents | length,
@@ -581,7 +579,7 @@ script:
               | list %}\n  {% set integ = first[0] if first | length > 0 else none %}\n  {% set _dev_area = device_attr(dev_id, 'area_id') %}\n  {{ {\n    'device_id':
               dev_id,\n    'name': device_attr(dev_id, 'name'),\n    'manufacturer':
               device_attr(dev_id, 'manufacturer'),\n    'model': device_attr(dev_id,
-              'model'),\n    'area_id': _dev_area,\n    'floor_id': area_attr(_dev_area, 'floor_id') if _dev_area is not none else none,\n    'device_labels': (device_attr(dev_id, 'labels') or []) | list,\n    'area_labels': (area_attr(_dev_area, 'labels') or []) | list if _dev_area is not none else [],\n    'integration':
+              'model'),\n    'area_id': _dev_area,\n    'floor_id': floor_id(_dev_area) if _dev_area is not none else none,\n    'device_labels': (labels(dev_id) or []) | list,\n    'area_labels': (labels(_dev_area) or []) | list if _dev_area is not none else [],\n    'integration':
               integ\n  } }}\n{% else %}\n  none\n{% endif %}"
             device_tree: "{% if extended_mode %}\n  {% set dev_id = device_id(current_entity)
               %}\n  {% if dev_id is not none %}\n    {% set via = device_attr(dev_id,
@@ -821,8 +819,8 @@ script:
             - device_info
         description: >-
           inspect (default) — entity inspection loop. help — return schema.
-          area_info — area details (area_id required): name, floor_id, aliases, labels, entities, devices.
-          floor_info — floor details (floor_id required): name, level, aliases, areas.
+          area_info — area details (area_id required): name, floor_id, labels, entities, devices.
+          floor_info — floor details (floor_id required): name, area_ids.
           device_info — device details (device_id required): name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entities.
       caller_token:
         name: Caller Token
