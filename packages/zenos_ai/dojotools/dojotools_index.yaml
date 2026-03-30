@@ -288,23 +288,26 @@ script:
               {{
                 {
                   "tool": "Zen DojoTools Inspect",
-                  "version": "4.5.1",
-                  "intent": "Deep entity inspection. Returns state, labels, device metadata, cabinet volume info, and optional recorder statistics for one or more entities. Called directly or via Index when expand_entities=true.",
+                  "version": "4.6.0",
+                  "intent": "Deep entity inspection + area/floor/device read modes. Returns state, labels, device metadata (incl. floor_id, device_labels, area_labels), cabinet volume info, and optional recorder statistics. Called directly or via Index when expand_entities=true.",
                   "inputs": {
-                    "entity_id": "Required for inspection. Single entity_id or list. Not required when mode=help.",
+                    "entity_id": "Required for mode=inspect. Single entity_id or list. Not required for help/area_info/floor_info/device_info.",
                     "output_fields": "Field selector. Comma-separated string or list. Controls which blocks appear per entity. See output_fields_reference.",
                     "extended": "Boolean (default false). Adds device_tree: via_device_id, parent_name, siblings, config_entries.",
                     "label_targets": "Label names — resolves drawer blurbs from Dojo cabinet. Injected by Index; usable in direct calls.",
                     "drawer_key": "Cabinet sensors only. Inspects a specific drawer key — value truncated to 64 chars.",
+                    "area_id": "Required for mode=area_info.",
+                    "floor_id": "Required for mode=floor_info.",
+                    "device_id": "Required for mode=device_info.",
                     "timeout": "Seconds (default 60, max 300).",
                     "caller_token": "Governance stub. Echoed in response.",
-                    "mode": "inspect (default) — run inspection. help — return this schema."
+                    "mode": "inspect (default) — entity loop. help — schema. area_info — area details. floor_info — floor details. device_info — device details."
                   },
                   "output_fields_reference": {
                     "_note": "Prefix - to suppress a default. Prefix + to opt in. Comma-separated string or list.",
                     "defaults_on": {
                       "timestamps": "last_changed, last_updated. Suppress: -timestamps.",
-                      "device": "device_id, name, manufacturer, model, area_id, integration. Suppress: -device.",
+                      "device": "device_id, name, manufacturer, model, area_id, floor_id, device_labels, area_labels, integration. Suppress: -device.",
                       "volume": "Cabinet header (cabinet sensors only): id, version, friendly_name, flags. Suppress: -volume."
                     },
                     "opt_in": {
@@ -326,10 +329,15 @@ script:
                   },
                   "per_entity_output_structure": {
                     "always": ["entity_id", "friendly_name", "domain", "state", "labels"],
-                    "default_on": ["last_changed", "last_updated", "device", "volume (cabinet only)"],
+                    "default_on": ["last_changed", "last_updated", "device (incl. floor_id, device_labels, area_labels)", "volume (cabinet only)"],
                     "opt_in": ["+attributes", "+statistics", "+history"],
                     "extended_only": ["device_tree"],
                     "drawer_key_only": ["drawer"]
+                  },
+                  "non_entity_modes": {
+                    "area_info": "Returns: area_id, name, floor_id, aliases, labels, entity_ids, entity_count, device_ids, device_count.",
+                    "floor_info": "Returns: floor_id, name, level, aliases, area_ids, area_count.",
+                    "device_info": "Returns: device_id, name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entity_ids, entity_count."
                   },
                   "top_level_output": {
                     "results": "Array of per-entity result objects.",
@@ -342,7 +350,10 @@ script:
                     "Example 2 — Attributes and device tree": {"entity_id": "sensor.kitchen_temperature", "output_fields": "+attributes", "extended": true},
                     "Example 3 — 24h stats lean": {"entity_id": ["sensor.span_total_power", "sensor.dryer_power"], "output_fields": "+history,-device,-volume,-timestamps"},
                     "Example 4 — Eligibility check only": {"entity_id": "sensor.span_total_power", "output_fields": "+statistics,-device,-volume,-timestamps"},
-                    "Example 5 — Cabinet drawer peek": {"entity_id": "sensor.zenos_dojo_cabinet", "drawer_key": "zen_summary"}
+                    "Example 5 — Cabinet drawer peek": {"entity_id": "sensor.zenos_dojo_cabinet", "drawer_key": "zen_summary"},
+                    "Example 6 — Area drill-down": {"mode": "area_info", "area_id": "living_room"},
+                    "Example 7 — Floor drill-down": {"mode": "floor_info", "floor_id": "ground_floor"},
+                    "Example 8 — Device drill-down": {"mode": "device_info", "device_id": "<device_id from label pull or inspect result>"}
                   },
                   "ai_user_guidance": [
                     "Use mode: help to retrieve this schema.",
@@ -356,6 +367,119 @@ script:
               }}
         - stop: Return help JSON
           response_variable: help_json
+
+    # ── Area / Floor / Device read modes ──────────────────────────────────
+    # Short-circuit before the entity loop — these don't iterate entities.
+    - alias: Area / Floor / Device info modes
+      choose:
+
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'area_info' }}"
+        sequence:
+        - variables:
+            _target_area: "{{ area_id | default('') | trim }}"
+        - if: "{{ _target_area == '' }}"
+          then:
+            - variables:
+                _mode_result:
+                  status: error
+                  mode: area_info
+                  message: "area_info requires area_id."
+                  caller_token: "{{ caller_token }}"
+            - stop: Missing area_id
+              response_variable: _mode_result
+        - variables:
+            _mode_result: >-
+              {%- set _ents = area_entities(_target_area) | list -%}
+              {%- set _devs = area_devices(_target_area) | list -%}
+              {{ {
+                'mode': 'area_info',
+                'area_id': _target_area,
+                'name': area_attr(_target_area, 'name') | default('', true),
+                'floor_id': area_attr(_target_area, 'floor_id') | default(none, true),
+                'aliases': (area_attr(_target_area, 'aliases') or []) | list,
+                'labels': (area_attr(_target_area, 'labels') or []) | list,
+                'entity_ids': _ents,
+                'entity_count': _ents | length,
+                'device_ids': _devs,
+                'device_count': _devs | length,
+                'caller_token': caller_token
+              } }}
+        - stop: area_info complete
+          response_variable: _mode_result
+
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'floor_info' }}"
+        sequence:
+        - variables:
+            _target_floor: "{{ floor_id | default('') | trim }}"
+        - if: "{{ _target_floor == '' }}"
+          then:
+            - variables:
+                _mode_result:
+                  status: error
+                  mode: floor_info
+                  message: "floor_info requires floor_id."
+                  caller_token: "{{ caller_token }}"
+            - stop: Missing floor_id
+              response_variable: _mode_result
+        - variables:
+            _mode_result: >-
+              {%- set _areas = floor_areas(_target_floor) | list -%}
+              {{ {
+                'mode': 'floor_info',
+                'floor_id': _target_floor,
+                'name': floor_attr(_target_floor, 'name') | default('', true),
+                'level': floor_attr(_target_floor, 'level') | default(none, true),
+                'aliases': (floor_attr(_target_floor, 'aliases') or []) | list,
+                'area_ids': _areas,
+                'area_count': _areas | length,
+                'caller_token': caller_token
+              } }}
+        - stop: floor_info complete
+          response_variable: _mode_result
+
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'device_info' }}"
+        sequence:
+        - variables:
+            _target_dev: "{{ device_id | default('') | trim }}"
+        - if: "{{ _target_dev == '' }}"
+          then:
+            - variables:
+                _mode_result:
+                  status: error
+                  mode: device_info
+                  message: "device_info requires device_id."
+                  caller_token: "{{ caller_token }}"
+            - stop: Missing device_id
+              response_variable: _mode_result
+        - variables:
+            _mode_result: >-
+              {%- set _ents = device_entities(_target_dev) | list -%}
+              {%- set _cfg = (device_attr(_target_dev, 'config_entries') or []) | list -%}
+              {%- set _area = device_attr(_target_dev, 'area_id') -%}
+              {%- set _floor = area_attr(_area, 'floor_id') if _area is not none else none -%}
+              {{ {
+                'mode': 'device_info',
+                'device_id': _target_dev,
+                'name': device_attr(_target_dev, 'name') | default('', true),
+                'manufacturer': device_attr(_target_dev, 'manufacturer') | default('', true),
+                'model': device_attr(_target_dev, 'model') | default('', true),
+                'area_id': _area,
+                'floor_id': _floor,
+                'labels': (device_attr(_target_dev, 'labels') or []) | list,
+                'area_labels': (area_attr(_area, 'labels') or []) | list if _area is not none else [],
+                'config_entries': _cfg,
+                'entity_ids': _ents,
+                'entity_count': _ents | length,
+                'caller_token': caller_token
+              } }}
+        - stop: device_info complete
+          response_variable: _mode_result
 
     # --------------------------------------------------------------
     # Always normalize User/AI inputs so we don't have to react JIT
@@ -454,10 +578,10 @@ script:
             device_block: "{% set dev_id = device_id(current_entity) %}\n{% if dev_id
               is not none %}\n  {% set idents = (device_attr(dev_id,
               'identifiers') or []) | list %}\n  {% set first = idents | first | default([])
-              | list %}\n  {% set integ = first[0] if first | length > 0 else none %}\n  {{ {\n    'device_id':
+              | list %}\n  {% set integ = first[0] if first | length > 0 else none %}\n  {% set _dev_area = device_attr(dev_id, 'area_id') %}\n  {{ {\n    'device_id':
               dev_id,\n    'name': device_attr(dev_id, 'name'),\n    'manufacturer':
               device_attr(dev_id, 'manufacturer'),\n    'model': device_attr(dev_id,
-              'model'),\n    'area_id': device_attr(dev_id, 'area_id'),\n    'integration':
+              'model'),\n    'area_id': _dev_area,\n    'floor_id': area_attr(_dev_area, 'floor_id') if _dev_area is not none else none,\n    'device_labels': (device_attr(dev_id, 'labels') or []) | list,\n    'area_labels': (area_attr(_dev_area, 'labels') or []) | list if _dev_area is not none else [],\n    'integration':
               integ\n  } }}\n{% else %}\n  none\n{% endif %}"
             device_tree: "{% if extended_mode %}\n  {% set dev_id = device_id(current_entity)
               %}\n  {% if dev_id is not none %}\n    {% set via = device_attr(dev_id,
@@ -610,9 +734,13 @@ script:
       response_variable: inspect_result
     alias: Zen DojoTOOLS Inspect
     mode: parallel
-    description: Inspect (4.5.1). Deep dive on one or more entities. Attributes
-      are key-scanned for safety. Cabinet sensors expose header metadata only; use cabinet
-      tools for full volume access.
+    description: >-
+      Inspect (4.6.0). Entity deep-dive + area/floor/device read modes.
+      mode=inspect (default): state, labels, device block (incl. floor_id,
+      device_labels, area_labels), volume, optional +attributes/+history/+statistics.
+      mode=area_info: area details by area_id. mode=floor_info: floor details
+      by floor_id. mode=device_info: device details by device_id.
+      Attributes key-scanned for safety. Cabinet sensors expose header only.
     fields:
       entity_id:
         required: true
@@ -662,6 +790,24 @@ script:
         name: Timeout
         default: 60
         required: false
+      area_id:
+        required: false
+        default: ''
+        selector:
+          area:
+        description: "Target area ID. Required for mode: area_info."
+      floor_id:
+        required: false
+        default: ''
+        selector:
+          text:
+        description: "Target floor ID (slug). Required for mode: floor_info."
+      device_id:
+        required: false
+        default: ''
+        selector:
+          device:
+        description: "Target device ID. Required for mode: device_info."
       mode:
         required: false
         default: inspect
@@ -670,7 +816,14 @@ script:
             options:
             - inspect
             - help
-        description: "inspect (default) — run inspection and return entity results. help — return full output_fields reference and result schema."
+            - area_info
+            - floor_info
+            - device_info
+        description: >-
+          inspect (default) — entity inspection loop. help — return schema.
+          area_info — area details (area_id required): name, floor_id, aliases, labels, entities, devices.
+          floor_info — floor details (floor_id required): name, level, aliases, areas.
+          device_info — device details (device_id required): name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entities.
       caller_token:
         name: Caller Token
         required: false
