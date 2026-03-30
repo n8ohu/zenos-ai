@@ -1375,10 +1375,10 @@ script:
           \  {{ _sliced }}\n{% endif %}"
     - variables:
         _uses_topology_seed: >-
-          {{ (device_1 | default('') | trim or integration_1 | default('') | trim
-          or area_1 | default('') | trim or floor_1 | default('') | trim
-          or device_2 | default('') | trim or integration_2 | default('') | trim
-          or area_2 | default('') | trim or floor_2 | default('') | trim) | bool }}
+          {{ device_1 | default('') | trim != '' or integration_1 | default('') | trim != ''
+          or area_1 | default('') | trim != '' or floor_1 | default('') | trim != ''
+          or device_2 | default('') | trim != '' or integration_2 | default('') | trim != ''
+          or area_2 | default('') | trim != '' or floor_2 | default('') | trim != '' }}
         _wildcard_op: '{{ setop == "*" }}'
         _has_history: '{{ ''+history'' in (output_fields | default([])) }}'
         _needs_cap: >-
@@ -1488,28 +1488,24 @@ script:
     - stop: Zen DojoTools Index Complete
       response_variable: label_entity_logic_result
     alias: Zen DojoTools Index
-    description: ‘Zen DojoTools (Hyper)Index (4.6.3). Universal HyperGraph Index
-      for entity and label reasoning.
+    description: >-
+      Zen DojoTools (Hyper)Index (4.6.3). Universal HyperGraph Index for entity
+      and label reasoning.
 
-
-      Merges labels, entities, drawers, and metadata into a unified, deterministic result
-      set. Resolves two input sets via precedence chain (entities > label > device >
-      integration > area > floor), applies logical operators (AND/OR/NOT/XOR/*), and
-      filters via ZQ-1 before optional expansion.
-
+      Merges labels, entities, drawers, and metadata into a unified, deterministic
+      result set. Resolves two input sets via precedence chain (entities > label >
+      device > integration > area > floor), applies logical operators
+      (AND/OR/NOT/XOR/*), and filters via ZQ-1 before optional expansion.
 
       IMPORTANT — topology seeds (floor, area, integration, device) can return large
-      entity sets. Always dry_run: true first to check total_count before expand_entities:
-      true. Auto-cap of 50 applies when expand_entities=true with a topology/wildcard
-      seed and no limit set. +history requires explicit limit — never expand history on
-      a topology seed without limit.
-
+      entity sets. Always dry_run: true first to check total_count before
+      expand_entities: true. Auto-cap of 50 applies when expand_entities=true with a
+      topology/wildcard seed and no limit set. +history requires explicit limit —
+      never expand history on a topology seed without limit.
 
       Hypergraph mode outputs a structured graph (nodes, edges, adjacency, expanded)
-      ideal for fusion, summarizers, drift checks, and reasoning tasks. Run with mode:
-      help to view the full ZQ-1 schema.
-
-      ‘
+      ideal for fusion, summarizers, drift checks, and reasoning tasks. Run with
+      mode: help to view the full ZQ-1 schema.
     fields:
       mode:
         selector:
