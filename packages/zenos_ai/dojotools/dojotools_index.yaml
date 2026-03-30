@@ -288,7 +288,7 @@ script:
               {{
                 {
                   "tool": "Zen DojoTools Inspect",
-                  "version": "4.6.0",
+                  "version": "4.6.2",
                   "intent": "Deep entity inspection + area/floor/device read modes. Returns state, labels, device metadata (incl. floor_id, device_labels, area_labels), cabinet volume info, and optional recorder statistics. Called directly or via Index when expand_entities=true.",
                   "inputs": {
                     "entity_id": "Required for mode=inspect. Single entity_id or list. Not required for help/area_info/floor_info/device_info.",
@@ -335,10 +335,17 @@ script:
                     "drawer_key_only": ["drawer"]
                   },
                   "non_entity_modes": {
-                    "area_info": "Returns: area_id, name, floor_id, labels, entity_ids, entity_count, device_ids, device_count.",
-                    "floor_info": "Returns: floor_id, name, area_ids, area_count.",
-                    "device_info": "Returns: device_id, name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entity_ids, entity_count.",
-                    "_note": "aliases and level dropped — no native HA read path. floor_id() / area_name() / floor_name() / labels() are the native functions used."
+                    "area_info": "Single area. Input: area_id. Returns: area_id, name, floor_id, labels, entity_ids, entity_count, device_ids, device_count.",
+                    "floor_info": "Single floor. Input: floor_id. Returns: floor_id, name, area_ids, area_count.",
+                    "device_info": "Single device. Input: device_id. Returns: device_id, name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entity_ids, entity_count.",
+                    "area_list": "All areas. No input required. Returns: count, areas[]{area_id, name, floor_id, labels}.",
+                    "floor_list": "All floors. No input required. Returns: count, floors[]{floor_id, name, area_ids, area_count}.",
+                    "label_list": "All labels. No input required. Returns: count, labels[]{label_id, entity_count, area_count}.",
+                    "zone_list": "All zones. No input required. Returns: count, zones[]{entity_id, name, lat, lon, radius, passive, icon}.",
+                    "person_list": "All persons. No input required. Returns: count, persons[]{entity_id, name, state, user_id, device_trackers, source, lat, lon}.",
+                    "device_list": "TOOLING PRIMITIVE — iterates all states to find unique device IDs. Large installs return very large responses. Not for direct AI calls. AI workflow: floor_list → area_info → device_info. Returns: count, devices[]{device_id, name, manufacturer, model, area_id, floor_id, labels}.",
+                    "integration_entities": "Entities by integration. Input: integration (domain slug). Returns: integration, entity_ids, entity_count.",
+                    "_note": "aliases and level dropped — no HA Jinja read path. config_entry_list blocked — config entries not in Jinja, needs REST. Use /api/config/config_entries/entry via REST API."
                   },
                   "top_level_output": {
                     "results": "Array of per-entity result objects.",
@@ -477,6 +484,214 @@ script:
                 'caller_token': caller_token
               } }}
         - stop: device_info complete
+          response_variable: _mode_result
+
+      # ── AREA_LIST ────────────────────────────────────────────────────────
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'area_list' }}"
+        sequence:
+        - variables:
+            _mode_result: >-
+              {%- set ns = namespace(list=[]) -%}
+              {%- for a in areas() | list -%}
+                {%- set ns.list = ns.list + [{
+                  'area_id': a,
+                  'name': area_name(a) | default('', true),
+                  'floor_id': floor_id(area_name(a)) | default(none, true),
+                  'labels': (labels(a) or []) | list
+                }] -%}
+              {%- endfor -%}
+              {{ {
+                'mode': 'area_list',
+                'count': ns.list | length,
+                'areas': ns.list,
+                'caller_token': caller_token
+              } }}
+        - stop: area_list complete
+          response_variable: _mode_result
+
+      # ── FLOOR_LIST ───────────────────────────────────────────────────────
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'floor_list' }}"
+        sequence:
+        - variables:
+            _mode_result: >-
+              {%- set ns = namespace(list=[]) -%}
+              {%- for f in floors() | list -%}
+                {%- set _areas = floor_areas(f) | list -%}
+                {%- set ns.list = ns.list + [{
+                  'floor_id': f,
+                  'name': floor_name(f) | default('', true),
+                  'area_ids': _areas,
+                  'area_count': _areas | length
+                }] -%}
+              {%- endfor -%}
+              {{ {
+                'mode': 'floor_list',
+                'count': ns.list | length,
+                'floors': ns.list,
+                'caller_token': caller_token
+              } }}
+        - stop: floor_list complete
+          response_variable: _mode_result
+
+      # ── LABEL_LIST ───────────────────────────────────────────────────────
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'label_list' }}"
+        sequence:
+        - variables:
+            _mode_result: >-
+              {%- set ns = namespace(list=[]) -%}
+              {%- for lbl in labels() | list -%}
+                {%- set _ents = label_entities(lbl) | list -%}
+                {%- set _area_ns = namespace(count=0) -%}
+                {%- for a in areas() | list -%}
+                  {%- if lbl in (labels(a) or []) -%}
+                    {%- set _area_ns.count = _area_ns.count + 1 -%}
+                  {%- endif -%}
+                {%- endfor -%}
+                {%- set ns.list = ns.list + [{
+                  'label_id': lbl,
+                  'entity_count': _ents | length,
+                  'area_count': _area_ns.count
+                }] -%}
+              {%- endfor -%}
+              {{ {
+                'mode': 'label_list',
+                'count': ns.list | length,
+                'labels': ns.list,
+                'caller_token': caller_token
+              } }}
+        - stop: label_list complete
+          response_variable: _mode_result
+
+      # ── ZONE_LIST ────────────────────────────────────────────────────────
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'zone_list' }}"
+        sequence:
+        - variables:
+            _mode_result: >-
+              {%- set ns = namespace(list=[]) -%}
+              {%- for s in states.zone | list -%}
+                {%- set eid = s.entity_id -%}
+                {%- set ns.list = ns.list + [{
+                  'entity_id': eid,
+                  'name': state_attr(eid, 'friendly_name') | default('', true),
+                  'lat': state_attr(eid, 'latitude') | default(none, true),
+                  'lon': state_attr(eid, 'longitude') | default(none, true),
+                  'radius': state_attr(eid, 'radius') | default(none, true),
+                  'passive': state_attr(eid, 'passive') | default(false, true),
+                  'icon': state_attr(eid, 'icon') | default('', true)
+                }] -%}
+              {%- endfor -%}
+              {{ {
+                'mode': 'zone_list',
+                'count': ns.list | length,
+                'zones': ns.list,
+                'caller_token': caller_token
+              } }}
+        - stop: zone_list complete
+          response_variable: _mode_result
+
+      # ── PERSON_LIST ──────────────────────────────────────────────────────
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'person_list' }}"
+        sequence:
+        - variables:
+            _mode_result: >-
+              {%- set ns = namespace(list=[]) -%}
+              {%- for s in states.person | list -%}
+                {%- set eid = s.entity_id -%}
+                {%- set ns.list = ns.list + [{
+                  'entity_id': eid,
+                  'name': state_attr(eid, 'friendly_name') | default('', true),
+                  'state': states(eid),
+                  'user_id': state_attr(eid, 'user_id') | default(none, true),
+                  'device_trackers': (state_attr(eid, 'device_trackers') or []) | list,
+                  'source': state_attr(eid, 'source') | default('', true),
+                  'lat': state_attr(eid, 'latitude') | default(none, true),
+                  'lon': state_attr(eid, 'longitude') | default(none, true)
+                }] -%}
+              {%- endfor -%}
+              {{ {
+                'mode': 'person_list',
+                'count': ns.list | length,
+                'persons': ns.list,
+                'caller_token': caller_token
+              } }}
+        - stop: person_list complete
+          response_variable: _mode_result
+
+      # ── DEVICE_LIST ──────────────────────────────────────────────────────
+      # WARNING: No native devices() in HA Jinja — iterates all states to
+      # collect unique device IDs. Large installs return very large responses.
+      # TOOLING PRIMITIVE ONLY. AI workflow: floor_list → area_info → device_info.
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'device_list' }}"
+        sequence:
+        - variables:
+            _mode_result: >-
+              {%- set ns = namespace(seen=[], list=[]) -%}
+              {%- for s in states | list -%}
+                {%- set _dev = device_id(s.entity_id) -%}
+                {%- if _dev is not none and _dev not in ns.seen -%}
+                  {%- set ns.seen = ns.seen + [_dev] -%}
+                  {%- set _area = device_attr(_dev, 'area_id') -%}
+                  {%- set ns.list = ns.list + [{
+                    'device_id': _dev,
+                    'name': device_attr(_dev, 'name') | default('', true),
+                    'manufacturer': device_attr(_dev, 'manufacturer') | default('', true),
+                    'model': device_attr(_dev, 'model') | default('', true),
+                    'area_id': _area,
+                    'floor_id': floor_id(area_name(_area)) if _area is not none else none,
+                    'labels': (labels(_dev) or []) | list
+                  }] -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {{ {
+                'mode': 'device_list',
+                'count': ns.list | length,
+                'devices': ns.list,
+                '_warning': 'Large response — tooling primitive only. Use floor_list → area_info → device_info for AI drill-down.',
+                'caller_token': caller_token
+              } }}
+        - stop: device_list complete
+          response_variable: _mode_result
+
+      # ── INTEGRATION_ENTITIES ─────────────────────────────────────────────
+      - conditions:
+        - condition: template
+          value_template: "{{ mode | default('inspect') == 'integration_entities' }}"
+        sequence:
+        - variables:
+            _target_integration: "{{ integration | default('') | trim }}"
+        - if: "{{ _target_integration == '' }}"
+          then:
+            - variables:
+                _mode_result:
+                  status: error
+                  mode: integration_entities
+                  message: "integration_entities requires integration field (domain slug or config entry title)."
+                  caller_token: "{{ caller_token }}"
+            - stop: Missing integration
+              response_variable: _mode_result
+        - variables:
+            _mode_result: >-
+              {%- set _ents = integration_entities(_target_integration) | list -%}
+              {{ {
+                'mode': 'integration_entities',
+                'integration': _target_integration,
+                'entity_ids': _ents,
+                'entity_count': _ents | length,
+                'caller_token': caller_token
+              } }}
+        - stop: integration_entities complete
           response_variable: _mode_result
 
     # --------------------------------------------------------------
@@ -734,11 +949,11 @@ script:
     mode: parallel
     description: >-
       Inspect (4.6.0). Entity deep-dive + area/floor/device read modes.
-      mode=inspect (default): state, labels, device block (incl. floor_id,
-      device_labels, area_labels), volume, optional +attributes/+history/+statistics.
-      mode=area_info: area details by area_id. mode=floor_info: floor details
-      by floor_id. mode=device_info: device details by device_id.
-      Attributes key-scanned for safety. Cabinet sensors expose header only.
+      inspect (default) — entity deep-dive. area_info/floor_info/device_info —
+      single-object drill-down (id required). area_list/floor_list/label_list/
+      zone_list/person_list — full registry enum (no input). device_list —
+      tooling primitive only, large response. integration_entities — by domain.
+      help — schema. (v4.6.2)
     fields:
       entity_id:
         required: true
@@ -806,6 +1021,12 @@ script:
         selector:
           device:
         description: "Target device ID. Required for mode: device_info."
+      integration:
+        required: false
+        default: ''
+        selector:
+          text:
+        description: "Integration domain slug or config entry title. Required for mode: integration_entities."
       mode:
         required: false
         default: inspect
@@ -817,11 +1038,19 @@ script:
             - area_info
             - floor_info
             - device_info
+            - area_list
+            - floor_list
+            - label_list
+            - zone_list
+            - person_list
+            - device_list
+            - integration_entities
         description: >-
-          inspect (default) — entity inspection loop. help — return schema.
-          area_info — area details (area_id required): name, floor_id, labels, entities, devices.
-          floor_info — floor details (floor_id required): name, area_ids.
-          device_info — device details (device_id required): name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entities.
+          inspect (default) — entity inspection loop. help — schema.
+          area_info/floor_info/device_info — single-object drill-down (id required).
+          area_list/floor_list/label_list/zone_list/person_list — full registry enumeration, no input required.
+          device_list — all devices (TOOLING PRIMITIVE — large response, not for direct AI calls; use floor_list → area_info → device_info).
+          integration_entities — entity list by integration domain (integration field required).
       caller_token:
         name: Caller Token
         required: false
