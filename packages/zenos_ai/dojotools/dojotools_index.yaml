@@ -1594,7 +1594,7 @@ script:
         selector:
           number:
             min: 0
-            max: 1000
+            max: 10000
             step: 1
       offset:
         name: Offset
@@ -1606,7 +1606,7 @@ script:
         selector:
           number:
             min: 0
-            max: 10000
+            max: 100000
             step: 1
       operator:
         name: Set Operator
