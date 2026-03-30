@@ -398,7 +398,7 @@ script:
                 'mode': 'area_info',
                 'area_id': _target_area,
                 'name': area_name(_target_area) | default('', true),
-                'floor_id': floor_id(_target_area) | default(none, true),
+                'floor_id': floor_id(area_name(_target_area)) | default(none, true),
                 'labels': (labels(_target_area) or []) | list,
                 'entity_ids': _ents,
                 'entity_count': _ents | length,
@@ -460,7 +460,7 @@ script:
               {%- set _ents = device_entities(_target_dev) | list -%}
               {%- set _cfg = (device_attr(_target_dev, 'config_entries') or []) | list -%}
               {%- set _area = device_attr(_target_dev, 'area_id') -%}
-              {%- set _floor = floor_id(_area) if _area is not none else none -%}
+              {%- set _floor = floor_id(area_name(_area)) if _area is not none else none -%}
               {{ {
                 'mode': 'device_info',
                 'device_id': _target_dev,
@@ -579,7 +579,7 @@ script:
               | list %}\n  {% set integ = first[0] if first | length > 0 else none %}\n  {% set _dev_area = device_attr(dev_id, 'area_id') %}\n  {{ {\n    'device_id':
               dev_id,\n    'name': device_attr(dev_id, 'name'),\n    'manufacturer':
               device_attr(dev_id, 'manufacturer'),\n    'model': device_attr(dev_id,
-              'model'),\n    'area_id': _dev_area,\n    'floor_id': floor_id(_dev_area) if _dev_area is not none else none,\n    'device_labels': (labels(dev_id) or []) | list,\n    'area_labels': (labels(_dev_area) or []) | list if _dev_area is not none else [],\n    'integration':
+              'model'),\n    'area_id': _dev_area,\n    'floor_id': floor_id(area_name(_dev_area)) if _dev_area is not none else none,\n    'device_labels': (labels(dev_id) or []) | list,\n    'area_labels': (labels(_dev_area) or []) | list if _dev_area is not none else [],\n    'integration':
               integ\n  } }}\n{% else %}\n  none\n{% endif %}"
             device_tree: "{% if extended_mode %}\n  {% set dev_id = device_id(current_entity)
               %}\n  {% if dev_id is not none %}\n    {% set via = device_attr(dev_id,
