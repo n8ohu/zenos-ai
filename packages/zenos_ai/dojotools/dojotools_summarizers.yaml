@@ -341,7 +341,12 @@ script:
 
       - alias: Extract zen summary from monk response
         variables:
-          zen_summary: "{{ monk_response.data | default({}) }}"
+          zen_summary: >-
+            {%- set ns = namespace(raw=monk_response.data | default('') | string | trim) -%}
+            {%- if ns.raw[:7] == '```json' -%}{%- set ns.raw = ns.raw[7:] | trim -%}{%- endif -%}
+            {%- if ns.raw[:3] == '```' -%}{%- set ns.raw = ns.raw[3:] | trim -%}{%- endif -%}
+            {%- if ns.raw[-3:] == '```' -%}{%- set ns.raw = ns.raw[:-3] | trim -%}{%- endif -%}
+            {{ ns.raw }}
 
       # ── 8a. Compute run duration ──────────────────────────────────────────
       - alias: Compute run duration
@@ -699,7 +704,12 @@ script:
 
       - alias: Extract kata summary from monk response
         variables:
-          kata_summary: "{{ monk_response.data | default({}) }}"
+          kata_summary: >-
+            {%- set ns = namespace(raw=monk_response.data | default('') | string | trim) -%}
+            {%- if ns.raw[:7] == '```json' -%}{%- set ns.raw = ns.raw[7:] | trim -%}{%- endif -%}
+            {%- if ns.raw[:3] == '```' -%}{%- set ns.raw = ns.raw[3:] | trim -%}{%- endif -%}
+            {%- if ns.raw[-3:] == '```' -%}{%- set ns.raw = ns.raw[:-3] | trim -%}{%- endif -%}
+            {{ ns.raw }}
 
       # ── 8. Post to kata cabinet ───────────────────────────────────────────
       - alias: Post kata summary to cabinet
