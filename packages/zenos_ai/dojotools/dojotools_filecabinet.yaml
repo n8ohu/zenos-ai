@@ -58,7 +58,7 @@ script:
           {%- elif _veid is iterable and not _veid is string and _veid | length > 0 -%}
             {{- _veid[0] -}}
           {%- else -%}
-            ''
+            {{- '' -}}
           {%- endif -%}
         raw_key: "{{- key | default('') | trim -}}"
         key: >-
@@ -1764,7 +1764,7 @@ script:
               {%- if ev is mapping and ev.get('mount_point', false) -%}
                 {{- ev.get('target_guid', '') -}}
               {%- else -%}
-                ''
+                {{- '' -}}
               {%- endif -%}
             existing_is_mount: >
               {%- set e = old_mount_entry -%}
@@ -1845,7 +1845,7 @@ script:
               {%- if ev is mapping -%}
                 {{- ev.get('target_guid', '') -}}
               {%- else -%}
-              ''
+                {{- '' -}}
               {%- endif -%}
         - choose:
           - conditions:
