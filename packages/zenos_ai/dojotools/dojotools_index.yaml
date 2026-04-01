@@ -749,7 +749,7 @@ script:
           {%- elif _of is iterable and _of is not string -%}
             {{- _of | map('lower') | map('trim') | list -}}
           {%- else -%}
-            {{- [] --}
+            {{- [] -}}
           {%- endif -%}"
         _show_timestamps: "{{- '-timestamps' not in output_fields_input -}}"
         _show_device: "{{- '-device' not in output_fields_input -}}"
