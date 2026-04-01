@@ -925,12 +925,12 @@ script:
         calendar_entity_exists: '{{ calendar_entity_resolved in valid_calendar_entities
           }}'
         is_ms365_cal: '{{ calendar_entity_resolved in integration_entities(''ms365'') }}'
-        start: "{% set raw = start if start is defined else now().replace(hour=0,\
+        start: "{% set raw = start if (start is defined and start | string | trim != '') else now().replace(hour=0,\
           \ minute=0, second=0) %} {% if raw is string %}\n  {% set dt = as_datetime(raw)\
           \ if 'T' in raw else strptime(raw, \"%Y-%m-%d\") %}\n{% else %}\n  {% set\
           \ dt = raw %}\n{% endif %} {{ dt | as_local | as_timestamp | timestamp_custom(\"\
           %Y-%m-%dT%H:%M:%S%:z\", false) }}"
-        end: "{% set raw = end if end is defined else (now().replace(hour=0, minute=0,\
+        end: "{% set raw = end if (end is defined and end | string | trim != '') else (now().replace(hour=0, minute=0,\
           \ second=0) + timedelta(days=1)) %} {% if raw is string %}\n  {% set dt\
           \ = as_datetime(raw) if 'T' in raw else strptime(raw, \"%Y-%m-%d\") %}\n\
           {% else %}\n  {% set dt = raw %}\n{% endif %} {{ dt | as_local | as_timestamp\
