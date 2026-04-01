@@ -58,7 +58,7 @@ script:
         kfc_template_seed: >-
           {{
             {
-              "schema_version": "1.2.0",
+              "schema_version": "1.3.0",
               "structure": {
                 "version": None,
                 "friendly_name": None,
@@ -70,6 +70,10 @@ script:
                 "trigger_subscriptions": [],
                 "delay_seconds": 0,
                 "kata_key": None,
+                "drift_threshold": None,
+                "emission_cooldown_minutes": None,
+                "suggested_act_event": None,
+                "index_call": None,
                 "meta": {
                   "enabled": None,
                   "requires": {
@@ -79,7 +83,7 @@ script:
                 }
               },
               "example": {
-                "version": "1.2.0",
+                "version": "1.3.0",
                 "friendly_name": "Alert Manager",
                 "label": "Alert Manager",
                 "component_summary": "Monitors system alerts and persistent notifications.",
@@ -89,6 +93,17 @@ script:
                 "trigger_subscriptions": ["ha_start", "daily_midnight", "hourly_trigger", "home_mode_updates", "alarm_panel"],
                 "delay_seconds": 0,
                 "kata_key": "alert_manager",
+                "drift_threshold": 7,
+                "emission_cooldown_minutes": 60,
+                "suggested_act_event": None,
+                "index_call": {
+                  "label_1": "alert_manager",
+                  "label_2": None,
+                  "operator": "AND",
+                  "filter_json": None,
+                  "expand_entities": True,
+                  "output_fields": []
+                },
                 "meta": {
                   "enabled": True,
                   "requires": {
@@ -98,13 +113,65 @@ script:
                 }
               },
               "notes": {
-                "meta.requires": "Stub in 1.2.0 — cert and level are stored but not enforced. zen_auth enforcement arrives in SP1."
+                "meta.requires": "Stub in 1.2.0 — cert and level are stored but not enforced. zen_auth enforcement arrives in SP1.",
+                "drift_threshold": "Urgency score at or above this value triggers a forced supersummary synthesis. Default 7.",
+                "emission_cooldown_minutes": "Minimum minutes between urgency/action emissions for this component. Default 60. Prevents spam if urgency stays elevated across synthesis cycles.",
+                "suggested_act_event": "Event kind string Monk may return when action_required is true. Must be in zen_summarizer_act_whitelist to emit."
               }
+            } | tojson
+          }}
+    - variables:
+        kata_template_seed: >-
+          {{
+            {
+              "schema_version": "1.0.0",
+              "structure": {
+                "subjective": None,
+                "general_inference": None,
+                "attention": None,
+                "objective": None,
+                "events": [],
+                "watchlist": [],
+                "error": None,
+                "post": True,
+                "urgency": 0,
+                "confidence": 0.0,
+                "action_required": False,
+                "suggested_act_desc": None,
+                "suggested_act_event": None,
+                "period": None,
+                "last_emission_at": None
+              },
+              "example": {
+                "subjective": "Household alert count rising.",
+                "general_inference": "Three alerts unacknowledged since 06:00.",
+                "attention": "Check alert backlog — 3 unacknowledged.",
+                "objective": "Resolve unacknowledged alerts.",
+                "events": ["2025-09-23T06:00:00Z: alert created"],
+                "watchlist": ["alert_manager"],
+                "error": None,
+                "post": True,
+                "urgency": 3,
+                "confidence": 0.85,
+                "action_required": False,
+                "suggested_act_desc": None,
+                "suggested_act_event": None,
+                "period": "morning",
+                "last_emission_at": None
+              }
+            } | tojson
+          }}
+        act_whitelist_seed: >-
+          {{
+            {
+              "allowed_events": [],
+              "note": "Operator-managed whitelist. Add event kind strings via zen_admintools_summarizer_act. Empty by default — all action emission is blocked until explicitly allowed."
             } | tojson
           }}
     - variables:
         _rtt_kata: "{{- states('sensor.zen_kata_cabinet_resolved') -}}"
         _rtt_dojo: "{{- states('sensor.zen_dojo_cabinet_resolved') -}}"
+        _rtt_system: "{{- states('sensor.zen_system_cabinet_resolved') -}}"
     - action: script.zen_dojotools_filecabinet
       data:
         action_type: read
@@ -131,6 +198,35 @@ script:
             value: "{{- zen_template_seed -}}"
             set_timestamp: true
             label_input: zen_summary, zen, summary
+    # kata_template — per-component Monk output schema
+    - action: script.zen_dojotools_filecabinet
+      data:
+        action_type: read
+        show_hidden_volumes: false
+        volume_entity_id:
+          - "{{- _rtt_kata -}}"
+        key: kata_template
+      response_variable: _rtt_kata_tmpl_read
+    - variables:
+        _rtt_kata_tmpl_version: >-
+          {%- set raw = _rtt_kata_tmpl_read.result | default('{}') -%}
+          {%- set val = (raw | from_json) if raw is string else raw -%}
+          {%- set inner = val.get('value', val) if val is mapping else {} -%}
+          {%- set inner2 = (inner | from_json) if inner is string else inner -%}
+          {{- inner2.get('schema_version', '') if inner2 is mapping else '' -}}
+    - if: "{{- _rtt_kata_tmpl_version != '1.0.0' -}}"
+      then:
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: update
+            show_hidden_volumes: false
+            force_action: true
+            volume_entity_id:
+              - "{{- _rtt_kata -}}"
+            key: kata_template
+            value: "{{- kata_template_seed -}}"
+            set_timestamp: true
+            label_input: zen_summary, zen, summary
     - if: "{{- _rtt_dojo != '' -}}"
       then:
         - action: script.zen_dojotools_filecabinet
@@ -149,7 +245,7 @@ script:
               {{- (inner | from_json) if inner is string else inner -}}
             _rtt_dojo_version: "{{- _rtt_dojo_raw.get('schema_version', '') if _rtt_dojo_raw is mapping else '' -}}"
             _kfc_is_string: "{{- _rtt_dojo_raw is string -}}"
-        - if: "{{- _rtt_dojo_version != '1.2.0' or _kfc_is_string -}}"
+        - if: "{{- _rtt_dojo_version != '1.3.0' or _kfc_is_string -}}"
           then:
             - action: script.zen_dojotools_filecabinet
               data:
@@ -215,14 +311,240 @@ script:
                             - "{{- _rtt_dojo -}}"
                           key: "{{- _kfc_key -}}"
                           value: "{{- _kfc_updated -}}"
+        - alias: Upconvert KFC drawers 1.2.0 → 1.3.0
+          if:
+            - condition: template
+              value_template: "{{- _rtt_dojo_version in ['1.1.0', '1.2.0'] -}}"
+          then:
+            - variables:
+                _dojo_all_13: >-
+                  {{ state_attr(_rtt_dojo, 'variables') | default({}, true) }}
+            - repeat:
+                for_each: >-
+                  {{- _dojo_all_13.keys() | reject('in', ['AI_Cabinet_VolumeInfo', 'kfc_template']) | list -}}
+                sequence:
+                  - variables:
+                      _kfc_key: "{{- repeat.item -}}"
+                      _kfc_raw: "{{- _dojo_all_13.get(repeat.item, {}) -}}"
+                      _kfc_v1: >-
+                        {%- set _r = _kfc_raw -%}
+                        {%- set _v1 = _r.get('value', _r) if _r is mapping else {} -%}
+                        {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
+                        {{ _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) }}
+                  - if:
+                      - condition: template
+                        value_template: "{{- _kfc_v1 is mapping and _kfc_v1.get('kata_key', '') != '' -}}"
+                    then:
+                      - variables:
+                          _kfc_updated: >-
+                            {{
+                              _kfc_v1 | combine({
+                                'drift_threshold': _kfc_v1.get('drift_threshold', 7),
+                                'emission_cooldown_minutes': _kfc_v1.get('emission_cooldown_minutes', 60),
+                                'suggested_act_event': _kfc_v1.get('suggested_act_event', none)
+                              }) | tojson
+                            }}
+                      - action: script.zen_dojotools_filecabinet
+                        data:
+                          action_type: update
+                          show_hidden_volumes: false
+                          force_action: true
+                          set_timestamp: false
+                          volume_entity_id:
+                            - "{{- _rtt_dojo -}}"
+                          key: "{{- _kfc_key -}}"
+                          value: "{{- _kfc_updated -}}"
+    # System cabinet — seed zen_summarizer_act_whitelist if missing
+    - if: "{{- _rtt_system != '' -}}"
+      then:
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: read
+            show_hidden_volumes: false
+            volume_entity_id:
+              - "{{- _rtt_system -}}"
+            key: zen_summarizer_act_whitelist
+          response_variable: _rtt_sys_whitelist_read
+        - variables:
+            _rtt_sys_whitelist_exists: >-
+              {%- set raw = _rtt_sys_whitelist_read.result | default('{}') -%}
+              {%- set val = (raw | from_json) if raw is string else raw -%}
+              {{- val is mapping and val.keys() | list | length > 0 -}}
+        - if: "{{- not _rtt_sys_whitelist_exists -}}"
+          then:
+            - action: script.zen_dojotools_filecabinet
+              data:
+                action_type: update
+                show_hidden_volumes: false
+                force_action: true
+                volume_entity_id:
+                  - "{{- _rtt_system -}}"
+                key: zen_summarizer_act_whitelist
+                value: "{{- act_whitelist_seed -}}"
+                set_timestamp: true
+                label_input: zen, system
     alias: Zen AdminTools Reset Template
     description: >-
-      Zen AdminTools Reset Templates (1.2.0). Presses zen_template into the Kata
-      cabinet and kfc_template into the Dojo cabinet. Called by Flynn gate-3 if
-      either template is missing or version is outdated. On upgrade from 1.1.0:
-      adds meta.enabled + meta.requires to all existing KFC drawers and applies
-      Idempotent.
+      Zen AdminTools Reset Templates (1.3.0). Presses zen_template and
+      kata_template into the Kata cabinet, kfc_template into the Dojo cabinet,
+      and zen_summarizer_act_whitelist into the System cabinet. Called by Flynn
+      gate-3 if templates are missing or outdated. Upconverts KFC drawers from
+      1.1.0 or 1.2.0 to 1.3.0 (adds drift_threshold, emission_cooldown_minutes,
+      suggested_act_event). Idempotent.
 
+
+  zen_admintools_summarizer_act:
+    alias: Zen AdminTools Summarizer Act Whitelist
+    description: >-
+      Manages the zen_summarizer_act_whitelist drawer in the System cabinet.
+      Controls which suggested_act_event kinds the ninja summarizer is allowed
+      to emit on the event bus. Closed by default — operator must explicitly
+      add event kinds. The kill switch (input_boolean.zen_action_emission_enabled)
+      is a separate master toggle; this whitelist is a per-event-kind gate.
+    icon: mdi:shield-check
+    mode: single
+    fields:
+      action_type:
+        name: Action Type
+        description: list | add | remove | reset
+        required: true
+        selector:
+          select:
+            options:
+              - list
+              - add
+              - remove
+              - reset
+      event:
+        name: Event Kind
+        description: The suggested_act_event kind string to add or remove. Required for add/remove.
+        required: false
+        selector:
+          text:
+      caller_token:
+        name: Caller Token
+        description: Opaque correlation token. Not interpreted by this script.
+        required: false
+        selector:
+          text:
+
+    sequence:
+    - variables:
+        caller_token: "{{- caller_token | default('') -}}"
+        action_type: "{{- action_type | default('list') | lower -}}"
+        event: "{{- event | default('') | trim -}}"
+        _system: "{{- states('sensor.zen_system_cabinet_resolved') -}}"
+    - if:
+      - condition: template
+        value_template: "{{- _system == '' -}}"
+      then:
+      - stop: >-
+          summarizer_act failed — system cabinet not resolved
+        response_variable:
+          status: error
+          message: System cabinet unavailable.
+          caller_token: "{{- caller_token -}}"
+    # Read current whitelist
+    - action: script.zen_dojotools_filecabinet
+      data:
+        action_type: read
+        show_hidden_volumes: false
+        volume_entity_id:
+          - "{{- _system -}}"
+        key: zen_summarizer_act_whitelist
+      response_variable: _wl_read
+    - variables:
+        _wl_raw: >-
+          {%- set raw = _wl_read.result | default('{}') -%}
+          {%- set val = (raw | from_json) if raw is string else raw -%}
+          {%- set inner = val.get('value', val) if val is mapping else {} -%}
+          {{ (inner | from_json) if inner is string else inner }}
+        _wl_current: >-
+          {%- set w = _wl_raw if _wl_raw is mapping else {} -%}
+          {{ w.get('allowed_events', []) if w is mapping else [] }}
+    # list
+    - if:
+      - condition: template
+        value_template: "{{- action_type == 'list' -}}"
+      then:
+      - variables:
+          result:
+            status: success
+            action_type: list
+            allowed_events: "{{- _wl_current -}}"
+            count: "{{- _wl_current | length -}}"
+            caller_token: "{{- caller_token -}}"
+      - stop: list complete
+        response_variable: result
+    # reset
+    - if:
+      - condition: template
+        value_template: "{{- action_type == 'reset' -}}"
+      then:
+      - action: script.zen_dojotools_filecabinet
+        data:
+          action_type: update
+          show_hidden_volumes: false
+          force_action: true
+          volume_entity_id:
+            - "{{- _system -}}"
+          key: zen_summarizer_act_whitelist
+          value: >-
+            {{ {'allowed_events': [], 'note': 'Operator-managed whitelist.'} | tojson }}
+          set_timestamp: true
+          label_input: zen, system
+      - variables:
+          result:
+            status: success
+            action_type: reset
+            message: Whitelist cleared. All action emission blocked until events are re-added.
+            caller_token: "{{- caller_token -}}"
+      - stop: reset complete
+        response_variable: result
+    # add / remove — require event field
+    - if:
+      - condition: template
+        value_template: "{{- event == '' -}}"
+      then:
+      - stop: >-
+          summarizer_act add/remove requires event field
+        response_variable:
+          status: error
+          message: event field required for add/remove.
+          caller_token: "{{- caller_token -}}"
+    - variables:
+        _wl_updated: >-
+          {%- if action_type == 'add' -%}
+            {%- if event not in _wl_current -%}
+              {{ (_wl_current + [event]) | tojson }}
+            {%- else -%}
+              {{ _wl_current | tojson }}
+            {%- endif -%}
+          {%- else -%}
+            {{ _wl_current | reject('equalto', event) | list | tojson }}
+          {%- endif -%}
+    - action: script.zen_dojotools_filecabinet
+      data:
+        action_type: update
+        show_hidden_volumes: false
+        force_action: true
+        volume_entity_id:
+          - "{{- _system -}}"
+        key: zen_summarizer_act_whitelist
+        value: >-
+          {{ {'allowed_events': _wl_updated | from_json if _wl_updated is string else _wl_updated, 'note': 'Operator-managed whitelist.'} | tojson }}
+        set_timestamp: true
+        label_input: zen, system
+    - variables:
+        result:
+          status: success
+          action_type: "{{- action_type -}}"
+          event: "{{- event -}}"
+          allowed_events: >-
+            {{ _wl_updated | from_json if _wl_updated is string else _wl_updated }}
+          caller_token: "{{- caller_token -}}"
+    - stop: "{{- action_type -}} complete"
+      response_variable: result
 
   zen_admintools_reset_labels:
     alias: Zen AdminTools Reset Labels (NUCLEAR)

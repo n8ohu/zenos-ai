@@ -1,7 +1,8 @@
 #####################################################################
 # zen_dojotool_dispatcher — Event-driven dojotool dispatch layer
+# zen_dojotool_tool_router — Second-dimension generic dispatch
 #
-# v1.0.0 (ZenOS-AI 4.5.5)
+# v1.1.0 (ZenOS-AI 4.5.7)
 #
 # Listens for zen_event(kind: dojotool_call), routes to the registered
 # script, fires correlated zen_event(kind: dojotool_return).
@@ -75,11 +76,13 @@ automation:
 
     actions:
       - variables:
-          _ev:      "{{ trigger.event.data.event }}"
-          _tool:    "{{ _ev.tool | default('') | trim }}"
-          _ver:     "{{ _ev.version | default('1') | string | trim }}"
-          _cid:     "{{ _ev.correlation_id | default('') | trim }}"
-          _payload: "{{ _ev.payload | default({}) }}"
+          _ev:              "{{ trigger.event.data.event }}"
+          _tool:            "{{ _ev.tool | default('') | trim }}"
+          _ver:             "{{ _ev.version | default('1') | string | trim }}"
+          _cid:             "{{ _ev.correlation_id | default('') | trim }}"
+          _payload:         "{{ _ev.payload | default({}) }}"
+          _route_externally: false
+          _result:          {}
 
       # ── Gate: correlation_id required ──────────────────────────────────────
       - if:
@@ -230,6 +233,43 @@ automation:
                   caller_token: "{{ _payload.get('caller_token', '') }}"
                 response_variable: _result
 
+          # ── zen_dojotools_urgency_handler v1 — stub (no backing script yet) ─
+          - conditions: "{{ _tool == 'zen_dojotools_urgency_handler' and _ver == '1' }}"
+            sequence:
+              - variables:
+                  _result:
+                    status: stub
+                    message: zen_dojotools_urgency_handler v1 registered — handler not yet implemented. Payload received.
+                    payload: "{{ _payload }}"
+                    correlation_id: "{{ _cid }}"
+
+          # ── Generic route — any zen_dojotools_* / zen_admintools_* tool ───────
+          # HA does not support templated action: names — cannot call
+          # "script.{{ _tool }}" directly. Push down one dimension:
+          # fire dojotool_route sub-event with full routing info in
+          # templated event_data. zen_dojotool_tool_router picks it up,
+          # dispatches to the backing script, fires dojotool_return directly.
+          # Add an explicit branch above ONLY when custom field-mapping is needed.
+          #
+          # AUDIT HOOK: dojotool_route is the natural seam for the event-bus
+          # audit logger (not yet built). Every generic dispatch emits this event
+          # with full routing info (tool, version, correlation_id, payload).
+          # Future: zen_dojotool_audit_logger listens here; certain event classes
+          # (urgency_handler, suggested_act_event) can force audit: true.
+          - conditions: >-
+              {{ _tool | regex_match('^zen_dojotools_|^zen_admintools_') }}
+            sequence:
+              - variables:
+                  _route_externally: true
+              - event: zen_event
+                event_data:
+                  event:
+                    kind: dojotool_route
+                    tool: "{{ _tool }}"
+                    version: "{{ _ver }}"
+                    correlation_id: "{{ _cid }}"
+                    payload: "{{ _payload }}"
+
         # ── Unknown tool — structured fault, NOT a hard crash ─────────────
         default:
           - variables:
@@ -249,6 +289,121 @@ automation:
                 correlation_id: "{{ _cid }}"
                 error: unknown_tool
                 message: "Dispatcher: unknown tool '{{ _tool }}' v{{ _ver }}. Not in registry."
+
+      # ── Fire correlated return (skipped when routed externally) ──────────
+      # Routed tools: zen_dojotool_tool_router fires dojotool_return directly.
+      - if:
+        - condition: template
+          value_template: "{{ not _route_externally }}"
+        then:
+        - event: zen_event
+          event_data:
+            event:
+              kind: dojotool_return
+              correlation_id: "{{ _cid }}"
+              tool: "{{ _tool }}"
+              version: "{{ _ver }}"
+              result: "{{ _result }}"
+
+
+  #####################################################################
+  # zen_dojotool_tool_router — Second-dimension generic dispatch
+  #
+  # v1.0.0 (ZenOS-AI 4.5.7)
+  #
+  # Receives dojotool_route events fired by the dispatcher's generic arm
+  # when the tool does not need custom field-mapping. Calls the backing
+  # script, fires dojotool_return with the correlated result.
+  #
+  # WHY:
+  #   HA does not support templated action: names ("script.{{ _tool }}").
+  #   The dispatcher cannot generically dispatch without explicit branches.
+  #   This automation IS the expandable surface: add a new branch here
+  #   (not in the dispatcher) when a new generic tool needs routing.
+  #   Dispatcher choose block stays stable.
+  #
+  # CONTRACT:
+  #   Incoming event_data.event fields: tool, version, correlation_id, payload
+  #   Outgoing: zen_event(kind: dojotool_return, correlation_id, tool, result)
+  #
+  # ADDING A NEW TOOL: add one choose arm. No dispatcher change required.
+  #####################################################################
+
+  - id: zen_dojotool_tool_router
+    alias: Zen DojoTool Tool Router
+    description: >-
+      Zen DojoTool Tool Router 1.0.0. Second-dimension generic dispatch layer.
+      Catches dojotool_route events from the dispatcher generic arm, calls
+      backing scripts explicitly (HA cannot template action names), fires
+      correlated dojotool_return. Add new arms here — dispatcher stays stable.
+    mode: parallel
+    max: 20
+
+    triggers:
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: dojotool_route
+
+    actions:
+      - variables:
+          _rev:     "{{ trigger.event.data.event }}"
+          _tool:    "{{ _rev.tool | default('') | trim }}"
+          _ver:     "{{ _rev.version | default('1') | string | trim }}"
+          _cid:     "{{ _rev.correlation_id | default('') | trim }}"
+          _payload: "{{ _rev.payload | default({}) }}"
+          _result:  {}
+
+      # ── Gate: correlation_id required ─────────────────────────────────────
+      - if:
+        - condition: template
+          value_template: "{{ _cid == '' }}"
+        then:
+        - stop: missing correlation_id
+
+      # ── Tool registry ──────────────────────────────────────────────────────
+      - choose:
+
+          # ── zen_dojotools_inspect v1 ───────────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_inspect' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_inspect
+                data:
+                  entity_id:     "{{ _payload.get('entity_id', []) }}"
+                  extended:      "{{ _payload.get('extended', false) }}"
+                  output_fields: "{{ _payload.get('output_fields', []) }}"
+                  label_targets: "{{ _payload.get('label_targets', []) }}"
+                  infer:         "{{ _payload.get('infer', false) }}"
+                  drawer_key:    "{{ _payload.get('drawer_key', '') }}"
+                  timeout:       "{{ _payload.get('timeout', 60) }}"
+                  caller_token:  "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
+          # ── zen_dojotools_todo v1 ──────────────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_todo' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_todo
+                data: "{{ _payload }}"
+                response_variable: _result
+
+          # ── zen_dojotools_calendar v1 ──────────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_calendar' and _ver == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_calendar
+                data: "{{ _payload }}"
+                response_variable: _result
+
+        # ── Unknown tool — structured fault ─────────────────────────────────
+        default:
+          - variables:
+              _result:
+                status: error
+                error: unknown_tool
+                message: "Tool Router: unknown tool '{{ _tool }}' v{{ _ver }}. Not registered."
+                tool: "{{ _tool }}"
+                version: "{{ _ver }}"
+                correlation_id: "{{ _cid }}"
 
       # ── Fire correlated return ─────────────────────────────────────────────
       - event: zen_event

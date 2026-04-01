@@ -92,6 +92,14 @@ input_boolean:
     name: Zen Ninja Summarizer
     icon: mdi:karate
 
+  zen_action_emission_enabled:
+    name: Zen Action Emission
+    icon: mdi:lightning-bolt
+    # Off by default. Operator turns this on to allow the ninja summarizer
+    # to emit suggested_act_event kinds onto the event bus. The whitelist
+    # (zen_summarizer_act_whitelist) is a separate per-kind gate.
+    # AI cannot write to this boolean. Operator-only.
+
 script:
 
   # ============================================================================
@@ -565,29 +573,89 @@ script:
           dojo_drawer_value: "{{ dojo_drawer.value | default({}) }}"
           household_drawer_value: "{{ household_drawer.value | default({}) }}"
 
+      # ── 2b. FG-38-safe household drawer unwind ────────────────────────────
+      - alias: Unwind household drawer — extract interpretation and policy_overlays
+        variables:
+          _hh_v1: >-
+            {%- set _r = household_drawer -%}
+            {%- set _v1 = _r.get('value', _r) if _r is mapping else {} -%}
+            {{ (_v1 | from_json) if _v1 is string else _v1 }}
+          _hh: >-
+            {%- set _v = _hh_v1 -%}
+            {{ _v if _v is mapping else ((_v | from_json) if _v is string else {}) }}
+          hh_interpretation: >-
+            {%- set i = _hh.get('interpretation', {}) if _hh is mapping else {} -%}
+            {{ i if i is mapping else {} }}
+          hh_policy_overlays: >-
+            {%- set p = _hh.get('policy_overlays', {}) if _hh is mapping else {} -%}
+            {{ p if p is mapping else {} }}
+
       # ── 3. Extract component metadata ─────────────────────────────────────
       - alias: Extract component metadata from dojo drawer
         variables:
           version: "{{ (dojo_drawer.version | default('')) or (dojo_drawer_value.version | default('')) }}"
           friendly_name: "{{ (dojo_drawer.friendly_name | default('')) or (dojo_drawer_value.friendly_name | default('')) }}"
           index_command: "{{ (dojo_drawer.label | default('')) or (dojo_drawer_value.label | default('')) }}"
-          library_command: "{{ (dojo_drawer.command | default('')) or (dojo_drawer_value.command | default('')) }}"
           component_summary: "{{ (dojo_drawer.component_summary | default('')) or (dojo_drawer_value.component_summary | default('')) }}"
           tool: "{{ (dojo_drawer.tool | default('')) or (dojo_drawer_value.tool | default('')) }}"
+          kata_key: >-
+            {%- set _k = (dojo_drawer.kata_key | default('')) or (dojo_drawer_value.kata_key | default('')) -%}
+            {{ _k if _k | trim != '' else component_slug }}
+          component_instructions: "{{ (dojo_drawer.component_instructions | default('')) or (dojo_drawer_value.component_instructions | default('')) }}"
+          trigger_subscriptions: >-
+            {%- set _ts = (dojo_drawer.trigger_subscriptions | default(none)) -%}
+            {%- set _ts = _ts if _ts is not none else (dojo_drawer_value.trigger_subscriptions | default(none)) -%}
+            {{ _ts if _ts is not none else [] }}
+          drift_threshold: >-
+            {%- set _dt = (dojo_drawer.drift_threshold | default(none)) -%}
+            {%- set _dt = _dt if _dt is not none else (dojo_drawer_value.drift_threshold | default(none)) -%}
+            {{ _dt | int if _dt is not none else 7 }}
+          emission_cooldown_minutes: >-
+            {%- set _ecm = (dojo_drawer.emission_cooldown_minutes | default(none)) -%}
+            {%- set _ecm = _ecm if _ecm is not none else (dojo_drawer_value.emission_cooldown_minutes | default(none)) -%}
+            {{ _ecm | int if _ecm is not none else 60 }}
+          index_call: >-
+            {%- set _ic = (dojo_drawer.index_call | default(none)) -%}
+            {%- set _ic = _ic if _ic is not none else (dojo_drawer_value.index_call | default(none)) -%}
+            {{ _ic if _ic is mapping else {} }}
+          meta_enabled: >-
+            {%- set _meta = (dojo_drawer.meta | default(none)) -%}
+            {%- set _meta = _meta if _meta is not none else (dojo_drawer_value.meta | default(none)) -%}
+            {%- set _meta = _meta if _meta is mapping else {} -%}
+            {{ _meta.get('enabled', true) | bool }}
+
+      # ── 3a. Gate on meta.enabled ──────────────────────────────────────────
+      - alias: Gate on meta.enabled — skip disabled components
+        if:
+          - condition: template
+            value_template: "{{ not meta_enabled }}"
+        then:
+          - event: zen_event
+            event_data:
+              kind: summarizer_skip
+              component: "{{ component_slug }}"
+              reason: meta_disabled
+              severity: info
+          - stop: "Ninja summarizer skipped — meta.enabled is false for {{ component_slug }}"
 
       # ── 4. Run HyperIndex ─────────────────────────────────────────────────
-      - alias: Run HyperIndex if label exists
+      - alias: Run HyperIndex using full index_call from KFC drawer
         if:
-          - alias: If label exists and not empty
+          - alias: If index_call or fallback label exists
             condition: template
-            value_template: "{{ index_command != '' }}"
+            value_template: >-
+              {{ (index_call is mapping and index_call.keys() | list | length > 0)
+                 or index_command | trim != '' }}
         then:
           - action: script.zen_dojotools_index
             data:
-              operator: AND
-              expand_entities: true
+              label_1: "{{ index_call.get('label_1', index_command) if index_call is mapping and index_call else index_command }}"
+              label_2: "{{ index_call.get('label_2', none) if index_call is mapping and index_call else none }}"
+              operator: "{{ index_call.get('operator', 'AND') if index_call is mapping and index_call else 'AND' }}"
+              expand_entities: "{{ index_call.get('expand_entities', true) if index_call is mapping and index_call else true }}"
+              output_fields: "{{ index_call.get('output_fields', []) if index_call is mapping and index_call else [] }}"
+              filter_json: "{{ index_call.get('filter_json', {}) if index_call is mapping and index_call else {} }}"
               timeout: 2
-              label_1: "{{ index_command }}"
               mode: hypergraph
             response_variable: zen_index_result
 
@@ -601,27 +669,154 @@ script:
               }
             }}
 
-      # ── 5. Run library command ────────────────────────────────────────────
-      - alias: Call library command if defined
+      # ── 4b. Domain tool supplement — todo/calendar via event bus ─────────
+      - alias: Supplement with Inspect — full entity detail via event bus
         if:
           - condition: template
-            value_template: "{{ library_command and library_command != '' }}"
+            value_template: >-
+              {{ zen_index_result is defined
+                 and zen_index_result is mapping
+                 and zen_index_result.get('result', {}).get('simple', []) | length > 0 }}
         then:
-          - alias: Call a Library ~COMMAND~
-            variables:
-              library_command_output: >-
-                {%- import 'zenos_ai/command_interpreter.jinja' as command_interpreter -%}
-                {{ command_interpreter.interpreter(library_command) | default('') }}
+          - variables:
+              _inspect_cid: >-
+                {%- set _a = range(0, 65536) | random -%}
+                {%- set _b = range(0, 65536) | random -%}
+                {%- set _c = range(0, 65536) | random -%}
+                {%- set _d = range(0, 65536) | random -%}
+                {%- set _e = range(0, 65536) | random -%}
+                {%- set _f = range(0, 65536) | random -%}
+                {%- set _g = range(0, 65536) | random -%}
+                {%- set _h = range(0, 65536) | random -%}
+                {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+          - event: zen_event
+            event_data:
+              event:
+                kind: dojotool_call
+                tool: zen_dojotools_inspect
+                version: "1"
+                correlation_id: "{{ _inspect_cid }}"
+                payload:
+                  entity_id: "{{ zen_index_result.get('result', {}).get('simple', []) }}"
+                  output_fields: "+attributes"
+                  caller_token: "{{ caller_token }}"
+          - wait_for_trigger:
+              - trigger: event
+                event_type: zen_event
+                event_data:
+                  event:
+                    kind: dojotool_return
+                    correlation_id: "{{ _inspect_cid }}"
+            timeout: "00:00:10"
+            continue_on_timeout: true
+          - variables:
+              domain_context: >-
+                {%- if wait.trigger is not none -%}
+                  {{ {'inspect': wait.trigger.event.data.event.get('result', {})} }}
+                {%- else -%}
+                  {}
+                {%- endif -%}
 
-      - alias: Capture library command result
+      - alias: Check for todo or calendar entities in index result
         variables:
-          library_command_result: >-
-            {{
-              {
-                "command": library_command | default(''),
-                "result":  library_command_output | default('')
-              }
-            }}
+          _index_simple: >-
+            {%- set _r = zen_index_result | default({}) -%}
+            {%- set _r = _r if _r is mapping else {} -%}
+            {%- set _res = _r.get('result', {}) -%}
+            {%- set _res = _res if _res is mapping else {} -%}
+            {%- set _s = _res.get('simple', []) -%}
+            {{ _s if _s is iterable and _s is not string else [] }}
+          _has_todo: "{{ _index_simple | select('match', '^todo\\.') | list | length > 0 }}"
+          _has_calendar: "{{ _index_simple | select('match', '^calendar\\.') | list | length > 0 }}"
+          domain_context: {}
+
+      - alias: Supplement with todo tool context if todo entities present
+        if:
+          - condition: template
+            value_template: "{{ _has_todo }}"
+        then:
+          - variables:
+              _todo_cid: >-
+                {%- set _a = range(0, 65536) | random -%}
+                {%- set _b = range(0, 65536) | random -%}
+                {%- set _c = range(0, 65536) | random -%}
+                {%- set _d = range(0, 65536) | random -%}
+                {%- set _e = range(0, 65536) | random -%}
+                {%- set _f = range(0, 65536) | random -%}
+                {%- set _g = range(0, 65536) | random -%}
+                {%- set _h = range(0, 65536) | random -%}
+                {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+          - event: zen_event
+            event_data:
+              event:
+                kind: dojotool_call
+                tool: zen_dojotools_todo
+                version: "1"
+                correlation_id: "{{ _todo_cid }}"
+                payload:
+                  action_type: list
+                  caller_token: "{{ caller_token }}"
+          - wait_for_trigger:
+              - trigger: event
+                event_type: zen_event
+                event_data:
+                  event:
+                    kind: dojotool_return
+                    correlation_id: "{{ _todo_cid }}"
+            timeout: "00:00:05"
+            continue_on_timeout: true
+          - variables:
+              _todo_context: >-
+                {%- if wait.trigger is not none -%}
+                  {{ wait.trigger.event.data.event.get('result', {}) | default({}) }}
+                {%- else -%}
+                  {}
+                {%- endif -%}
+              domain_context: "{{ domain_context | combine({'todo': _todo_context}) }}"
+
+      - alias: Supplement with calendar tool context if calendar entities present
+        if:
+          - condition: template
+            value_template: "{{ _has_calendar }}"
+        then:
+          - variables:
+              _cal_cid: >-
+                {%- set _a = range(0, 65536) | random -%}
+                {%- set _b = range(0, 65536) | random -%}
+                {%- set _c = range(0, 65536) | random -%}
+                {%- set _d = range(0, 65536) | random -%}
+                {%- set _e = range(0, 65536) | random -%}
+                {%- set _f = range(0, 65536) | random -%}
+                {%- set _g = range(0, 65536) | random -%}
+                {%- set _h = range(0, 65536) | random -%}
+                {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+          - event: zen_event
+            event_data:
+              event:
+                kind: dojotool_call
+                tool: zen_dojotools_calendar
+                version: "1"
+                correlation_id: "{{ _cal_cid }}"
+                payload:
+                  action_type: read
+                  caller_token: "{{ caller_token }}"
+          - wait_for_trigger:
+              - trigger: event
+                event_type: zen_event
+                event_data:
+                  event:
+                    kind: dojotool_return
+                    correlation_id: "{{ _cal_cid }}"
+            timeout: "00:00:05"
+            continue_on_timeout: true
+          - variables:
+              _cal_context: >-
+                {%- if wait.trigger is not none -%}
+                  {{ wait.trigger.event.data.event.get('result', {}) | default({}) }}
+                {%- else -%}
+                  {}
+                {%- endif -%}
+              domain_context: "{{ domain_context | combine({'calendar': _cal_context}) }}"
 
       # ── 6. Build monk prompt ──────────────────────────────────────────────
       - alias: Build monk prompt
@@ -633,35 +828,38 @@ script:
             that element. Your output must strictly match the structure. Do not
             report on Kung Fu internal operations (master switches etc) — those
             are monitored by external watchdog. (Who watches the watchmen?)
-            Your data includes the component purpose, available tools and their
-            output (command_result), and an index of the component's entities.
-            Use all available data to infer current status, near-term events,
-            anomalies, and suggested actions. Author "Cliff's Notes" for the
-            component: what's important, what to look at, where to dig deeper.
-            Stretch a little if needed — adjust confidence accordingly.
-            The frontline AI will have all Zen Kata summaries super-summarized
-            within ~15 minutes. If missing info, use the error field to request
-            it for future runs.
-          query: "{{ query | default(default_query) }}"
-          # FIX: was state_attr('sensor.zen_kata_storage_cabinet'...) hardcoded
+            Your data includes the component purpose, an index of the component's
+            entities, household context, and interpretation guidance including
+            urgency_rules. Use all available data to infer current status,
+            near-term events, anomalies, and suggested actions. Author
+            "Cliff's Notes" for the component: what's important, what to look
+            at, where to dig deeper. Stretch a little if needed — adjust
+            confidence accordingly. The frontline AI will have all Zen Kata
+            summaries super-summarized within ~15 minutes. If missing info,
+            use the error field to request it for future runs.
+          query: >-
+            {%- set _base = query | default(default_query) -%}
+            {{ (_base ~ '\n\n' ~ component_instructions) if component_instructions | trim != '' else _base }}
+          # FG-38-safe kata_template unwind
           kata_template: >-
-            {{
-              (state_attr(kata_cabinet, 'variables') or {})
-              .get('kata_template', {})
-              .get('structure', {})
-            }}
-          # FIX: was library_console (undefined) — correct var is library_command_result
+            {%- set _kt_raw = (state_attr(kata_cabinet, 'variables') or {}).get('kata_template', {}) -%}
+            {%- set _kt_v1 = _kt_raw.get('value', _kt_raw) if _kt_raw is mapping else {} -%}
+            {%- set _kt_v2 = (_kt_v1 | from_json) if _kt_v1 is string else _kt_v1 -%}
+            {{- _kt_v2.get('structure', {}) if _kt_v2 is mapping else {} -}}
           review_data: >-
             {{
               {
                 "kung_fu_component_id": component_slug | default(''),
                 "library_data": {
-                  "dojo_cabinet":    dojo_cabinet | default(''),
-                  "kata_cabinet":    kata_cabinet | default(''),
-                  "drawer":          dojo_drawer | default({}),
-                  "household_prefs": household_drawer | default({}),
-                  "index":           index_result | default({}),
-                  "library_console": library_command_result | default({})
+                  "dojo_cabinet":          dojo_cabinet | default(''),
+                  "kata_cabinet":          kata_cabinet | default(''),
+                  "drawer":                dojo_drawer | default({}),
+                  "household_prefs":       _hh | default({}),
+                  "interpretation":        hh_interpretation | default({}),
+                  "policy_overlays":       hh_policy_overlays | default({}),
+                  "trigger_subscriptions": trigger_subscriptions | default([]),
+                  "index":                 index_result | default({}),
+                  "domain_context":        domain_context | default({})
                 },
                 "tool": tool | default('')
               }
@@ -670,16 +868,17 @@ script:
             {"subjective":null,"general_inference":"Kung Fu component v3.0.0
             manages dojo and kata cabinet status, prioritizes production
             components, and updates the Kata Wall.","attention":"Monitor dojo
-            and kata cabinet sensors and the Kung Fu master switch for status
+            and kata cabinets and the Kung Fu master switch for status
             changes within the next hour.","objective":"Reports on/off state
             of dojo and kata cabinets via sensors, ensuring production
             components are prioritized over beta modules, and triggers Kata
             Wall updates on status changes.","events":[{"trigger":
             "is_everyone_kung_fu_fighting","timestamp":
             "2025-09-19T12:51:20+00:00"}],"watchlist":["sensor.zen_dojo_cabinet",
-            "sensor.zen_kata_storage_cabinet",
+            "sensor.zen_kata_storage_cabinet"
             ],"error":null,"post":true,
-            "urgency":2,"confidence":0.9}
+            "urgency":2,"confidence":0.9,
+            "action_required":false,"suggested_act_event":null}
           supplemental_instructions: "{{ supplemental_prompt | default('') }}"
           prompt: >-
             {{
@@ -711,6 +910,169 @@ script:
             {%- if ns.raw[-3:] == '```' -%}{%- set ns.raw = ns.raw[:-3] | trim -%}{%- endif -%}
             {{ ns.raw }}
 
+      # ── 7b. Parse urgency signal + emit pipeline ─────────────────────────
+      - alias: Parse urgency fields from Monk response
+        variables:
+          _kata_parsed: >-
+            {%- set _s = kata_summary -%}
+            {{ (_s | from_json) if _s is string else (_s if _s is mapping else {}) }}
+          _urgency: "{{ _kata_parsed.get('urgency', 0) | int if _kata_parsed is mapping else 0 }}"
+          _confidence: "{{ _kata_parsed.get('confidence', 0.0) | float if _kata_parsed is mapping else 0.0 }}"
+          _action_required: "{{ _kata_parsed.get('action_required', false) | bool if _kata_parsed is mapping else false }}"
+          _suggested_act_event: "{{ _kata_parsed.get('suggested_act_event', '') | default('', true) if _kata_parsed is mapping else '' }}"
+          _current_period: "{{ states('input_select.zen_home_mode') | default('', true) }}"
+
+      - alias: Read last_emission_at from existing kata drawer for cooldown check
+        variables:
+          _existing_kata_raw: >-
+            {%- set _r = (state_attr(kata_cabinet, 'variables') or {}).get(component_slug, {}) -%}
+            {%- set _v1 = _r.get('value', _r) if _r is mapping else {} -%}
+            {{ (_v1 | from_json) if _v1 is string else _v1 }}
+          _last_emission_at: >-
+            {%- set _e = _existing_kata_raw -%}
+            {%- set _e = _e if _e is mapping else {} -%}
+            {{ _e.get('last_emission_at', none) }}
+          _minutes_since_last: >-
+            {%- if _last_emission_at is not none and _last_emission_at | trim != '' and _last_emission_at != 'None' -%}
+              {{ ((now().timestamp() - (_last_emission_at | float)) / 60) | round(1) }}
+            {%- else -%}
+              {{ emission_cooldown_minutes + 1 }}
+            {%- endif -%}
+          _cooldown_active: "{{ (_minutes_since_last | float) < (emission_cooldown_minutes | int) }}"
+
+      - alias: Emit emission_suppressed if cooldown active
+        if:
+          - condition: template
+            value_template: "{{ _cooldown_active and post_to_kata_cabinet | default(false) | bool }}"
+        then:
+          - event: zen_event
+            event_data:
+              kind: emission_suppressed
+              component: "{{ kata_key }}"
+              reason: cooldown
+              minutes_remaining: "{{ (emission_cooldown_minutes | int - _minutes_since_last | float) | round(1) }}"
+              severity: info
+
+      - alias: Emit summary_force if urgency at or above drift_threshold
+        if:
+          - condition: template
+            value_template: >-
+              {{ not _cooldown_active
+                 and post_to_kata_cabinet | default(false) | bool
+                 and (_urgency | int) >= (drift_threshold | int) }}
+        then:
+          - event: zen_event
+            event_data:
+              event:
+                kind: summary_force
+                component: "{{ kata_key }}"
+                urgency: "{{ _urgency }}"
+                severity: warning
+
+      - alias: Emit dojotool_call for urgency handler if action_required
+        if:
+          - condition: template
+            value_template: >-
+              {{ not _cooldown_active
+                 and post_to_kata_cabinet | default(false) | bool
+                 and _action_required }}
+        then:
+          - variables:
+              _urgency_correlation_id: >-
+                {%- set _a = range(0, 65536) | random -%}
+                {%- set _b = range(0, 65536) | random -%}
+                {%- set _c = range(0, 65536) | random -%}
+                {%- set _d = range(0, 65536) | random -%}
+                {%- set _e = range(0, 65536) | random -%}
+                {%- set _f = range(0, 65536) | random -%}
+                {%- set _g = range(0, 65536) | random -%}
+                {%- set _h = range(0, 65536) | random -%}
+                {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+          - event: zen_event
+            event_data:
+              event:
+                kind: dojotool_call
+                tool: zen_dojotools_urgency_handler
+                version: "1"
+                correlation_id: "{{ _urgency_correlation_id }}"
+                payload:
+                  component_slug: "{{ component_slug }}"
+                  kata_key: "{{ kata_key }}"
+                  urgency: "{{ _urgency }}"
+                  action_required: "{{ _action_required }}"
+                  suggested_act_event: "{{ _suggested_act_event }}"
+
+      - alias: Emit suggested_act_event through three-layer gate
+        if:
+          - condition: template
+            value_template: >-
+              {{ not _cooldown_active
+                 and post_to_kata_cabinet | default(false) | bool
+                 and _action_required
+                 and _suggested_act_event | trim != '' }}
+        then:
+          - alias: Layer 1 — master kill switch
+            if:
+              - condition: template
+                value_template: "{{ not is_state('input_boolean.zen_action_emission_enabled', 'on') }}"
+            then:
+              - event: zen_event
+                event_data:
+                  kind: action_emission_blocked
+                  component: "{{ kata_key }}"
+                  reason: circuit_breaker
+                  event: "{{ _suggested_act_event }}"
+                  severity: info
+            else:
+              - alias: Layer 2 — whitelist check
+                variables:
+                  _wl_raw: >-
+                    {%- set _sys = states('sensor.zen_system_cabinet_resolved') -%}
+                    {%- set _wr = (state_attr(_sys, 'variables') or {}).get('zen_summarizer_act_whitelist', {}) if _sys != '' else {} -%}
+                    {%- set _wv1 = _wr.get('value', _wr) if _wr is mapping else {} -%}
+                    {{ (_wv1 | from_json) if _wv1 is string else _wv1 }}
+                  _allowed_events: >-
+                    {%- set _w = _wl_raw if _wl_raw is mapping else {} -%}
+                    {{ _w.get('allowed_events', []) }}
+                  _event_whitelisted: "{{ _suggested_act_event in _allowed_events }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ not _event_whitelisted }}"
+                then:
+                  - event: zen_event
+                    event_data:
+                      kind: action_emission_blocked
+                      component: "{{ kata_key }}"
+                      reason: not_whitelisted
+                      event: "{{ _suggested_act_event }}"
+                      severity: info
+                else:
+                  # SP1: ACL check goes here — verify component has permission to emit suggested_act_event kind
+                  # SP1: check meta.requires.cert / meta.requires.level against caller context
+                  - event: zen_event
+                    event_data:
+                      event:
+                        kind: "{{ _suggested_act_event }}"
+                        component: "{{ kata_key }}"
+                        urgency: "{{ _urgency }}"
+                        severity: warning
+
+      # Determine whether to stamp last_emission_at (only if emission fired)
+      - alias: Prepare kata write payload with period and emission metadata
+        variables:
+          _emission_fired: >-
+            {{ not _cooldown_active
+               and post_to_kata_cabinet | default(false) | bool
+               and ((_urgency | int) >= (drift_threshold | int) or _action_required) }}
+          _kata_write_value: >-
+            {%- set _base = _kata_parsed if _kata_parsed is mapping else {} -%}
+            {%- set _with_period = _base | combine({'period': _current_period}) -%}
+            {%- if _emission_fired -%}
+              {{ _with_period | combine({'last_emission_at': now().timestamp() | string}) | tojson }}
+            {%- else -%}
+              {{ _with_period | tojson }}
+            {%- endif -%}
+
       # ── 8. Post to kata cabinet ───────────────────────────────────────────
       - alias: Post kata summary to cabinet
         if:
@@ -726,11 +1088,11 @@ script:
               set_timestamp: true
               show_hidden_volumes: false
               force_action: true
+              expires_after: 24
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: "{{ component_slug }}"
-              value: "{{ kata_summary }}"
-              # FIX: was {{ index_command, 'Ninja Summary' }} — tuple syntax, fixed to clean CSV
+              value: "{{ _kata_write_value }}"
               # Guard: if index_command empty, omit leading comma
               label_input: "{{ (index_command + ', ') if index_command else '' }}Ninja Summary"
             response_variable: filecabinet_response
