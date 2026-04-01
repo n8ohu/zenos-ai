@@ -934,7 +934,7 @@ script:
             {{ _e.get('last_emission_at', none) }}
           _minutes_since_last: >-
             {%- if _last_emission_at is not none and _last_emission_at | trim != '' and _last_emission_at != 'None' -%}
-              {{ ((now().timestamp() - (_last_emission_at | float)) / 60) | round(1) }}
+              {{ ((now().timestamp() - (_last_emission_at | as_datetime | as_timestamp)) / 60) | round(1) }}
             {%- else -%}
               {{ emission_cooldown_minutes + 1 }}
             {%- endif -%}

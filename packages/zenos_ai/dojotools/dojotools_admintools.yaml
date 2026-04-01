@@ -438,12 +438,14 @@ script:
       - condition: template
         value_template: "{{- _system == '' -}}"
       then:
+      - variables:
+          _sa_stop:
+            status: error
+            message: System cabinet unavailable.
+            caller_token: "{{- caller_token -}}"
       - stop: >-
           summarizer_act failed — system cabinet not resolved
-        response_variable:
-          status: error
-          message: System cabinet unavailable.
-          caller_token: "{{- caller_token -}}"
+        response_variable: _sa_stop
     # Read current whitelist
     - action: script.zen_dojotools_filecabinet
       data:
