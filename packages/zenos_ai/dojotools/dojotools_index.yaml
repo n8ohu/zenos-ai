@@ -1024,7 +1024,7 @@ script:
         inspect_result:
           results: '{{ results }}'
           drawers: '{{ drawer_blurbs }}'
-          domain_context: '{{ _domain_context }}'
+          domain_context: "{{- _domain_context -}}"
           inputs:
             entity_id: '{{ entity_list }}'
             extended: '{{ extended_mode }}'
