@@ -917,11 +917,12 @@ script:
             then:
               - event: zen_event
                 event_data:
-                  kind: action_emission_blocked
-                  component: "{{ kata_key }}"
-                  reason: circuit_breaker
-                  event: "{{ _suggested_act_event }}"
-                  severity: info
+                  event:
+                    kind: action_emission_blocked
+                    component: "{{ kata_key }}"
+                    reason: circuit_breaker
+                    tool: "{{ _suggested_act_event }}"
+                    severity: warn
             else:
               - alias: Layer 2 — whitelist check
                 variables:
@@ -940,21 +941,95 @@ script:
                 then:
                   - event: zen_event
                     event_data:
-                      kind: action_emission_blocked
-                      component: "{{ kata_key }}"
-                      reason: not_whitelisted
-                      event: "{{ _suggested_act_event }}"
-                      severity: info
+                      event:
+                        kind: action_emission_blocked
+                        component: "{{ kata_key }}"
+                        reason: not_whitelisted
+                        tool: "{{ _suggested_act_event }}"
+                        severity: warn
                 else:
                   # SP1: ACL check goes here — verify component has permission to emit suggested_act_event kind
                   # SP1: check meta.requires.cert / meta.requires.level against caller context
+                  - variables:
+                      _act_cid: >-
+                        {%- set _a = range(0, 65535) | random -%}
+                        {%- set _b = range(0, 65535) | random -%}
+                        {%- set _c = range(0, 65535) | random -%}
+                        {%- set _d = range(0, 65535) | random -%}
+                        {{ '%04x%04x-%04x-%04x' | format(_a, _b, _c, _d) }}
                   - event: zen_event
                     event_data:
                       event:
-                        kind: "{{ _suggested_act_event }}"
+                        kind: action_emission_fired
                         component: "{{ kata_key }}"
+                        tool: "{{ _suggested_act_event }}"
+                        correlation_id: "{{ _act_cid }}"
                         urgency: "{{ _urgency }}"
-                        severity: warning
+                        severity: info
+                  - event: zen_event
+                    event_data:
+                      event:
+                        kind: dojotool_call
+                        tool: "{{ _suggested_act_event }}"
+                        version: "1"
+                        correlation_id: "{{ _act_cid }}"
+                        payload:
+                          kata_input:
+                            component: "{{ kata_key }}"
+                            attention: "{{ _kata_parsed.get('attention', '') if _kata_parsed is mapping else '' }}"
+                            suggested_act_desc: "{{ _kata_parsed.get('suggested_act_desc', '') if _kata_parsed is mapping else '' }}"
+                            urgency: "{{ _urgency }}"
+                            period: "{{ _current_period }}"
+                          caller_token: "{{ kata_key }}_act"
+                  - wait_for_trigger:
+                      - trigger: event
+                        event_type: zen_event
+                        event_data:
+                          event:
+                            kind: dojotool_return
+                            correlation_id: "{{ _act_cid }}"
+                    timeout: "00:00:30"
+                    continue_on_timeout: true
+                  - alias: Log emission result — timeout or dispatcher error
+                    if:
+                      - condition: template
+                        value_template: "{{ wait.trigger is none }}"
+                    then:
+                      - event: zen_event
+                        event_data:
+                          event:
+                            kind: action_emission_timeout
+                            component: "{{ kata_key }}"
+                            tool: "{{ _suggested_act_event }}"
+                            correlation_id: "{{ _act_cid }}"
+                            severity: warn
+                    else:
+                      - variables:
+                          _ret_ev: >-
+                            {{ wait.trigger.event.data.event | default({}) }}
+                      - if:
+                          - condition: template
+                            value_template: >-
+                              {{ _ret_ev is mapping and _ret_ev.get('status', 'success') not in ['success', 'ok', ''] }}
+                        then:
+                          - event: zen_event
+                            event_data:
+                              event:
+                                kind: action_emission_failed
+                                component: "{{ kata_key }}"
+                                tool: "{{ _suggested_act_event }}"
+                                correlation_id: "{{ _act_cid }}"
+                                error: "{{ _ret_ev.get('status', 'unknown') if _ret_ev is mapping else 'unknown' }}"
+                                severity: warn
+                        else:
+                          - event: zen_event
+                            event_data:
+                              event:
+                                kind: action_emission_success
+                                component: "{{ kata_key }}"
+                                tool: "{{ _suggested_act_event }}"
+                                correlation_id: "{{ _act_cid }}"
+                                severity: info
 
       # Determine whether to stamp last_emission_at (only if emission fired)
       - alias: Prepare kata write payload with period and emission metadata

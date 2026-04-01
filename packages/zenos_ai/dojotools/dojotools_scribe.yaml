@@ -349,6 +349,47 @@ script:
             max: 300
             step: 5
 
+      drift_threshold:
+        name: Drift Threshold
+        description: urgency score at or above this value triggers forced supersummary. Default 5.
+        required: false
+        default: 5
+        selector:
+          number:
+            min: 0
+            max: 100
+            step: 1
+
+      emission_cooldown_minutes:
+        name: Emission Cooldown Minutes
+        description: minimum minutes between urgency/action emissions. Default 60.
+        required: false
+        default: 60
+        selector:
+          number:
+            min: 0
+            max: 1440
+            step: 5
+
+      suggested_act_event:
+        name: Suggested Act Event
+        description: >-
+          The static suggested_act_event slug for this KFC, or blank for Monk-decided.
+          This value appears in component_instructions AVAILABLE ACTIONS as a valid option.
+          Must be a registered dojotool slug (e.g. zen_dojotools_notification_router) or blank.
+        required: false
+        selector:
+          text:
+
+      master_switch:
+        name: Master Switch
+        description: input_boolean entity ID that gates this component (optional)
+        required: false
+        selector:
+          entity:
+            filter:
+              domain: input_boolean
+
       enabled:
         name: Enabled
         description: component enabled state
@@ -1565,6 +1606,10 @@ script:
                         "trigger_subscriptions": base.get('trigger_subscriptions', _effective_trigger_list),
                         "custom_trigger_override": base.get('custom_trigger_override', _custom_trigger_list),
                         "delay_seconds": base.get('delay_seconds', delay_seconds | default(0) | int(0)),
+                        "drift_threshold": base.get('drift_threshold', drift_threshold | default(5) | int(5)),
+                        "emission_cooldown_minutes": base.get('emission_cooldown_minutes', emission_cooldown_minutes | default(60) | int(60)),
+                        "suggested_act_event": base.get('suggested_act_event', (suggested_act_event | default('') | trim) if (suggested_act_event | default('') | trim) != '' else none),
+                        "master_switch": base.get('master_switch', master_switch | default('', true)),
                         "component_group": base.get('component_group', {
                           "primary_index_key": _primary_index_key,
                           "component_key": _component_key,

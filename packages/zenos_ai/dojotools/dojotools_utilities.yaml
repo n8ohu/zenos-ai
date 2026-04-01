@@ -844,6 +844,15 @@ script:
         name: Breakthrough Work / Quiet Hours?
         description: Request break through work or quiet hours notify blocks...  Use
           for emergency or critical situations.
+      kata_input:
+        name: Kata Input
+        description: >-
+          Optional kata payload from the ninja summarizer emission pipeline.
+          When provided and explicit title/message/subject are not set,
+          derives them from component, attention, suggested_act_desc, period.
+        required: false
+        selector:
+          object:
       caller_token:
         name: Caller Token
         description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
@@ -856,6 +865,33 @@ script:
     # --------------------------------------------------------------
     - variables:
         caller_token: "{{- caller_token | default('') -}}"
+    - variables:
+        _kata: >-
+          {%- if kata_input is defined and kata_input is mapping and kata_input | length > 0 -%}
+            {{ kata_input }}
+          {%- else -%}{{ {} }}{%- endif -%}
+        title: >-
+          {%- if title is defined and title | default('', true) | trim != '' -%}
+            {{ title }}
+          {%- elif _kata | length > 0 -%}
+            {{ (_kata.get('component', '') | replace('_', ' ') | title) ~ ' — ' ~ (_kata.get('period', 'Update') | title) }}
+          {%- else -%}{{ title | default('') }}{%- endif -%}
+        message: >-
+          {%- if message is defined and message | default('', true) | trim != '' -%}
+            {{ message }}
+          {%- elif _kata | length > 0 -%}
+            {{ _kata.get('attention', _kata.get('suggested_act_desc', 'Action required.')) }}
+          {%- else -%}{{ message | default('') }}{%- endif -%}
+        subject: >-
+          {%- if subject is defined and subject | default('', true) | trim != '' -%}
+            {{ subject }}
+          {%- elif _kata | length > 0 -%}
+            {{ _kata.get('suggested_act_desc', '') }}
+          {%- else -%}{{ subject | default('') }}{%- endif -%}
+        notification_targets: >-
+          {%- if notification_targets is defined and notification_targets | default(none, true) is not none -%}
+            {{ notification_targets }}
+          {%- else -%}Admin Devices{%- endif -%}
     - variables:
         notification_devices: "{% set t = ( notification_targets | string ) | trim %}
           {% if t[0] == '[' and t[-1] == ']' %}\n  {{ t | tojson | from_json }}\n{%

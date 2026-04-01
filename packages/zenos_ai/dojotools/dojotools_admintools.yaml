@@ -361,34 +361,25 @@ script:
                           key: "{{- _kfc_key -}}"
                           value: "{{- _kfc_updated -}}"
     # System cabinet — seed zen_summarizer_act_whitelist if missing
+    # Uses event bus (set_variable_zenos_system_cabinet) — filecabinet blocks syscab writes
     - if: "{{- _rtt_system != '' -}}"
       then:
-        - action: script.zen_dojotools_filecabinet
-          data:
-            action_type: read
-            show_hidden_volumes: false
-            volume_entity_id:
-              - "{{- _rtt_system -}}"
-            key: zen_summarizer_act_whitelist
-          response_variable: _rtt_sys_whitelist_read
         - variables:
+            _rtt_sys_wl_raw: >-
+              {%- set _sv = state_attr(_rtt_system, 'variables') | default({}) -%}
+              {%- set _sv = _sv if _sv is mapping else {} -%}
+              {%- set _wr = _sv.get('zen_summarizer_act_whitelist', {}) -%}
+              {%- set _wv1 = _wr.get('value', _wr) if _wr is mapping else {} -%}
+              {{ (_wv1 | from_json) if _wv1 is string else _wv1 }}
             _rtt_sys_whitelist_exists: >-
-              {%- set raw = _rtt_sys_whitelist_read.result | default('{}') -%}
-              {%- set val = (raw | from_json) if raw is string else raw -%}
-              {{- val is mapping and val.keys() | list | length > 0 -}}
+              {{- _rtt_sys_wl_raw is mapping and _rtt_sys_wl_raw.keys() | list | length > 0 -}}
         - if: "{{- not _rtt_sys_whitelist_exists -}}"
           then:
-            - action: script.zen_dojotools_filecabinet
-              data:
-                action_type: update
-                show_hidden_volumes: false
-                force_action: true
-                volume_entity_id:
-                  - "{{- _rtt_system -}}"
+            - event: set_variable_zenos_system_cabinet
+              event_data:
                 key: zen_summarizer_act_whitelist
                 value: "{{- act_whitelist_seed -}}"
                 set_timestamp: true
-                label_input: zen, system
     alias: Zen AdminTools Reset Template
     description: >-
       Zen AdminTools Reset Templates (1.3.0). Presses zen_template and
@@ -452,21 +443,14 @@ script:
       - stop: >-
           summarizer_act failed — system cabinet not resolved
         response_variable: _sa_stop
-    # Read current whitelist
-    - action: script.zen_dojotools_filecabinet
-      data:
-        action_type: read
-        show_hidden_volumes: false
-        volume_entity_id:
-          - "{{- _system -}}"
-        key: zen_summarizer_act_whitelist
-      response_variable: _wl_read
+    # Read current whitelist — state_attr direct (filecabinet blocks all syscab writes)
     - variables:
         _wl_raw: >-
-          {%- set raw = _wl_read.result | default('{}') -%}
-          {%- set val = (raw | from_json) if raw is string else raw -%}
-          {%- set inner = val.get('value', val) if val is mapping else {} -%}
-          {{ (inner | from_json) if inner is string else inner }}
+          {%- set _sv = state_attr(_system, 'variables') | default({}) -%}
+          {%- set _sv = _sv if _sv is mapping else {} -%}
+          {%- set _wr = _sv.get('zen_summarizer_act_whitelist', {}) -%}
+          {%- set _wv1 = _wr.get('value', _wr) if _wr is mapping else {} -%}
+          {{ (_wv1 | from_json) if _wv1 is string else _wv1 }}
         _wl_current: >-
           {%- set w = _wl_raw if _wl_raw is mapping else {} -%}
           {{ w.get('allowed_events', []) if w is mapping else [] }}
@@ -489,18 +473,13 @@ script:
       - condition: template
         value_template: "{{- action_type == 'reset' -}}"
       then:
-      - action: script.zen_dojotools_filecabinet
-        data:
-          action_type: update
-          show_hidden_volumes: false
-          force_action: true
-          volume_entity_id:
-            - "{{- _system -}}"
+      - event: set_variable_zenos_system_cabinet
+        event_data:
           key: zen_summarizer_act_whitelist
-          value: >-
-            {{ {'allowed_events': [], 'note': 'Operator-managed whitelist.'} | tojson }}
+          value:
+            allowed_events: []
+            note: Operator-managed whitelist.
           set_timestamp: true
-          label_input: zen, system
       - variables:
           result:
             status: success
@@ -514,12 +493,14 @@ script:
       - condition: template
         value_template: "{{- event == '' -}}"
       then:
+      - variables:
+          _sa_missing_event:
+            status: error
+            message: event field required for add/remove.
+            caller_token: "{{- caller_token -}}"
       - stop: >-
           summarizer_act add/remove requires event field
-        response_variable:
-          status: error
-          message: event field required for add/remove.
-          caller_token: "{{- caller_token -}}"
+        response_variable: _sa_missing_event
     - variables:
         _wl_updated: >-
           {%- if action_type == 'add' -%}
@@ -531,18 +512,12 @@ script:
           {%- else -%}
             {{ _wl_current | reject('equalto', event) | list | tojson }}
           {%- endif -%}
-    - action: script.zen_dojotools_filecabinet
-      data:
-        action_type: update
-        show_hidden_volumes: false
-        force_action: true
-        volume_entity_id:
-          - "{{- _system -}}"
+    - event: set_variable_zenos_system_cabinet
+      event_data:
         key: zen_summarizer_act_whitelist
         value: >-
           {{ {'allowed_events': _wl_updated | from_json if _wl_updated is string else _wl_updated, 'note': 'Operator-managed whitelist.'} | tojson }}
         set_timestamp: true
-        label_input: zen, system
     - variables:
         result:
           status: success
