@@ -505,6 +505,15 @@ script:
         required: false
         selector:
           text:
+      force:
+        name: Force Run
+        description: >-
+          Bypass the run governor (dedup burnout window). Use for admin overrides
+          or emergency on-demand runs. Default false.
+        default: false
+        required: false
+        selector:
+          boolean:
 
     sequence:
       # --------------------------------------------------------------
@@ -637,6 +646,43 @@ script:
               reason: meta_disabled
               severity: info
           - stop: "Ninja summarizer skipped — meta.enabled is false for {{ component_slug }}"
+
+      # ── 3b. Run governor — dedup burnout window ───────────────────────────
+      # Reads burnout_seconds from zen_ninja_config drawer in household cabinet.
+      # Default 300s (5 min). Bypassed by force: true (admin/emergency only).
+      - alias: Run governor — block duplicate runs within burnout window
+        variables:
+          _gov_cfg: >-
+            {%- set _cfg_raw = (state_attr(household_cabinet, 'variables') or {}).get('zen_ninja_config', {}) -%}
+            {%- set _v1 = _cfg_raw.get('value', _cfg_raw) if _cfg_raw is mapping else {} -%}
+            {{ (_v1 | from_json) if _v1 is string else _v1 }}
+          _gov_burnout: "{{ (_gov_cfg.get('burnout_seconds', 300) | int(300)) if _gov_cfg is mapping else 300 }}"
+          _gov_last_raw: >-
+            {%- set _kv = (state_attr(kata_cabinet, 'variables') or {}).get('zen_ninja_last_run_' ~ component_slug, {}) -%}
+            {%- set _v1 = _kv.get('value', _kv) if _kv is mapping else {} -%}
+            {{ (_v1 | from_json) if _v1 is string else _v1 }}
+          _gov_last_ts: >-
+            {%- set _d = _gov_last_raw if _gov_last_raw is mapping else {} -%}
+            {%- set _ts_str = _d.get('run_started_at', '') -%}
+            {{ (_ts_str | as_datetime).timestamp() | float(0) if _ts_str | trim != '' else 0 }}
+          _gov_elapsed: "{{ (now().timestamp() - _gov_last_ts) | round(0) | int }}"
+          _gov_blocked: "{{ _gov_elapsed < _gov_burnout | int and not (force | default(false) | bool) }}"
+      - if:
+          - condition: template
+            value_template: "{{ _gov_blocked }}"
+        then:
+          - event: zen_event
+            event_data:
+              event:
+                kind: summarizer_run_blocked
+                component: "{{ component_slug }}"
+                reason: dedup_window
+                elapsed_secs: "{{ _gov_elapsed }}"
+                burnout_secs: "{{ _gov_burnout }}"
+                severity: info
+          - stop: >-
+              Ninja summarizer governor — {{ component_slug }} ran {{ _gov_elapsed }}s ago
+              (< {{ _gov_burnout }}s burnout window). Absorbing duplicate run.
 
       # ── 4. Run HyperIndex ─────────────────────────────────────────────────
       - alias: Run HyperIndex using full index_call from KFC drawer
