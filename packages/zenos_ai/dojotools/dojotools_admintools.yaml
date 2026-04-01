@@ -156,8 +156,14 @@ script:
                 "action_required": False,
                 "suggested_act_desc": None,
                 "suggested_act_event": None,
-                "period": "morning",
+                "period": "Home-Morning",
                 "last_emission_at": None
+              },
+              "notes": {
+                "period": "Semantic home mode at kata write time. One of: Home-Wake, Home-Morning, Home, Home-Evening, Night, Night-Late, Away, Paused. Ninja always stamps this from input_select.zen_home_mode — never trust Monk's returned value for this field.",
+                "last_emission_at": "ISO timestamp of last urgency/action emission for this component. Null if no emission has fired. Used by cooldown gate — do not write manually.",
+                "urgency": "0–10 integer. Ninja fires summary_force when urgency >= KFC drift_threshold.",
+                "action_required": "Boolean. True means Monk identified an action needed. Triggers dojotool_call(urgency_handler) and three-layer gate for suggested_act_event."
               }
             } | tojson
           }}
