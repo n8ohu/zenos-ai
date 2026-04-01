@@ -607,12 +607,16 @@ script:
           == 1 and items[0] in ['''', None, ''*'']) }}'
         list_query: '{{ is_list_wildcard or action_type not in [''create'',''read'',''update'',''delete'']
           }}'
-        todo_lists_data: "[\n{%- for l in states.todo -%}\n  {\n    \"entity_id\"\
-          : \"{{ l.entity_id }}\",\n    \"friendly_name\": \"{{ l.attributes.friendly_name\
-          \ }}\",\n    \"labels\": [\n      {%- for lid in labels(l.entity_id) -%}\n\
-          \        \"{{ label_name(lid) }}\"{% if not loop.last %}, {% endif %}\n \
-          \     {%- endfor -%}\n    ]\n  }{% if not loop.last %}, {% endif %}\n{%-\
-          \ endfor -%}\n] | tojson | fromjson"
+        todo_lists_data: >-
+          {%- set ns = namespace(items=[]) -%}
+          {%- for l in states.todo -%}
+            {%- set ns2 = namespace(lbls=[]) -%}
+            {%- for lid in labels(l.entity_id) -%}
+              {%- set ns2.lbls = ns2.lbls + [label_name(lid)] -%}
+            {%- endfor -%}
+            {%- set ns.items = ns.items + [{'entity_id': l.entity_id, 'friendly_name': l.attributes.friendly_name | default(''), 'labels': ns2.lbls}] -%}
+          {%- endfor -%}
+          {{ ns.items | tojson }}
         is_ms365_todo: '{{ todo_list_entity in integration_entities(''ms365'') }}'
         reminder: '{{ reminder | default('''') }}'
     - choose:
@@ -622,9 +626,14 @@ script:
             }}'
         sequence:
         - variables:
-            final_response: "{{\n  {\n    \"status\": \"info\",\n    \"message\":\
-              \ \"All available to-do lists with labels.\",\n    \"lists\": todo_lists_data\n\
-              \  } | tojson\n}}"
+            final_response: >-
+              {{
+                {
+                  "status": "info",
+                  "message": "All available to-do lists with labels.",
+                  "lists": todo_lists_data if todo_lists_data is not string else (todo_lists_data | from_json)
+                } | tojson
+              }}
         - variables:
             final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
