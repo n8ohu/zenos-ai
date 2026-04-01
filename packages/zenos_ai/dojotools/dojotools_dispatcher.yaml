@@ -104,7 +104,7 @@ automation:
       - choose:
 
           # ── zen_dojotools_provisioner v1 ─────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_provisioner' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_provisioner' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_provisioner
                 data:
@@ -118,7 +118,7 @@ automation:
                 response_variable: _result
 
           # ── zen_admintools_cabinetadmin_factory v1 ─────────────────────────
-          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin_factory' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin_factory' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_admintools_cabinetadmin_factory
                 data:
@@ -129,7 +129,7 @@ automation:
                 response_variable: _result
 
           # ── zen_admintools_cabinetadmin v1 ───────────────────────────────
-          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_admintools_cabinetadmin' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_admintools_cabinetadmin
                 data:
@@ -140,7 +140,7 @@ automation:
                 response_variable: _result
 
           # ── zen_dojotools_filecabinet v1 ─────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_filecabinet' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_filecabinet' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_filecabinet
                 data:
@@ -172,7 +172,7 @@ automation:
                 response_variable: _result
 
           # ── zen_dojotools_inspect v1 ─────────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_inspect' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_inspect' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_inspect
                 data:
@@ -187,7 +187,7 @@ automation:
                 response_variable: _result
 
           # ── zen_dojotools_query v1 ───────────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_query' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_query' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_query
                 data:
@@ -202,7 +202,7 @@ automation:
                 response_variable: _result
 
           # ── zen_dojotools_index v1 ───────────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_index' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_index' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_index
                 data:
@@ -223,7 +223,7 @@ automation:
                 response_variable: _result
 
           # ── zen_dojotools_manifest v1 ────────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_manifest' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_manifest' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_manifest
                 data:
@@ -234,7 +234,7 @@ automation:
                 response_variable: _result
 
           # ── zen_dojotools_urgency_handler v1 — stub (no backing script yet) ─
-          - conditions: "{{ _tool == 'zen_dojotools_urgency_handler' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_urgency_handler' and _ver | string == '1' }}"
             sequence:
               - variables:
                   _result:
@@ -366,7 +366,7 @@ automation:
       - choose:
 
           # ── zen_dojotools_inspect v1 ───────────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_inspect' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_inspect' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_inspect
                 data:
@@ -381,17 +381,32 @@ automation:
                 response_variable: _result
 
           # ── zen_dojotools_todo v1 ──────────────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_todo' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_todo' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_todo
-                data: "{{ _payload }}"
+                data:
+                  action_type:   "{{ _payload.get('action_type', 'read') }}"
+                  list_name:     "{{ _payload.get('list_name', '') }}"
+                  items:         "{{ _payload.get('items', []) }}"
+                  status:        "{{ _payload.get('status', 'needs_action') }}"
+                  due_date:      "{{ _payload.get('due_date', '') }}"
+                  description:   "{{ _payload.get('description', '') }}"
+                  label_targets: "{{ _payload.get('label_targets', []) }}"
+                  caller_token:  "{{ _payload.get('caller_token', '') }}"
                 response_variable: _result
 
           # ── zen_dojotools_calendar v1 ──────────────────────────────────────
-          - conditions: "{{ _tool == 'zen_dojotools_calendar' and _ver == '1' }}"
+          - conditions: "{{ _tool == 'zen_dojotools_calendar' and _ver | string == '1' }}"
             sequence:
               - action: script.zen_dojotools_calendar
-                data: "{{ _payload }}"
+                data:
+                  action_type:   "{{ _payload.get('action_type', 'read') }}"
+                  calendar_name: "{{ _payload.get('calendar_name', '') }}"
+                  start:         "{{ _payload.get('start', '') }}"
+                  end:           "{{ _payload.get('end', '') }}"
+                  event_id:      "{{ _payload.get('event_id', '') }}"
+                  label_targets: "{{ _payload.get('label_targets', []) }}"
+                  caller_token:  "{{ _payload.get('caller_token', '') }}"
                 response_variable: _result
 
         # ── Unknown tool — structured fault ─────────────────────────────────
