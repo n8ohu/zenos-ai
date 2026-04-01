@@ -697,7 +697,21 @@ script:
                 version: "1"
                 correlation_id: "{{ _inspect_cid }}"
                 payload:
-                  entity_id: "{{ zen_index_result.get('result', {}).get('simple', []) }}"
+                  entity_id: >-
+                    {%- set _all = zen_index_result.get('result', {}).get('simple', []) -%}
+                    {%- set _limit = index_call.get('domain_inspect_limit', 25) | int(25) -%}
+                    {%- set _domains = index_call.get('domain_inspect_domains', []) -%}
+                    {%- if _domains | length > 0 -%}
+                      {%- set _ns = namespace(filtered=[]) -%}
+                      {%- for _eid in _all -%}
+                        {%- if _eid.split('.')[0] in _domains -%}
+                          {%- set _ns.filtered = _ns.filtered + [_eid] -%}
+                        {%- endif -%}
+                      {%- endfor -%}
+                      {{ _ns.filtered[:_limit] }}
+                    {%- else -%}
+                      {{ _all[:_limit] }}
+                    {%- endif -%}
                   output_fields: "+attributes"
                   caller_token: "{{ caller_token }}"
           - wait_for_trigger:
@@ -716,6 +730,35 @@ script:
                 {%- else -%}
                   {}
                 {%- endif -%}
+
+      # ── 5b. Size guard — abort before review_data overflows ─────────────────
+      - alias: Size guard — abort if review_data would exceed template limit
+        variables:
+          _domain_ctx_size: "{{ domain_context | tojson | length if domain_context is mapping else 0 }}"
+          _index_size: "{{ index_result | tojson | length if index_result is mapping else 0 }}"
+          _review_size_estimate: "{{ _domain_ctx_size + _index_size }}"
+      - if:
+          - condition: template
+            value_template: "{{ _review_size_estimate | int > 200000 }}"
+        then:
+          - event: zen_event
+            event_data:
+              event:
+                kind: summarizer_size_exceeded
+                component: "{{ component_slug }}"
+                domain_context_bytes: "{{ _domain_ctx_size }}"
+                index_bytes: "{{ _index_size }}"
+                estimated_total: "{{ _review_size_estimate }}"
+                limit: 262144
+                hint: >-
+                  Add domain_inspect_domains or reduce domain_inspect_limit
+                  in this KFC's index_call to limit domain context size.
+                severity: warn
+          - stop: >-
+              review_data size estimate {{ _review_size_estimate }} exceeds safe
+              limit (262144). Aborting {{ component_slug }} ninja summarizer run.
+              Set index_call.domain_inspect_domains to filter entity domains.
+            error: true
 
       # ── 6. Build monk prompt ──────────────────────────────────────────────
       - alias: Build monk prompt
