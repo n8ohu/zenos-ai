@@ -932,10 +932,99 @@ script:
       default:
       - variables:
           drawer_blurbs: '{{ {} | tojson }}'
+    # ── Domain context supplement — todo and calendar ─────────────────────
+    # If any results contain todo.* or calendar.* entities, fire one bus
+    # call per domain and attach enriched context to the inspect result.
+    # Callers get domain enrichment for free — no per-caller plumbing needed.
+    # Timeout 5s each; degraded gracefully (empty dict) on timeout or error.
+    - variables:
+        _dc_todo_ids: >-
+          {{ results | selectattr('domain', 'defined')
+             | selectattr('domain', 'equalto', 'todo')
+             | map(attribute='entity_id') | list }}
+        _dc_cal_ids: >-
+          {{ results | selectattr('domain', 'defined')
+             | selectattr('domain', 'equalto', 'calendar')
+             | map(attribute='entity_id') | list }}
+        _domain_context: {}
+
+    - if:
+      - condition: template
+        value_template: "{{ _dc_todo_ids | length > 0 }}"
+      then:
+      - variables:
+          _cid_todo: >-
+            {%- set _a = range(0,65536)|random -%}{%- set _b = range(0,65536)|random -%}
+            {%- set _c = range(0,65536)|random -%}{%- set _d = range(0,65536)|random -%}
+            {%- set _e = range(0,65536)|random -%}{%- set _f = range(0,65536)|random -%}
+            {%- set _g = range(0,65536)|random -%}{%- set _h = range(0,65536)|random -%}
+            {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+      - event: zen_event
+        event_data:
+          event:
+            kind: dojotool_call
+            tool: zen_dojotools_todo
+            version: "1"
+            correlation_id: "{{ _cid_todo }}"
+            payload:
+              action_type: list
+              caller_token: "{{ caller_token }}"
+      - wait_for_trigger:
+          - trigger: event
+            event_type: zen_event
+            event_data:
+              event:
+                kind: dojotool_return
+                correlation_id: "{{ _cid_todo }}"
+        timeout: "00:00:05"
+        continue_on_timeout: true
+      - variables:
+          _domain_context: >-
+            {{ _domain_context | combine({'todo':
+               wait.trigger.event.data.event.get('result', {})
+               if wait.trigger is not none else {}}) }}
+
+    - if:
+      - condition: template
+        value_template: "{{ _dc_cal_ids | length > 0 }}"
+      then:
+      - variables:
+          _cid_cal: >-
+            {%- set _a = range(0,65536)|random -%}{%- set _b = range(0,65536)|random -%}
+            {%- set _c = range(0,65536)|random -%}{%- set _d = range(0,65536)|random -%}
+            {%- set _e = range(0,65536)|random -%}{%- set _f = range(0,65536)|random -%}
+            {%- set _g = range(0,65536)|random -%}{%- set _h = range(0,65536)|random -%}
+            {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+      - event: zen_event
+        event_data:
+          event:
+            kind: dojotool_call
+            tool: zen_dojotools_calendar
+            version: "1"
+            correlation_id: "{{ _cid_cal }}"
+            payload:
+              action_type: read
+              caller_token: "{{ caller_token }}"
+      - wait_for_trigger:
+          - trigger: event
+            event_type: zen_event
+            event_data:
+              event:
+                kind: dojotool_return
+                correlation_id: "{{ _cid_cal }}"
+        timeout: "00:00:05"
+        continue_on_timeout: true
+      - variables:
+          _domain_context: >-
+            {{ _domain_context | combine({'calendar':
+               wait.trigger.event.data.event.get('result', {})
+               if wait.trigger is not none else {}}) }}
+
     - variables:
         inspect_result:
           results: '{{ results }}'
           drawers: '{{ drawer_blurbs }}'
+          domain_context: '{{ _domain_context }}'
           inputs:
             entity_id: '{{ entity_list }}'
             extended: '{{ extended_mode }}'
