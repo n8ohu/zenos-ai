@@ -414,11 +414,11 @@ script:
             # — build household tree to depth 2 alongside flat roster —
             - variables:
                 _hh_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(_hh_cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi -}}
                 _hh_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(_hh_cab, 'members', {}) | from_json() -%}
                   {{- _m -}}
                 # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
@@ -431,7 +431,7 @@ script:
                   {{- _p -}}
             - variables:
                 _hh_tree: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = _hh_vi_raw -%}
                   {%- set _m = _hh_members_raw -%}
                   {%- set _hp = _hh_profile_raw -%}
@@ -535,11 +535,11 @@ script:
                   response_variable: response
             - variables:
                 _fam_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(family_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _hh_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(_hh_cab, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
             - variables:
@@ -680,7 +680,7 @@ script:
                   response_variable: response
             - variables:
                 _hh_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(_hh_cab, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
             - variables:
@@ -743,15 +743,15 @@ script:
                   response_variable: response
             - variables:
                 _hh_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(_hh_cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _hh_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(_hh_cab, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
                 _mem_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(member_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -970,11 +970,11 @@ script:
             - variables:
                 _list_key: "{{- 'ai_users' if member_type == 'ai_user' else 'users' -}}"
                 _hh_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(_hh_cab, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
                 _hh_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(_hh_cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -1065,11 +1065,11 @@ script:
                   response_variable: response
             - variables:
                 _hh_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(_target_cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _mem_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(member_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -1162,15 +1162,15 @@ script:
                   response_variable: response
             - variables:
                 _fam_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(family_entity, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
                 _mem_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(member_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _fam_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(family_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -1352,15 +1352,15 @@ script:
                   response_variable: response
             - variables:
                 _fam_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(family_entity, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
                 _mem_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(member_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _fam_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(family_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -1406,7 +1406,7 @@ script:
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{- _vi.get('default_family_guid', '') == _fam_guid -}}
                 _fam_vi_raw2: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(family_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _principal_warning: >-
@@ -1522,11 +1522,11 @@ script:
                   response_variable: response
             - variables:
                 _a_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(member_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _b_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(ai_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -1641,11 +1641,11 @@ script:
                   response_variable: response
             - variables:
                 _a_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(member_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _b_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(ai_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -1734,11 +1734,11 @@ script:
                   response_variable: response
             - variables:
                 _mem_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(member_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _fam_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(family_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
             - variables:
@@ -1793,11 +1793,11 @@ script:
                 _hh_default: "{{- _hh_target -}}"
             - variables:
                 _root_vi_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = CABS.cabinet_drawer_value(_root_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                   {{- _vi | tojson -}}
                 _root_members_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(_root_entity, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
                 # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
@@ -1826,7 +1826,7 @@ script:
                   sequence:
                     - variables:
                         _tree: >-
-                          {%- import 'zenos_cabinets.jinja' as CABS -%}
+                          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                           {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else _root_vi_raw -%}
                           {%- set _vi = _vi if _vi is mapping else {} -%}
                           {%- set _m = _root_members_raw | from_json if _root_members_raw is string else _root_members_raw -%}
@@ -1928,16 +1928,16 @@ script:
                         _target_eid: "{{- _root_entity -}}"
                     - variables:
                         _hh_vi_raw: >-
-                          {%- import 'zenos_cabinets.jinja' as CABS -%}
+                          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                           {%- set _vi = CABS.cabinet_drawer_value(_lookup_root, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
                           {{- _vi | tojson -}}
                         _hh_m_raw: >-
-                          {%- import 'zenos_cabinets.jinja' as CABS -%}
+                          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                           {%- set _m = CABS.cabinet_drawer_value(_lookup_root, 'members', {}) | from_json() -%}
                           {{- _m | tojson -}}
                     - variables:
                         _memberships: >-
-                          {%- import 'zenos_cabinets.jinja' as CABS -%}
+                          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                           {%- set _hvi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                           {%- set _hvi = _hvi if _hvi is mapping else {} -%}
                           {%- set _hm = _hh_m_raw | from_json if _hh_m_raw is string else _hh_m_raw -%}
@@ -2022,12 +2022,12 @@ script:
                   response_variable: response
             - variables:
                 _container_m_raw: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(family_entity, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
             - variables:
                 _check: >-
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = _container_m_raw | from_json if _container_m_raw is string else _container_m_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _eid = member_entity -%}

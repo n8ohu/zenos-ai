@@ -1326,7 +1326,7 @@ script:
                 volume_entity: "{{- volume_entity -}}"
             - alias: Index prune verification
               wait_template: >
-                {%- import 'zenos_cabinets.jinja' as CABS -%}
+                {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                 {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                 {%- set found = false -%} 
                 {%- if raw is mapping -%}
@@ -1348,7 +1348,7 @@ script:
               continue_on_timeout: true
             - variables:
                 index_pruned_verified: >
-                  {%- import 'zenos_cabinets.jinja' as CABS -%}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                   {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                   {%- set found = false -%} 
                   {%- if raw is mapping -%}
@@ -1529,7 +1529,7 @@ script:
                     volume_entity: "{{- volume_entity -}}"
                 - alias: Index prune verification
                   wait_template: >
-                    {%- import 'zenos_cabinets.jinja' as CABS -%}
+                    {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                     {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                     {%- set found = false -%} 
                     {%- if raw is mapping -%}
@@ -1551,7 +1551,7 @@ script:
                   continue_on_timeout: true
                 - variables:
                     index_pruned_verified: >
-                      {%- import 'zenos_cabinets.jinja' as CABS -%}
+                      {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                       {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                       {%- set found = false -%}
                       {%- if raw is mapping -%}
@@ -1744,7 +1744,7 @@ script:
         sequence:
         - variables:
             target_entity_resolved: >
-              {%- import 'zenos_cabinets.jinja' as CABS -%}
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
               {%- set ns = namespace(found='') -%}
               {%- for eid in label_entities('zen_cabinet') | list -%}
                 {%- set vi = CABS.cabinet_drawer_value(eid, 'AI_Cabinet_VolumeInfo', none) | from_json() -%}
