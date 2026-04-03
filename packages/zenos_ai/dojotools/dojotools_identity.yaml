@@ -430,6 +430,7 @@ script:
                   {{- _p -}}
             - variables:
                 _hh_tree: >-
+                  {%- import 'zenos_cabinets.jinja' as CABS -%}
                   {%- set _vi = _hh_vi_raw -%}
                   {%- set _m = _hh_members_raw -%}
                   {%- set _hp = _hh_profile_raw -%}
@@ -441,14 +442,8 @@ script:
                   {%- set _ns = namespace(fams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                   {%- for fam in _m.get('families', []) -%}
                     {%- set _fc_entity_id = fam.get('entity_id', '') -%}
-                    {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
-                    {%- set _fv = _fv if _fv is mapping else {} -%}
-                    {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
-                    {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
-                    {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
-                    {%- set _fm = _fv.get('members', {}) -%}
-                    {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
-                    {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
+                    {%- set _fvi = CABS.cabinet_drawer_value(_fc_entity_id, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                    {%- set _fm = CABS.cabinet_drawer_value(_fc_entity_id, 'members', {}) | from_json() -%}
                     {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
                     {%- set _facls = _facls if _facls is mapping else {} -%}
                     {%- set _fowners = _facls.get('owner', []) -%}
@@ -457,14 +452,8 @@ script:
                     {%- set _nsf = namespace(subfams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                     {%- for sf in _fm.get('families', []) -%}
                       {%- set _sf_entity_id = sf.get('entity_id', '') -%}
-                      {%- set _sfv = state_attr(_sf_entity_id, 'variables') | default({}, true) -%}
-                      {%- set _sfv = _sfv if _sfv is mapping else {} -%}
-                      {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
-                      {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
-                      {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
-                      {%- set _sfm = _sfv.get('members', {}) -%}
-                      {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
-                      {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
+                      {%- set _sfvi = CABS.cabinet_drawer_value(_sf_entity_id, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                      {%- set _sfm = CABS.cabinet_drawer_value(_sf_entity_id, 'members', {}) | from_json() -%}
                       {%- set _nsf.subfams = _nsf.subfams + [{
                         'entity_id': _sf_entity_id,
                         'guid': _sfvi.get('id', _sfvi.get('guid', '')),
@@ -1828,6 +1817,7 @@ script:
                   sequence:
                     - variables:
                         _tree: >-
+                          {%- import 'zenos_cabinets.jinja' as CABS -%}
                           {%- set _vi = _root_vi_raw | from_json if _root_vi_raw is string else _root_vi_raw -%}
                           {%- set _vi = _vi if _vi is mapping else {} -%}
                           {%- set _m = _root_members_raw | from_json if _root_members_raw is string else _root_members_raw -%}
@@ -1845,14 +1835,9 @@ script:
                           {%- set _ns = namespace(fams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                           {%- for fam in _m.get('families', []) -%}
                             {%- set _fc_entity_id = fam.get('entity_id', '') -%}
-                            {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
-                            {%- set _fv = _fv if _fv is mapping else {} -%}
-                            {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
-                            {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
-                            {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
-                            {%- set _fm = _fv.get('members', {}) -%}
-                            {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
-                            {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
+                            {%- set _fvi = CABS.cabinet_drawer_value(_fc_entity_id, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                            {%- set _fm = CABS.cabinet_drawer_value(_fc_entity_id, 'members', {}) | from_json() -%}
+
                             {%- set _facls = _fvi.get('acls', {}) | default({}, true) -%}
                             {%- set _facls = _facls if _facls is mapping else {} -%}
                             {%- set _fowners = _facls.get('owner', []) -%}
@@ -1862,14 +1847,9 @@ script:
                             {%- set _nsf = namespace(subfams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                             {%- for sf in _fm.get('families', []) -%}
                               {%- set _sf_entity_id = sf.get('entity_id', '') -%}
-                              {%- set _sfv = state_attr(_sf_entity_id, 'variables') | default({}, true) -%}
-                              {%- set _sfv = _sfv if _sfv is mapping else {} -%}
-                              {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
-                              {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
-                              {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
-                              {%- set _sfm = _sfv.get('members', {}) -%}
-                              {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
-                              {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
+                              {%- set _sfvi = CABS.cabinet_drawer_value(_sf_entity_id, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                              {%- set _sfm = CABS.cabinet_drawer_value(_sf_entity_id, 'members', {}) | from_json() -%}
+
                               {%- set _nsf.subfams = _nsf.subfams + [{
                                 'entity_id': _sf_entity_id,
                                 'guid': _sfvi.get('id', _sfvi.get('guid', '')),
@@ -1915,6 +1895,7 @@ script:
                             } | tojson
                           }}
                     - variables:
+                        # @todo - weird - returning a dict where one of the values are JSON encoded strings (i.e. _tree)
                         response: >
                           {{-
                             {
@@ -1947,6 +1928,7 @@ script:
                           {{- _m | tojson -}}
                     - variables:
                         _memberships: >-
+                          {%- import 'zenos_cabinets.jinja' as CABS -%}
                           {%- set _hvi = _hh_vi_raw | from_json if _hh_vi_raw is string else _hh_vi_raw -%}
                           {%- set _hvi = _hvi if _hvi is mapping else {} -%}
                           {%- set _hm = _hh_m_raw | from_json if _hh_m_raw is string else _hh_m_raw -%}
@@ -1969,14 +1951,8 @@ script:
                           {# scan depth-1 families #}
                           {%- for fam in _hm.get('families', []) -%}
                             {%- set _fc_entity_id = fam.get('entity_id', '') -%}
-                            {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
-                            {%- set _fv = _fv if _fv is mapping else {} -%}
-                            {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
-                            {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
-                            {%- set _fvi = _fvi if _fvi is mapping else (_fvi | from_json if _fvi is string else {}) -%}
-                            {%- set _fm = _fv.get('members', {}) -%}
-                            {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
-                            {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
+                            {%- set _fvi = CABS.cabinet_drawer_value(_fc_entity_id, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                            {%- set _fm = CABS.cabinet_drawer_value(_fc_entity_id, 'members', {}) | from_json() -%}
                             {%- set _f_users = _fm.get('users', []) + _fm.get('ai_users', []) -%}
                             {%- set _in_fam = _f_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                             {%- if _in_fam -%}
@@ -1992,14 +1968,8 @@ script:
                             {# scan depth-2 sub-families #}
                             {%- for sf in _fm.get('families', []) -%}
                               {%- set _sf_entity_id = sf.get('entity_id', '') -%}
-                              {%- set _sfv = state_attr(_sf_entity_id, 'variables') | default({}, true) -%}
-                              {%- set _sfv = _sfv if _sfv is mapping else {} -%}
-                              {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
-                              {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
-                              {%- set _sfvi = _sfvi if _sfvi is mapping else (_sfvi | from_json if _sfvi is string else {}) -%}
-                              {%- set _sfm = _sfv.get('members', {}) -%}
-                              {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
-                              {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
+                              {%- set _sfvi = CABS.cabinet_drawer_value(_sf_entity_id, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                              {%- set _sfm = CABS.cabinet_drawer_value(_sf_entity_id, 'members', {}) | from_json() -%}
                               {%- set _sf_users = _sfm.get('users', []) + _sfm.get('ai_users', []) -%}
                               {%- set _in_sf = _sf_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- if _in_sf -%}
@@ -2048,6 +2018,7 @@ script:
                   {{- _m | tojson -}}
             - variables:
                 _check: >-
+                  {%- import 'zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = _container_m_raw | from_json if _container_m_raw is string else _container_m_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
                   {%- set _eid = member_entity -%}
@@ -2060,11 +2031,7 @@ script:
                     {%- for fam in _m.get('families', []) -%}
                       {%- if not _found_d2 -%}
                         {%- set _fc_entity_id = fam.get('entity_id', '') -%}
-                        {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
-                        {%- set _fv = _fv if _fv is mapping else {} -%}
-                        {%- set _fm = _fv.get('members', {}) -%}
-                        {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
-                        {%- set _fm = _fm.get('value', _fm) if _fm is mapping else {} -%}
+                        {%- set _fm = CABS.cabinet_drawer_value(_fc_entity_id, 'members', {}) | from_json() -%}
                         {%- set _d2_all = _fm.get('users', []) + _fm.get('ai_users', []) -%}
                         {%- set _in_d2 = _d2_all | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                         {%- if _in_d2 -%}
