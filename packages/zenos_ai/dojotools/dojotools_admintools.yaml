@@ -366,11 +366,8 @@ script:
       then:
         - variables:
             _rtt_sys_wl_raw: >-
-              {%- set _sv = state_attr(_rtt_system, 'variables') | default({}) -%}
-              {%- set _sv = _sv if _sv is mapping else {} -%}
-              {%- set _wr = _sv.get('zen_summarizer_act_whitelist', {}) -%}
-              {%- set _wv1 = _wr.get('value', _wr) if _wr is mapping else {} -%}
-              {{ (_wv1 | from_json) if _wv1 is string else _wv1 }}
+              {%- import 'zenos_cabinets.jinja' as CABS -%}
+              {{- CABS.cabinet_drawer_value(_rtt_system, 'zen_summarizer_act_whitelist', {}) | from_json() }}
             _rtt_sys_whitelist_exists: >-
               {{- _rtt_sys_wl_raw is mapping and _rtt_sys_wl_raw.keys() | list | length > 0 -}}
         - if: "{{- not _rtt_sys_whitelist_exists -}}"
@@ -446,11 +443,8 @@ script:
     # Read current whitelist — state_attr direct (filecabinet blocks all syscab writes)
     - variables:
         _wl_raw: >-
-          {%- set _sv = state_attr(_system, 'variables') | default({}) -%}
-          {%- set _sv = _sv if _sv is mapping else {} -%}
-          {%- set _wr = _sv.get('zen_summarizer_act_whitelist', {}) -%}
-          {%- set _wv1 = _wr.get('value', _wr) if _wr is mapping else {} -%}
-          {{ (_wv1 | from_json) if _wv1 is string else _wv1 }}
+          {%- import 'zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_drawer_value(_system, 'zen_summarizer_act_whitelist', {}) | from_json() -}}
         _wl_current: >-
           {%- set w = _wl_raw if _wl_raw is mapping else {} -%}
           {{ w.get('allowed_events', []) if w is mapping else [] }}
