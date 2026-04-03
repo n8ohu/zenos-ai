@@ -1312,9 +1312,9 @@ script:
         now_iso: "{{- now().isoformat() -}}"
         schema_version: 1
         cabinet_guid: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
           {{-
-            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' 
-              | format(range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random) 
+              CABS.cabinet_guid_new()
               if (force_new_guid or not cabinet_guid) 
               else cabinet_guid 
           -}}

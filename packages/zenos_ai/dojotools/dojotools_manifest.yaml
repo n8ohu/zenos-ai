@@ -302,18 +302,8 @@ script:
     sequence:
     - variables:
         new_guid: >
-          {{- '%04x%04x-%04x-%04x-%04x-%04x%04x%04x'
-            | format(
-                range(0, 65536) | random,
-                range(0, 65536) | random,
-                range(0, 65536) | random,
-                range(0, 65536) | random,
-                range(0, 65536) | random,
-                range(0, 65536) | random,
-                range(0, 65536) | random,
-                range(0, 65536) | random
-              ) 
-          -}}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_guid_new() -}}
     - alias: Stamp AI_Cabinet_VolumeInfo
       event: set_variable_zenos_default_family_cabinet
       event_data:

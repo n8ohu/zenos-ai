@@ -551,7 +551,8 @@ script:
                   {%- if _existing != '' -%}
                     {{- _existing -}}
                   {%- else -%}
-                    {{- '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format( range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random) -}}
+                    {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                    {{- CABS.cabinet_guid_new() -}}
                   {%- endif -%}
                 _fam_guid_is_new: >-
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
@@ -766,7 +767,8 @@ script:
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _existing = _vi.get('id', _vi.get('guid', '')) | string | trim -%}
                   {%- if _existing != '' -%}{{- _existing -}}{%- else -%}
-                  {{- '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format( range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random) -}}
+                    {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                    {{- CABS.cabinet_guid_new() -}}
                   {%- endif -%}
                 _mem_guid_is_new: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
@@ -1179,7 +1181,8 @@ script:
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {%- set _existing = _vi.get('id', _vi.get('guid', '')) | string | trim -%}
                   {%- if _existing != '' -%}{{- _existing -}}{%- else -%}
-                  {{- '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format( range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random) -}}
+                    {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                    {{- CABS.cabinet_guid_new() -}}
                   {%- endif -%}
                 # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _mem_name: >-

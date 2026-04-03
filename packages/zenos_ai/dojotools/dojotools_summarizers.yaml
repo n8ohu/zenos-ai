@@ -726,15 +726,8 @@ script:
         then:
           - variables:
               _inspect_cid: >-
-                {%- set _a = range(0, 65536) | random -%}
-                {%- set _b = range(0, 65536) | random -%}
-                {%- set _c = range(0, 65536) | random -%}
-                {%- set _d = range(0, 65536) | random -%}
-                {%- set _e = range(0, 65536) | random -%}
-                {%- set _f = range(0, 65536) | random -%}
-                {%- set _g = range(0, 65536) | random -%}
-                {%- set _h = range(0, 65536) | random -%}
-                {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+                {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                {{- CABS.cabinet_guid_new() -}}
           - event: zen_event
             event_data:
               event:
@@ -967,15 +960,8 @@ script:
         then:
           - variables:
               _urgency_correlation_id: >-
-                {%- set _a = range(0, 65536) | random -%}
-                {%- set _b = range(0, 65536) | random -%}
-                {%- set _c = range(0, 65536) | random -%}
-                {%- set _d = range(0, 65536) | random -%}
-                {%- set _e = range(0, 65536) | random -%}
-                {%- set _f = range(0, 65536) | random -%}
-                {%- set _g = range(0, 65536) | random -%}
-                {%- set _h = range(0, 65536) | random -%}
-                {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(_a,_b,_c,_d,_e,_f,_g,_h) }}
+                {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                {{- CABS.cabinet_guid_new() -}}
           - event: zen_event
             event_data:
               event:
