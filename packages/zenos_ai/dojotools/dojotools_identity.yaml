@@ -440,7 +440,8 @@ script:
                   {%- set _prime = _partners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
                   {%- set _ns = namespace(fams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                   {%- for fam in _m.get('families', []) -%}
-                    {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                    {%- set _fc_entity_id = fam.get('entity_id', '') -%}
+                    {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
                     {%- set _fv = _fv if _fv is mapping else {} -%}
                     {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
                     {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
@@ -455,7 +456,8 @@ script:
                     {%- set _fprime = _fpartners | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list -%}
                     {%- set _nsf = namespace(subfams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                     {%- for sf in _fm.get('families', []) -%}
-                      {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
+                      {%- set _sf_entity_id = sf.get('entity_id', '') -%}
+                      {%- set _sfv = state_attr(_sf_entity_id, 'variables') | default({}, true) -%}
                       {%- set _sfv = _sfv if _sfv is mapping else {} -%}
                       {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
                       {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
@@ -464,17 +466,17 @@ script:
                       {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
                       {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
                       {%- set _nsf.subfams = _nsf.subfams + [{
-                        'entity_id': sf.get('entity_id', ''),
+                        'entity_id': _sf_entity_id,
                         'guid': _sfvi.get('id', _sfvi.get('guid', '')),
-                        'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', sf.get('entity_id', '')))),
+                        'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', _sf_entity_id))),
                         'depth': 2,
                         'members': {'users': _sfm.get('users', []), 'ai_users': _sfm.get('ai_users', [])}
                       }] -%}
                     {%- endfor -%}
                     {%- set _ns.fams = _ns.fams + [{
-                      'entity_id': fam.get('entity_id', ''),
+                      'entity_id': _fc_entity_id,
                       'guid': _fvi.get('id', _fvi.get('guid', '')),
-                      'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', fam.get('entity_id', '')))),
+                      'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', _fc_entity_id))),
                       'depth': fam.get('depth', 1),
                       'principals': {'hoh': _fowners[0] if _fowners | count > 0 else none, 'prime': _fprime[0] if _fprime | count > 0 else none},
                       'members': {'users': _fm.get('users', []), 'ai_users': _fm.get('ai_users', []), 'families': _nsf.subfams}
@@ -1842,7 +1844,8 @@ script:
                           {# depth-1 families with their members #}
                           {%- set _ns = namespace(fams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                           {%- for fam in _m.get('families', []) -%}
-                            {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                            {%- set _fc_entity_id = fam.get('entity_id', '') -%}
+                            {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
                             {%- set _fv = _fv if _fv is mapping else {} -%}
                             {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
                             {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
@@ -1858,7 +1861,8 @@ script:
                             {# depth-2 sub-families (members only, no further recursion) #}
                             {%- set _nsf = namespace(subfams=[]) -%}{# FG-25: namespace required for list mutation inside for-loop #}
                             {%- for sf in _fm.get('families', []) -%}
-                              {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
+                              {%- set _sf_entity_id = sf.get('entity_id', '') -%}
+                              {%- set _sfv = state_attr(_sf_entity_id, 'variables') | default({}, true) -%}
                               {%- set _sfv = _sfv if _sfv is mapping else {} -%}
                               {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
                               {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
@@ -1867,9 +1871,9 @@ script:
                               {%- set _sfm = _sfm if _sfm is mapping else (_sfm | from_json if _sfm is string else {}) -%}
                               {%- set _sfm = _sfm.get('value', _sfm) if _sfm is mapping else {} -%}
                               {%- set _nsf.subfams = _nsf.subfams + [{
-                                'entity_id': sf.get('entity_id', ''),
+                                'entity_id': _sf_entity_id,
                                 'guid': _sfvi.get('id', _sfvi.get('guid', '')),
-                                'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', sf.get('entity_id', '')))),
+                                'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', _sf_entity_id))),
                                 'depth': 2,
                                 'members': {
                                   'users': _sfm.get('users', []),
@@ -1878,9 +1882,9 @@ script:
                               }] -%}
                             {%- endfor -%}
                             {%- set _ns.fams = _ns.fams + [{
-                              'entity_id': fam.get('entity_id', ''),
+                              'entity_id': _fc_entity_id,
                               'guid': _fvi.get('id', _fvi.get('guid', '')),
-                              'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', fam.get('entity_id', '')))),
+                              'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', _fc_entity_id))),
                               'depth': fam.get('depth', 1),
                               'principals': {
                                 'hoh': _fowners[0] if _fowners | count > 0 else none,
@@ -1964,7 +1968,8 @@ script:
                           {%- endif -%}
                           {# scan depth-1 families #}
                           {%- for fam in _hm.get('families', []) -%}
-                            {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                            {%- set _fc_entity_id = fam.get('entity_id', '') -%}
+                            {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
                             {%- set _fv = _fv if _fv is mapping else {} -%}
                             {%- set _fvi_raw = _fv.get('AI_Cabinet_VolumeInfo', {}) if _fv is mapping else {} -%}
                             {%- set _fvi = _fvi_raw.get('value', {}) if _fvi_raw is mapping else {} -%}
@@ -1982,11 +1987,12 @@ script:
                               {%- set _is_fhoh = _fown | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- set _is_fprime = _fprt | selectattr('entity_id', 'equalto', _eid) | selectattr('role', 'defined') | selectattr('role', 'equalto', 'prime') | list | count > 0 -%}
                               {%- set _frole = 'hoh' if _is_fhoh else ('prime' if _is_fprime else 'member') -%}
-                              {%- set _groups = _groups + [{'container': fam.get('entity_id', ''), 'container_type': 'family', 'guid': _fvi.get('id', _fvi.get('guid', '')), 'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', fam.get('entity_id', '')))), 'depth': 1, 'role': _frole}] -%}
+                              {%- set _groups = _groups + [{'container': _fc_entity_id, 'container_type': 'family', 'guid': _fvi.get('id', _fvi.get('guid', '')), 'name': fam.get('name', _fvi.get('friendly_name', _fvi.get('name', _fc_entity_id))), 'depth': 1, 'role': _frole}] -%}
                             {%- endif -%}
                             {# scan depth-2 sub-families #}
                             {%- for sf in _fm.get('families', []) -%}
-                              {%- set _sfv = state_attr(sf.get('entity_id', ''), 'variables') | default({}, true) -%}
+                              {%- set _sf_entity_id = sf.get('entity_id', '') -%}
+                              {%- set _sfv = state_attr(_sf_entity_id, 'variables') | default({}, true) -%}
                               {%- set _sfv = _sfv if _sfv is mapping else {} -%}
                               {%- set _sfvi_raw = _sfv.get('AI_Cabinet_VolumeInfo', {}) if _sfv is mapping else {} -%}
                               {%- set _sfvi = _sfvi_raw.get('value', {}) if _sfvi_raw is mapping else {} -%}
@@ -1997,7 +2003,7 @@ script:
                               {%- set _sf_users = _sfm.get('users', []) + _sfm.get('ai_users', []) -%}
                               {%- set _in_sf = _sf_users | selectattr('entity_id', 'equalto', _eid) | list | count > 0 -%}
                               {%- if _in_sf -%}
-                                {%- set _groups = _groups + [{'container': sf.get('entity_id', ''), 'container_type': 'family', 'guid': _sfvi.get('id', _sfvi.get('guid', '')), 'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', sf.get('entity_id', '')))), 'depth': 2, 'role': 'member'}] -%}
+                                {%- set _groups = _groups + [{'container': _sf_entity_id, 'container_type': 'family', 'guid': _sfvi.get('id', _sfvi.get('guid', '')), 'name': sf.get('name', _sfvi.get('friendly_name', _sfvi.get('name', _sf_entity_id))), 'depth': 2, 'role': 'member'}] -%}
                               {%- endif -%}
                             {%- endfor -%}
                           {%- endfor -%}
@@ -2053,7 +2059,8 @@ script:
                     {%- set _found_d2 = false -%}
                     {%- for fam in _m.get('families', []) -%}
                       {%- if not _found_d2 -%}
-                        {%- set _fv = state_attr(fam.get('entity_id', ''), 'variables') | default({}, true) -%}
+                        {%- set _fc_entity_id = fam.get('entity_id', '') -%}
+                        {%- set _fv = state_attr(_fc_entity_id, 'variables') | default({}, true) -%}
                         {%- set _fv = _fv if _fv is mapping else {} -%}
                         {%- set _fm = _fv.get('members', {}) -%}
                         {%- set _fm = _fm if _fm is mapping else (_fm | from_json if _fm is string else {}) -%}
