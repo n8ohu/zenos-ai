@@ -1208,10 +1208,10 @@ script:
           #_syscab_mapped: "{{- _syscab_vars if _syscab_vars is mapping else {} -}}"
           #_csve: "{{ _syscab_mapped.get('cab_schema_version', {}) }}"
           #_csve_mapped: "{{- _csve if _csve is mapping else {} -}}"
-          _csve_mapped: >
+          #_current_v: "{{- _csve_mapped.get('value', 0) | int(0) -}}"
+          _current_v: >
             {%- import 'zenos_cabinets.jinja' as CABS -%}
-            {{- CABS.cabinet_drawer_value('sensor.zenos_system_cabinet', 'cab_schema_version', {}) | from_json() -}}
-          _current_v: "{{- _csve_mapped.get('value', 0) | int(0) -}}"
+            {{- CABS.cabinet_drawer_value('sensor.zenos_system_cabinet', 'cab_schema_version', 0) | from_json() | int(0) -}}
           _new_v: "{{- schema_version | default(none) | int(-1) if schema_version | default(none) is not none else (1 if _current_v == 0 else 0) -}}"
       - event: set_variable_legacy
         event_data:
