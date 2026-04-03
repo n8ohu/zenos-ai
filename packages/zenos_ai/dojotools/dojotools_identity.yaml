@@ -421,6 +421,7 @@ script:
                   {%- import 'zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(_hh_cab, 'members', {}) | from_json() -%}
                   {{- _m -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _hh_profile_raw: >-
                   {%- set _v = state_attr(_hh_cab, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
@@ -556,6 +557,7 @@ script:
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{- _vi.get('id', _vi.get('guid', '')) | string | trim == '' -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _fam_name: >-
                   {%- set _fv = state_attr(family_entity, 'variables') | default({}, true) -%}
                   {%- set _fv = _fv if _fv is mapping else {} -%}
@@ -770,6 +772,7 @@ script:
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{- _vi.get('id', _vi.get('guid', '')) | string | trim == '' -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _mem_name: >-
                   {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
                   {%- set _mv = _mv if _mv is mapping else {} -%}
@@ -1073,6 +1076,7 @@ script:
                 _mem_guid: >-
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {{- (_vi if _vi is mapping else {}).get('id', (_vi if _vi is mapping else {}).get('guid', '')) -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _mem_name: >-
                   {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
                   {%- set _mv = _mv if _mv is mapping else {} -%}
@@ -1177,6 +1181,7 @@ script:
                   {%- if _existing != '' -%}{{- _existing -}}{%- else -%}
                   {{- '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format( range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random, range(0, 65536) | random) -}}
                   {%- endif -%}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _mem_name: >-
                   {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
                   {%- set _mv = _mv if _mv is mapping else {} -%}
@@ -1194,6 +1199,7 @@ script:
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{- _vi.get('id', _vi.get('guid', '')) -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _fam_name: >-
                   {%- set _fv = state_attr(family_entity, 'variables') | default({}, true) -%}
                   {%- set _fv = _fv if _fv is mapping else {} -%}
@@ -1362,6 +1368,7 @@ script:
                   {%- set _vi = _fam_vi_raw | from_json if _fam_vi_raw is string else _fam_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{- _vi.get('id', _vi.get('guid', '')) -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _fam_name: >-
                   {%- set _fv = state_attr(family_entity, 'variables') | default({}, true) -%}
                   {%- set _fv = _fv if _fv is mapping else {} -%}
@@ -1376,6 +1383,7 @@ script:
                   {%- set _vi = _mem_vi_raw | from_json if _mem_vi_raw is string else _mem_vi_raw -%}
                   {%- set _vi = _vi if _vi is mapping else {} -%}
                   {{- _vi.get('id', _vi.get('guid', '')) -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _mem_name: >-
                   {%- set _mv = state_attr(member_entity, 'variables') | default({}, true) -%}
                   {%- set _mv = _mv if _mv is mapping else {} -%}
@@ -1792,6 +1800,7 @@ script:
                   {%- import 'zenos_cabinets.jinja' as CABS -%}
                   {%- set _m = CABS.cabinet_drawer_value(_root_entity, 'members', {}) | from_json() -%}
                   {{- _m | tojson -}}
+                # @todo - need to modify CABS.cabinet_drawer_value() so it can take a list of keys and return the first one that exists
                 _root_profile_raw: >-
                   {%- set _v = state_attr(_root_entity, 'variables') | default({}, true) -%}
                   {%- set _v = _v if _v is mapping else {} -%}
