@@ -1133,7 +1133,7 @@ script:
               {%- set entry = vol.get(key) -%}
               {{- entry is mapping -}}
             {%- else -%}
-              false
+              {{- false -}}
             {%- endif -%}
           timeout: 00:00:05
           continue_on_timeout: true
@@ -1213,7 +1213,7 @@ script:
               {%- set entry = vol.get(key, {}) -%}
               {{- entry.get('value') == new_entry.value -}}
             {%- else -%}
-              false
+              {{- false -}}
             {%- endif -%}
           timeout: 00:00:10
           continue_on_timeout: true
