@@ -145,6 +145,7 @@ Purpose: Retrieves the variables attribute from a specific sensor entity while p
 Input: entity_id (string): The full Home Assistant entity ID (e.g., sensor.kitchen_cabinet).
 Logic: Checks if the entity_id is provided and if the entity currently exists/has a valid state in the state machine using has_value().
        If the entity is valid, extracts the variables attribute with defensive fallback for any falsy result.
+       If the variables attribute exists but is not a mapping, returns defensive fallback.
 
 Fallback Behavior: The second parameter of | default(fallback, true) ensures that not only missing attributes,
        but also null, false, empty strings, empty lists, and empty dicts are replaced with the fallback value.
@@ -157,6 +158,9 @@ Technical Note: By using to_json(pretty_print=true), the output is optimized for
     {%- set rv = fallback -%}
     {%- if entity_id and has_value(entity_id) -%}
         {%- set rv = state_attr(entity_id, 'variables') | default(fallback, true) -%}
+    {%- endif -%}
+    {%- if not rv is mapping -%}
+        {%- set rv = fallback -%}
     {%- endif -%}
     {{- rv | to_json(pretty_print=true) -}}
 {%- endmacro -%}

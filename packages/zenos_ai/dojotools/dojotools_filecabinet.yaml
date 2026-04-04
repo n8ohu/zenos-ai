@@ -88,21 +88,27 @@ script:
         is_clone: "{{- action_type == 'clone' -}}"
         is_relabel: "{{- action_type == 'relabel' -}}"
         is_write_action: "{{- action_type in ['create','update','delete','move','copy','mount_cabinet','dismount_cabinet','relabel']}}"
-        initial_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #initial_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #initial_volume: >
+        #  {%- if initial_volume_raw is mapping -%}
+        #  {{- initial_volume_raw -}}
+        #  {%- else -%}
+        #  {}
+        #  {%- endif -%}
         initial_volume: >
-          {%- if initial_volume_raw is mapping -%}
-          {{- initial_volume_raw -}}
-          {%- else -%}
-          {}
-          {%- endif -%}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {%- set essence = CABS.cabinet_variables(volume_entity, 'zenai_essence') | from_json() -%}
         key_exists_initial: "{{- (key != '') and (key in initial_volume) -}}"
-        prewrite_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #prewrite_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #prewrite_volume: >
+        #  {%- if prewrite_volume_raw is mapping -%}
+        #    {{- prewrite_volume_raw -}}
+        #  {%- else -%}
+        #    {}
+        #  {%- endif -%}
         prewrite_volume: >
-          {%- if prewrite_volume_raw is mapping -%}
-            {{- prewrite_volume_raw -}}
-          {%- else -%}
-            {}
-          {%- endif -%}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {%- set essence = CABS.cabinet_variables(volume_entity, 'zenai_essence') | from_json() -%}
         prettify_json_on_fail: "{{- prettify_json_on_fail | default(false) -}}"
         label_raw: "{{- label_targets | default('') -}}"
         resolved_label_targets: >
