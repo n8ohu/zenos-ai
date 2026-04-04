@@ -916,10 +916,20 @@ script:
             {%- set _r = (state_attr(kata_cabinet, 'variables') or {}).get(component_slug, {}) -%}
             {%- set _v1 = _r.get('value', _r) if _r is mapping else {} -%}
             {{ (_v1 | from_json) if _v1 is string else _v1 }}
+          _emission_stamp_raw: >-
+            {%- set _kv = (state_attr(kata_cabinet, 'variables') or {}).get('zen_last_emission_' ~ kata_key, {}) -%}
+            {%- set _v1 = _kv.get('value', _kv) if _kv is mapping else {} -%}
+            {{ (_v1 | from_json) if _v1 is string else _v1 }}
           _last_emission_at: >-
-            {%- set _e = _existing_kata_raw -%}
-            {%- set _e = _e if _e is mapping else {} -%}
-            {{ _e.get('last_emission_at', none) }}
+            {%- set _e = _existing_kata_raw if _existing_kata_raw is mapping else {} -%}
+            {%- set _s = _emission_stamp_raw if _emission_stamp_raw is mapping else {} -%}
+            {%- set _from_kata = _e.get('last_emission_at', none) -%}
+            {%- set _from_stamp = _s.get('last_emission_at', none) -%}
+            {%- if _from_stamp is not none and _from_stamp | trim not in ['', 'None'] -%}
+              {{ _from_stamp }}
+            {%- else -%}
+              {{ _from_kata }}
+            {%- endif -%}
           _minutes_since_last: >-
             {%- if _last_emission_at is not none and _last_emission_at | trim != '' and _last_emission_at != 'None' -%}
               {{ ((now().timestamp() - (_last_emission_at | as_datetime | as_timestamp)) / 60) | round(1) }}
@@ -1119,6 +1129,18 @@ script:
                                 tool: "{{ _suggested_act_event }}"
                                 correlation_id: "{{ _act_cid }}"
                                 severity: info
+                          # Independent cooldown stamp — written on every successful emission
+                          # regardless of post_to_kata_cabinet. Read back by cooldown check
+                          # as zen_last_emission_<kata_key> (preferred over kata payload).
+                          - event: set_variable_legacy
+                            event_data:
+                              key: "zen_last_emission_{{ kata_key }}"
+                              value: >-
+                                {{ {'last_emission_at': now().timestamp() | string,
+                                    'tool': _suggested_act_event,
+                                    'component': kata_key} | tojson }}
+                              volume_entity: "{{ kata_cabinet }}"
+                              set_timestamp: true
 
       # Determine whether to stamp last_emission_at (only if emission fired)
       - alias: Prepare kata write payload with period and emission metadata
