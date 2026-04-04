@@ -97,7 +97,6 @@ script:
         #  {%- endif -%}
         initial_volume: >
           {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
-          {%- set essence = CABS.cabinet_variables(volume_entity, 'zenai_essence') | from_json() -%}
         key_exists_initial: "{{- (key != '') and (key in initial_volume) -}}"
         #prewrite_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
         #prewrite_volume: >
@@ -108,7 +107,7 @@ script:
         #  {%- endif -%}
         prewrite_volume: >
           {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
-          {%- set essence = CABS.cabinet_variables(volume_entity, 'zenai_essence') | from_json() -%}
+          {{- CABS.cabinet_variables(volume_entity) | from_json() -}}
         prettify_json_on_fail: "{{- prettify_json_on_fail | default(false) -}}"
         label_raw: "{{- label_targets | default('') -}}"
         resolved_label_targets: >
@@ -1363,7 +1362,7 @@ script:
                         {%- for sub, arr in drawers.items() -%}
                           {%- set al = arr if (arr is iterable and not arr is string) else [arr] -%}
                           {%- if key in al -%}{%- set found = true -%}{%- endif -%}
-                      {%- endfor -%}
+                        {%- endfor -%}
                       {%- elif drawers is iterable and not drawers is string -%}
                         {%- if key in drawers -%}{%- set found = true -%}{%- endif -%}
                       {%- else -%}
@@ -1579,7 +1578,7 @@ script:
             final_response:
               status: "{{- 'success' if write_verified else 'warning' -}}"
               message: >
-                {%- if write_verified -%}  
+                {%- if write_verified -%}
                   Drawer '{{- key -}}' {{ action_type -}}d to '{{- dest_drawer -}}' in '{{- dest_cabinet -}}'.
                 {%- else -%}
                   {{- action_type | title }} completed but write verification failed or delayed.
