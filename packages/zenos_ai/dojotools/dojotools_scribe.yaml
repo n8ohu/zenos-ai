@@ -1091,6 +1091,7 @@ script:
                         "suggested_act_event": (suggested_act_event | default('') | trim) if (suggested_act_event | default('') | trim) != '' else none,
                         "master_switch": master_switch | default('', true),
                         "meta": {
+                          "enabled": enabled | default(true) | bool,
                           "read_only": false,
                           "formalized_from": "",
                           "published_from": "",
