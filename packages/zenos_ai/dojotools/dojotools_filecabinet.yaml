@@ -1260,7 +1260,7 @@ script:
             key: "{{- key -}}"
             volume_entity: "{{- volume_entity -}}"
         - wait_template: >
-           {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%} 
+            {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%} 
             {{- vol is mapping and (key not in vol) -}}
           timeout: 00:00:01
           continue_on_timeout: true
