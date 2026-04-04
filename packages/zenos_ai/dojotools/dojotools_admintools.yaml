@@ -1009,9 +1009,12 @@ script:
                 response_variable: result
             # ── Classifier ─────────────────────────────────────────────────
             - variables:
+                #_vars: >-
+                #  {%- set v = state_attr(cab, 'variables') | default(none, true) -%}
+                #  {{ v if v is mapping else {} }}
                 _vars: >-
-                  {%- set v = state_attr(cab, 'variables') | default(none, true) -%}
-                  {{ v if v is mapping else {} }}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                  {{- CABS.cabinet_variables(cab) | from_json() -}}
                 has_volumeinfo: "{{- 'AI_Cabinet_VolumeInfo' in _vars -}}"
                 has_label_index: "{{- '_label_index' in _vars -}}"
                 has_context:     "{{- '_context' in _vars -}}"
@@ -1186,14 +1189,19 @@ script:
           _all_cabs: >-
             {{- label_entities('Zen Cabinet' | slugify) | list -}}
       - variables:
-          # @TODO - Inconsistent behaviour - why is mount_status_result being returned without going one level deeper into the drawer->value ?
+          # @TODO - Inconsistent behaviour - why is mount_status_result being returned as a drawer without going one level deeper into the drawer->value ?
+          # @TODO - pretty sure we're never going to see 'mounted' as a key in 'meta' as 'meta' has only one key, and that is 'value'
           mount_status_result: >-
             {%- set ns = namespace(m={}) -%}
             {%- for eid in _all_cabs -%}
+              {#-
               {%- set _v = state_attr(eid, 'variables') | default({}, true) -%}
               {%- set _v = _v if _v is mapping else {} -%}
               {%- set _mt = _v.get('meta', {}) -%}
               {%- set _mt = _mt if _mt is mapping else (_mt | from_json if _mt is string else {}) -%}
+              -#}
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+              {%- set _mt = CABS.cabinet_drawer(cab, 'meta', {}) | from_json() -%}
               {%- set ns.m = ns.m | combine({eid: {'state': states(eid), 'mounted': _mt.get('mounted', false)}}) -%}
             {%- endfor -%}
             {{ ns.m | combine({'caller_token': caller_token}) }}
