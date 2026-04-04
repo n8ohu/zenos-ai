@@ -1186,6 +1186,7 @@ script:
           _all_cabs: >-
             {{- label_entities('Zen Cabinet' | slugify) | list -}}
       - variables:
+          # @TODO - Inconsistent behaviour - why is mount_status_result being returned without going one level deeper into the drawer->value ?
           mount_status_result: >-
             {%- set ns = namespace(m={}) -%}
             {%- for eid in _all_cabs -%}
@@ -1443,11 +1444,15 @@ script:
           response_variable: response
       - conditions:
         - condition: template
+          #value_template: >-
+          #  {{
+          #    state_attr(cabinet_entity, 'variables') is none
+          #    or 'AI_Cabinet_VolumeInfo' not in (state_attr(cabinet_entity, 'variables') | default({}))
+          #  }}
           value_template: >-
-            {{
-              state_attr(cabinet_entity, 'variables') is none
-              or 'AI_Cabinet_VolumeInfo' not in (state_attr(cabinet_entity, 'variables') | default({}))
-            }}
+            {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+            {%- set vol = CABS.cabinet_variables(cabinet_entity, {}) | from_json() -%}
+            {{- 'AI_Cabinet_VolumeInfo' not in vol -}}
         alias: Initialize New Cabinet
         sequence:
         - repeat:
