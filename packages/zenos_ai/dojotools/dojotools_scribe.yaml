@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Scribe
-# Version: 1.1.0
+# Version: 1.2.0
 #
 # Purpose:
 #   Guided authoring and maintenance for KF4 artifacts.
@@ -79,7 +79,7 @@ script:
     fields:
       mode:
         name: Mode
-        description: help/read/new/patch/replace/clear/delete/formalize/publish/dry/list
+        description: help/read/new/patch/replace/clear/delete/formalize/publish/dry/list/enable/disable
         required: true
         selector:
           select:
@@ -371,6 +371,26 @@ script:
             max: 1440
             step: 5
 
+      domain_inspect_domains:
+        name: Domain Inspect Domains
+        description: >-
+          Comma-separated HA domains to pass to step 4b domain inspect (e.g. "todo, calendar").
+          Empty = all entities from index result (default behavior).
+        required: false
+        selector:
+          text:
+
+      domain_inspect_limit:
+        name: Domain Inspect Limit
+        description: Max entity count for step 4b domain inspect. Default 25.
+        required: false
+        default: 25
+        selector:
+          number:
+            min: 1
+            max: 100
+            step: 1
+
       suggested_act_event:
         name: Suggested Act Event
         description: >-
@@ -566,6 +586,8 @@ script:
           _shared_trigger_list_raw: "{{ shared_trigger_subscriptions | default('', true) | string | trim }}"
           _trigger_list_raw: "{{ trigger_subscriptions | default('', true) | string | trim }}"
           _custom_trigger_list_raw: "{{ custom_trigger_override | default('', true) | string | trim }}"
+          _domain_inspect_domains_raw: "{{ domain_inspect_domains | default('', true) | string | trim }}"
+          _domain_inspect_limit: "{{ domain_inspect_limit | default(25) | int(25) }}"
           _changes: "{{ changes | default({}, true) }}"
           _clear_fields: "{{ clear_fields | default([], true) }}"
           _replace_confirm: "{{ replace_confirm | default(false) | bool }}"
@@ -612,6 +634,12 @@ script:
             {% else %}
               []
             {% endif %}
+          _domain_inspect_domains: >-
+            {% if _domain_inspect_domains_raw != '' %}
+              {{ _domain_inspect_domains_raw | regex_findall('[^,\s]+') }}
+            {% else %}
+              []
+            {% endif %}
           _primary_index_key: >-
             {% set p = primary_index_key | default(_slug, true) | string | trim %}
             {{ p | slugify }}
@@ -621,6 +649,20 @@ script:
           _parent_component_key: >-
             {% set p = parent_component_key | default('', true) | string | trim %}
             {{ p | slugify }}
+
+      # -------------------------------------------------------------------
+      # STEP 2c — Mode normalization: enable/disable shorthand -> patch
+      # -------------------------------------------------------------------
+      - variables:
+          _mode: "{{ 'patch' if _mode in ['enable', 'disable'] else _mode }}"
+          _changes: >-
+            {% if _mode == 'enable' %}
+              {{ {'meta': {'enabled': true}} }}
+            {% elif _mode == 'disable' %}
+              {{ {'meta': {'enabled': false}} }}
+            {% else %}
+              {{ _changes }}
+            {% endif %}
 
       # -------------------------------------------------------------------
       # STEP 2b — Target resolution (household/family via VolumeInfo, person via identity)
@@ -1002,7 +1044,9 @@ script:
                           "operator": _operator,
                           "filter_json": _filter_json,
                           "expand_entities": _expand_scope,
-                          "output_fields": _output_fields
+                          "output_fields": _output_fields,
+                          "domain_inspect_domains": _domain_inspect_domains,
+                          "domain_inspect_limit": _domain_inspect_limit
                         },
                         "scope_summary": _index_summary,
                         "scope_safety": {
@@ -1042,6 +1086,10 @@ script:
                           "shared_labelset": _shared_labelset
                         },
                         "tool": tool | default('', true),
+                        "drift_threshold": drift_threshold | default(5) | int(5),
+                        "emission_cooldown_minutes": emission_cooldown_minutes | default(60) | int(60),
+                        "suggested_act_event": (suggested_act_event | default('') | trim) if (suggested_act_event | default('') | trim) != '' else none,
+                        "master_switch": master_switch | default('', true),
                         "meta": {
                           "read_only": false,
                           "formalized_from": "",
@@ -1597,7 +1645,9 @@ script:
                           "operator": _operator,
                           "filter_json": _filter_json,
                           "expand_entities": _expand_scope,
-                          "output_fields": _output_fields
+                          "output_fields": _output_fields,
+                          "domain_inspect_domains": _domain_inspect_domains,
+                          "domain_inspect_limit": _domain_inspect_limit
                         }),
                         "component_summary": base.get('component_summary', component_summary | default('', true)),
                         "component_instructions": base.get('component_instructions', component_instructions | default('', true)),

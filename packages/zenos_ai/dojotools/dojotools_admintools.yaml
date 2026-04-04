@@ -1649,6 +1649,22 @@ script:
         default: true
         selector:
           boolean:
+      ship_alert_manager:
+        name: "Ship KFC: Alert Manager"
+        description: >-
+          Write the alert_manager default KFC to the Dojo cabinet. Monitors active
+          alerts, alert_when_off entities, and persistent notifications. Default false.
+        default: false
+        selector:
+          boolean:
+      ship_taskmaster:
+        name: "Ship KFC: Taskmaster"
+        description: >-
+          Write the taskmaster default KFC to the Dojo cabinet. Monitors task load,
+          calendar, and bed/occupancy context via the conductor pattern. Default false.
+        default: false
+        selector:
+          boolean:
       caller_token:
         name: Caller Token
         description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
@@ -2875,6 +2891,209 @@ script:
             publish_confirm: true
             caller_id: zen_admintools_zenos_prompt_loader
           response_variable: _zen_system_kfc_result
+
+    - if: "{{- ship_alert_manager | default(false) | bool -}}"
+      then:
+        # ── alert_manager — demos action emission (safety/system alerts) ────
+        - alias: 'Ship default KFC: alert_manager (Scribe — new_thought)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: new_thought
+            key: alert_manager
+            friendly_name: Alert Manager
+            label: alerts
+            version_semantic: "1.3.0"
+            component_summary: >-
+              Monitors active HA persistent notifications, alert-producing entities,
+              and alert_when_off system switches; surfaces unacknowledged warnings
+              and escalation-worthy conditions across all subsystems.
+            component_instructions: >-
+              You are reading the home alert surface. This component aggregates alerts from all subsystems.
+
+              DATA SOURCES:
+              - label:alerts entities — all entities tagged as alert producers or alert routing endpoints
+              - label:alert_when_off entities — entities where OFF state = problem (master switches, key sensors)
+              - HA persistent_notifications (if available via state)
+
+              TRIAGE PRIORITY:
+              1. Safety alerts first: fire, CO, leak, security breach
+              2. System health: master switches that are off unexpectedly
+              3. Maintenance: overdue tasks, low supplies, scheduled items missed
+              4. Informational: low-priority FYIs
+
+              URGENCY RULES:
+              - Any safety alert active -> urgency: 9
+              - 3+ alert_when_off entities in OFF state -> urgency: 6
+              - 1-2 alert_when_off entities off -> urgency: 4 (check if intentional)
+              - No active alerts -> urgency: 1
+
+              FOR alert_when_off entities:
+              These entities are NOMINAL when ON and PROBLEMATIC when OFF.
+              An entity in OFF state should be flagged unless it's in a known maintenance window.
+              Cross-reference home_mode — 'away' or 'sleep' modes may justify some switches being off.
+
+              ATTENTION: List each active alert with entity friendly_name and current state.
+              Do not list entities that are ON/nominal — only deviations.
+
+              AVAILABLE ACTIONS (suggested_act_event):
+                Valid values — use ONLY these, no others:
+                  zen_dojotools_notification_router — deliver an urgent alert brief to household admin.
+                    Use when: action_required is true AND urgency >= 5 AND a safety or system alert
+                    requires immediate human awareness.
+                  null — no action. Use when action_required is false OR urgency < 5.
+                DO NOT invent or use any other slug. If unsure, use null.
+            trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel"
+            drift_threshold: 5
+            emission_cooldown_minutes: 30
+            suggested_act_event: zen_dojotools_notification_router
+            delay_seconds: 0
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: alert_manager (Scribe — formalize_scroll)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: formalize_scroll
+            key: alert_manager
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: alert_manager (Scribe — publish_kfc)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: publish_kfc
+            key: alert_manager
+            publish_confirm: true
+            caller_id: zen_admintools_zenos_prompt_loader
+          response_variable: _alert_manager_kfc_result
+
+    - if: "{{- ship_taskmaster | default(false) | bool -}}"
+      then:
+        # ── taskmaster — demos conductor pattern + action emission ───────────
+        - alias: 'Ship default KFC: taskmaster (Scribe — new_thought)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: new_thought
+            key: taskmaster
+            friendly_name: Taskmaster
+            label: taskmaster
+            version_semantic: "1.3.1"
+            component_summary: >-
+              Monitors household task load and personal context — calendar events,
+              bed state transitions, occupancy changes, and to-do items — surfacing
+              scheduling conflicts, morning briefing cues, and overdue tasks.
+              Friday's Personal Task List is the primary schedule conductor.
+            component_instructions: >-
+              SCOPE: Task and calendar monitoring for household members.
+                Member identities from family cabinet.
+                Calendar and todo entities via label: taskmaster.
+
+              STATUS VOCABULARY (Microsoft To-Do integration):
+                notStarted = pending/incomplete (equivalent to needs_action)
+                completed   = done
+                inProgress  = in progress (rare)
+                Do NOT treat 'notStarted' as an unknown or error state.
+
+              DATA ACCESS:
+                Todo item content is in review_data.results[*].attributes.all_todos — a list
+                of todo items per entity, keyed by entity_id in results[]. Entity state is
+                only an incomplete item count — do NOT use it as content.
+                domain_context.todo.lists — system-wide list metadata (entity_id,
+                friendly_name, labels). NOT item content — do not read tasks from here.
+                Calendar events are in review_data.domain_context.calendar.
+                Attribute values use Python repr format: datetimes appear as
+                datetime.datetime(2026, 4, 1, 8, 0) — parse as strings, not ISO.
+
+              OVERDUE SEMANTICS:
+                overdue_todos is computed by HA at midnight — items due 'today' appear overdue
+                immediately, even if their scheduled time window (in subject line) is still future.
+                A task with due: today and a scheduled time that has NOT yet passed is UPCOMING,
+                not missed. Only treat as missed/escalate if:
+                  - due: yesterday or earlier (truly past-day), OR
+                  - due: today AND scheduled time in subject has already passed
+                Do not flag same-day future-window tasks as incomplete or overdue.
+
+              PRIMARY CONDUCTOR: todo.friday_s_personal_task_list (label: schedule)
+                This is NOT a data source — it is the meta-layer schedule driver.
+                Each item represents a scheduled activity block:
+                  - summary: time window name (e.g. "Morning Routine", "Evening Wrap")
+                  - description: RRULE + references to domain todo lists it governs
+                  - due: scheduled time for this block
+                READ THIS FIRST from:
+                  results[entity_id==todo.friday_s_personal_task_list].attributes.all_todos
+                Match active items to the current period. Active items tell you WHICH domain
+                lists are relevant right now. Inactive/future blocks should be noted but not
+                foregrounded.
+
+              DATA SOURCES (domain todo lists — read based on conductor signal):
+                label: daily   — household_chores, nathan_health_tasks (recurring daily)
+                label: weekly  — grocy_chores, grocy_tasks (weekly cadence)
+                label: tasks   — ninja_tickets, automation_todo_list (async backlog)
+                Item content: results[entity_id==<entity_id>].attributes.all_todos
+                Pull from the domain lists that the active conductor item references.
+                If no conductor item is active for this period, surface upcoming blocks.
+
+              CALENDAR ENTITIES (label: calendar):
+                Events in review_data.domain_context.calendar.
+                Cross-reference with conductor blocks for scheduling conflicts.
+
+              TRIGGER CONTEXT:
+                - nathan_bed_changes / kim_bed_changes: wake or sleep transition — shift morning/evening mode
+                - home_occupancy_change: arrival or departure — task context shifts
+                - quarter_hour: regular cadence check
+
+              MORNING (after wake trigger):
+                1. Read conductor: results[entity_id==todo.friday_s_personal_task_list].attributes.all_todos
+                2. Pull tasks from referenced domain lists
+                3. Any calendar events today?
+                4. Any tasks overdue from yesterday?
+                Surface as brief morning summary with time-ordered schedule.
+
+              EVENING (bed sensors -> sleep):
+                1. What conductor blocks ran today?
+                2. What wasn't completed?
+                3. What's on tomorrow's conductor?
+
+              URGENCY RULES:
+                - Calendar event starting within 30 min, person not moving -> urgency: 5
+                - Active conductor block with past-due required tasks (scheduled time already passed) -> urgency: 4
+                - Task with due: yesterday or earlier, still notStarted -> urgency: 3
+                - Morning brief pending -> urgency: 2
+                - Nothing pressing -> urgency: 1
+
+              ASYNC BACKLOG (label: tasks):
+                ninja_tickets, automation_todo_list — surface count + top items only.
+                Do not foreground over conductor-driven tasks.
+
+              AVAILABLE ACTIONS (suggested_act_event):
+                Valid values — use ONLY these, no others:
+                  zen_dojotools_notification_router — deliver a notification brief to household admin.
+                    Use when: action_required is true AND urgency >= 5 AND a time-sensitive
+                    brief or critical alert should be delivered immediately.
+                    Urgency 3-4 = informational only — update kata, do not notify.
+                  null — no action. Use when action_required is false OR urgency < 5.
+                DO NOT invent or use any other slug. If unsure, use null.
+
+              FIELD NOTES:
+                suggested_act_event: must be one of the AVAILABLE ACTIONS above or null.
+                period: semantic string from home_mode (morning/evening/night/etc) — NOT a timestamp.
+            trigger_subscriptions: "home_occupancy_change,nathan_bed_changes,kim_bed_changes,force_summary,quarter_hour"
+            domain_inspect_domains: "todo,calendar"
+            domain_inspect_limit: 25
+            drift_threshold: 5
+            emission_cooldown_minutes: 60
+            delay_seconds: 30
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: taskmaster (Scribe — formalize_scroll)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: formalize_scroll
+            key: taskmaster
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: taskmaster (Scribe — publish_kfc)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: publish_kfc
+            key: taskmaster
+            publish_confirm: true
+            caller_id: zen_admintools_zenos_prompt_loader
+          response_variable: _taskmaster_kfc_result
 
     # ── Idempotent: ensure syscab VolumeInfo carries cabinet_ro: true ─────────
     # Prompt loader writes directly to syscab via set_variable_zenos_system_cabinet.
