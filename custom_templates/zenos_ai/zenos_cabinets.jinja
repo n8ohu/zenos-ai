@@ -263,6 +263,10 @@ Logic: Fetches the full drawer using cabinet_drawer().
        Extracts the 'value' field from the drawer dict.
        Handles JSON-encoded strings within the value field for nested encoding scenarios.
 Output: A JSON-formatted string of the value (or fallback if missing).
+
+Encapsulates: FG-38 safe: two-round normalization to handle cases where either the drawer
+             or the value is a JSON-encoded string, ensuring that the final output is always
+             a properly parsed JSON structure or the provided fallback.
 -#}
 {%- macro cabinet_drawer_value(entity_id, drawer_key, fallback={}) -%}
     {%- set drawer = cabinet_drawer(entity_id, drawer_key, {}) | from_json -%}
