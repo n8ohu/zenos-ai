@@ -1,4 +1,4 @@
-# User and AI User Management — ZenOS-AI 4.5.5 'Ready Player Two'
+# User and AI User Management — ZenOS-AI 2026.4.0 'Ectoplasm'
 
 *Provisioning, deprovisioning, moving, and repairing identity cabinets for people and AI constructs*
 

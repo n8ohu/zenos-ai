@@ -1,4 +1,4 @@
-# Getting Started — ZenOS-AI 4.5.5 'Ready Player Two'
+# Getting Started — ZenOS-AI 2026.4.0 'Ectoplasm'
 
 *From fresh install to live agent*
 

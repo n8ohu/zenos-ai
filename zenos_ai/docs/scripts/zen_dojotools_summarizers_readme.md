@@ -1,4 +1,4 @@
-# Zen DojoTools Summarizers — 4.5.5 'Ready Player Two'
+# Zen DojoTools Summarizers — 4.6.0 'Ectoplasm'
 
 *Ninja Summarizer + SuperSummary — the cognition pipeline*
 
@@ -53,6 +53,7 @@ Summarizes a single Kung Fu Component. Called by the Scheduler for each componen
 | `query` | No | Override the default summarization query. Use with caution. |
 | `post_to_kata_cabinet` | No | Write result to Kata cabinet? Default: `false`. |
 | `supplemental_prompt` | No | Extra data or instructions appended to the monk prompt. |
+| `force` | No | Bypass the run governor (dedup burnout window). For admin overrides or emergency on-demand runs. Default `false`. |
 | `caller_token` | No | Opaque pass-through token for correlation. |
 
 ### What It Does
@@ -61,12 +62,14 @@ Summarizes a single Kung Fu Component. Called by the Scheduler for each componen
 2. **AI task guard** — exits with error if `input_text.zenos_ai_task_entity` is unset or unavailable
 3. **Resolve cabinets** — reads Dojo, Kata, and household cabinet entity IDs from resolver sensors
 4. **Read Dojo drawer** — loads the component's KFC metadata (friendly name, label, command, tool, kata_key)
-5. **Run HyperIndex** — if the component has a `label` field, queries the index with that label in hypergraph mode
-6. **Run library command** — if the component has a `command` field, dispatches it through `command_interpreter.jinja`
-7. **Build monk prompt** — assembles query, kata template (structure), example, review data (index + library output + dojo drawer), and supplemental instructions
-8. **Call ai_task.generate_data** — sends prompt to the configured AI task entity (the local LLM monk)
-9. **Post to Kata cabinet** — if `post_to_kata_cabinet` is true and monk returned data, writes result to `kata_cabinet[component_slug]`
-10. **Emit event** — fires `zen_dojotools_event_emitter` with kata/monk excerpt fields
+5. **`meta.enabled` check** — exits with `reason: meta_disabled` if the component's `meta.enabled` is `false`
+6. **Run governor** — dedup burnout window check (see below). Exits with `reason: dedup_window` if blocked.
+7. **Run HyperIndex** — if the component has a `label` field, queries the index with that label in hypergraph mode
+8. **Run library command** — if the component has a `command` field, dispatches it through `command_interpreter.jinja`
+9. **Build monk prompt** — assembles query, kata template (structure), example, review data (index + library output + dojo drawer), and supplemental instructions
+10. **Call ai_task.generate_data** — sends prompt to the configured AI task entity (the local LLM monk)
+11. **Post to Kata cabinet** — if `post_to_kata_cabinet` is true and monk returned data, writes result to `kata_cabinet[component_slug]`
+12. **Emit event** — fires `zen_dojotools_event_emitter` with kata/monk excerpt fields
 
 ### Response
 
@@ -78,6 +81,44 @@ Summarizes a single Kung Fu Component. Called by the Scheduler for each componen
   "dojo_drawer": { ... },
   "filecabinet_write": {},
   "caller_token": ""
+}
+```
+
+---
+
+## Ninja Run Governor
+
+The run governor prevents duplicate runs within a configurable burnout window. It fires between the `meta.enabled` check and the HyperIndex call.
+
+**How it works:**
+
+- Reads `burnout_seconds` from the `zen_ninja_config` drawer in the household cabinet. Default: **300 seconds (5 min)**.
+- Reads `zen_ninja_last_run_<component_slug>` from the Kata cabinet — a timestamp drawer written at each successful run.
+- If elapsed time since last run is less than `burnout_seconds`, the script stops and fires a `summarizer_run_blocked` event with `reason: dedup_window`.
+- Set `force: true` to bypass the governor for admin overrides or emergency on-demand runs.
+
+**Why it exists:** The Scheduler can fire multiple triggers in a short window (e.g., `ha_start` + `force_summary` near-simultaneously, or rapid home mode changes). Without the governor, a component could run 4–5 times in under a minute, burning through LLM capacity and producing stale-input summaries before state settles.
+
+**Configuring `burnout_seconds`:** Write to the `zen_ninja_config` drawer in the household cabinet via FileCabinet:
+```yaml
+action: script.zen_dojotools_filecabinet
+data:
+  action_type: update
+  volume_entity_id: sensor.<household_cabinet>
+  key: zen_ninja_config
+  value:
+    burnout_seconds: 180
+```
+
+**Event on block:**
+```json
+{
+  "kind": "summarizer_run_blocked",
+  "component": "<component_slug>",
+  "reason": "dedup_window",
+  "elapsed_secs": 42,
+  "burnout_secs": 300,
+  "severity": "info"
 }
 ```
 

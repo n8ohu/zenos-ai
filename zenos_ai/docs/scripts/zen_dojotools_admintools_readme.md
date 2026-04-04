@@ -1,4 +1,4 @@
-# Zen DojoTools AdminTools — 4.5.5 'Ready Player Two'
+# Zen DojoTools AdminTools — 4.6.0 'Ectoplasm'
 
 *Ring-2 administrative tools: component registration, cabinet repair, template management, and prompt configuration*
 
@@ -21,7 +21,8 @@ All tools in this module are **admin-only** — they are not exposed to the AI a
 | `zen_admintools_cabinetadmin` | 4.5.0 | No | Inspect, restore, reset, hammer, init, or reset_all Ring-0 cabinets |
 | `zen_admintools_cabinetadmin_factory` | 1.x | No | Factory-stamp or repair a cabinet's VolumeInfo drawer |
 | `zen_admintools_kfc_migration_press` | 1.1.0 | No | One-time migration: seed scheduling fields into KFC drawers |
-| `zen_admintools_zenos_prompt_loader` | 4.5.5 | No | Load versioned Cortex, Directives, and Purpose (v32 = True Voice (default/latest), v30 = Living Index, v29 = Ninja Fusion, v27 = RC2) |
+| `zen_admintools_zenos_prompt_loader` | 4.6.0 | No | Load versioned Cortex, Directives, and Purpose (v32 = True Voice (default/latest), v30 = Living Index, v29 = Ninja Fusion, v27 = RC2) |
+| `zen_admintools_run_repair` | 4.5.6 | No | Human-confirmed passthrough to versioned maint/ repair scripts |
 
 > **KFC registration:** `zen_dojotools_kungfu_writer` has been removed. Use `zen_dojotools_scribe` — see `dojotools_scribe.yaml` for full documentation.
 
@@ -268,7 +269,9 @@ On every run, the prompt loader also stamps `meta.mounted: true` on syscab — e
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `cortex_version` | select | `latest` | `latest` or `32` = True Voice (GA default). `30` = Living Index. `29` = Ninja Fusion. `27` = RC2 |
-| `ship_zen_system` | boolean | `true` | If `true`, also writes the `zen_system` KFC drawer after loading. Set `false` to load Cortex only without touching the Dojo. |
+| `ship_zen_system` | boolean | `true` | Write the `zen_system` KFC to the Dojo after loading. Default `true` — this is the proof-of-concept KFC and ships on every load. |
+| `ship_alert_manager` | boolean | `false` | Write the `alert_manager` KFC (v1.3.0) to the Dojo. Monitors active alerts, alert_when_off entities, and persistent notifications. Default `false`. |
+| `ship_taskmaster` | boolean | `false` | Write the `taskmaster` KFC (v1.3.1) to the Dojo. Monitors task load, calendar, and bed/occupancy context via the conductor pattern. Default `false`. |
 
 Use the `cortex_version` field to select which version to load. The three primitives (Purpose, Directives, Cortex) are versioned together as a set:
 
@@ -284,6 +287,35 @@ Selecting `latest` or passing no `cortex_version` loads v32.
 ### Custom Prompt Material
 
 If you want to ship completely custom Purpose, Directives, or Cortex content, copy the prompt loader script, make your changes, and fire it. The loader is a standard HA script — there's nothing special about it beyond the version-select logic. Custom forks are your own maintenance surface; ZenOS ships the versioned canonical set and that's the extent of it.
+
+---
+
+## zen_admintools_run_repair
+
+Human-confirmed passthrough to versioned one-time maintenance scripts. Each repair action targets a specific upgrade path and is designed to run once on the relevant install class. All actions require `confirm_action: true` — the script refuses without it.
+
+**Not MCP-exposed.** Operator use only. Do not expose to unattended LLM pipelines.
+
+### Input Fields
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `repair_action` | select | — | Which repair to run. See table below. |
+| `entity_id` | text | — | Cabinet entity ID. Required for `stamp_cab_guid_4_5_6` only. |
+| `confirm_action` | boolean | `false` | Must be `true` — refuses without it. |
+| `caller_token` | text | — | Opaque correlation token (echoed in response). |
+
+### Repair Actions
+
+| Action | What It Does |
+|---|---|
+| `identity_family_repair_4_5_6` | Wire the default family cabinet into the household graph. Targets pre-4.5.6 installs missing the family link. |
+| `stamp_cab_guid_4_5_6` | Stamp a GUID onto a single cabinet. Requires `entity_id`. Targets installs where a cabinet was created without a GUID. |
+| `roster_guid_repair_4_5_6` | Stamp GUIDs and re-wire all default cabinet roster entries. Targets pre-provisioner installs (Nathan/Phil/Zach only — destructive on live provisioner installs). |
+
+### When to Use
+
+Run only when directed by an upgrade path document or a Nyx UAT report. These scripts are not idempotent in the general case — they were designed for specific transition states. If uncertain, run `identity_family_repair_4_5_6` with `dry_run` first if the script supports it; otherwise inspect the target cabinet with `cabinetadmin mode: inspect` before committing.
 
 ---
 
