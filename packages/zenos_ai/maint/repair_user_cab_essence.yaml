@@ -116,17 +116,25 @@ script:
 
     # ── Read all cabinet variables once ──────────────────────────────────────
     - variables:
-        _cab_vars_raw: "{{ state_attr(_target_cab, 'variables') | default({}, true) }}"
-        _cab_vars: "{{ _cab_vars_raw if _cab_vars_raw is mapping else {} }}"
+        #_cab_vars_raw: "{{ state_attr(_target_cab, 'variables') | default({}, true) }}"
+        #_cab_vars: "{{ _cab_vars_raw if _cab_vars_raw is mapping else {} }}"
+        _cab_vars: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_variables(_target_cab) | from_json() -}}
 
     # ── Read VolumeInfo → GUID + friendly_name ────────────────────────────────
     # FG-38 safe: two-round normalization
     - variables:
         _vi_info: >-
+          {#-
           {%- set _e = _cab_vars.get('AI_Cabinet_VolumeInfo', {}) -%}
           {%- set _e = _e if _e is mapping else (_e | from_json if _e is string else {}) -%}
           {%- set _vi = _e.get('value', _e) -%}
           {%- set _vi = _vi if _vi is mapping else (_vi | from_json if _vi is string else {}) -%}
+          -#}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {%- set _vi = CABS.cabinet_drawer_value(_target_cab, 'AI_Cabinet_VolumeInfo') | from_json() -%}
+          
           {{ {
             'guid': _vi.get('id', '') | trim,
             'friendly_name': _vi.get('friendly_name', _vi.get('name', '')) | trim

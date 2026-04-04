@@ -74,13 +74,13 @@ template:
         unique_id: zen_select_persona
         icon: mdi:account-star
         state: "{{ states('input_text.zenos_persona_name') }}"
+        # @todo - no need to coerce sensor.zen_default_ai_user_cabinet_resolved to a list and then check the length at the end - there is onle one cab(s)!
         options: >-
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
           {%- set cabs = [states('sensor.zen_default_ai_user_cabinet_resolved')] -%}
           {%- set names = namespace(list=[]) -%}
           {%- for cab in cabs -%}
-            {%- set vars = state_attr(cab, 'variables') | default({}, true) -%}
-            {%- set essence_raw = vars.get('zenai_essence', {}) if vars is mapping else {} -%}
-            {%- set essence = essence_raw.get('value', essence_raw) if essence_raw is mapping else {} -%}
+            {%- set essence = CABS.cabinet_drawer_value(cab, 'zenai_essence') | from_json() -%}
             {%- set name = essence.get('identity', {}).get('name', '') | trim -%}
             {%- if name not in ['', 'your AI', 'unknown'] -%}
               {%- set names.list = names.list + [name] -%}
@@ -245,17 +245,25 @@ automation:
       - variables:
           was_green: "{{ is_state('binary_sensor.flynn_system_ready', 'on') }}"
           _oobe_ai_cab: "{{ states('sensor.zen_default_ai_user_cabinet_resolved') }}"
+          #_oobe_cab_vars: >-
+          #  {{ state_attr(_oobe_ai_cab, 'variables') | default({}, true)
+          #     if _oobe_ai_cab != '' else {} }}
           _oobe_cab_vars: >-
-            {{ state_attr(_oobe_ai_cab, 'variables') | default({}, true)
-               if _oobe_ai_cab != '' else {} }}
+            {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+            {{- CABS.cabinet_variables(_oobe_ai_cab) | from_json() -}}
           _oobe_complete: "{{ '_oobe_complete' in _oobe_cab_vars }}"
-          _oobe_essence_raw: "{{ _oobe_cab_vars.get('zenai_essence', {}) }}"
+          #_oobe_essence_raw: "{{ _oobe_cab_vars.get('zenai_essence', {}) }}"
+          #_oobe_essence_val: >-
+          #  {{ _oobe_essence_raw.get('value', _oobe_essence_raw)
+          #     if _oobe_essence_raw is mapping else {} }}
           _oobe_essence_val: >-
-            {{ _oobe_essence_raw.get('value', _oobe_essence_raw)
-               if _oobe_essence_raw is mapping else {} }}
+            {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+            {{- CABS.cabinet_drawer_value(_oobe_ai_cab, 'zenai_essence') | from_json() -}}
+          #_oobe_name: >-
+          #  {{ (_oobe_essence_val.get('identity', {}).get('name', '') | trim)
+          #     if _oobe_essence_val is mapping else '' }}
           _oobe_name: >-
-            {{ (_oobe_essence_val.get('identity', {}).get('name', '') | trim)
-               if _oobe_essence_val is mapping else '' }}
+            {{- (_oobe_essence_val.get('identity', {}).get('name', '') | trim) -}}
           _oobe_pending: "{{ not _oobe_complete and (_oobe_name in ['', 'your AI', 'unknown']) }}"
       # Early exit: skip when all gates green (or monastery warn) AND oobe done.
       # warn = degraded-but-functional; no bootstrap needed, agent is usable.
