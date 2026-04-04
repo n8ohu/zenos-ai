@@ -339,6 +339,7 @@
   {%- set candidate = raw -%}
 
   {# unwrap FileCabinet value wrapper once #}
+  {# @todo - resolve_zenai_essence(raw) should only every be passed a 'value' unwrapped by CABS.cabinet_drawer_value()  #}
   {%- if candidate is mapping
         and 'value' in candidate
         and candidate.value is mapping -%}
