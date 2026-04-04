@@ -404,6 +404,7 @@ script:
                 _roster_raw: >-
                   {% import 'zenos_ai/zen_os_1.jinja' as zen %}
                   {{- zen.identity_roster() -}}
+                # @todo - surely no need to check what is in _roster_raw? - we control its contents - it's a JSON-Stringified dict
                 _roster: >-
                   {%- set raw = _roster_raw | trim -%}
                   {%- if raw.startswith('{') -%}
@@ -481,6 +482,9 @@ script:
                       'members': {'users': _m.get('users', []), 'ai_users': _m.get('ai_users', []), 'families': _ns.fams}
                     } | tojson
                   }}
+                # ------------------------------------------------------------------------------------
+                # @note - _manifest: a dict with two keys each having a JSON-STRINGIFIED DICT ()
+                # ------------------------------------------------------------------------------------
                 _manifest: >-
                   {{
                     {
