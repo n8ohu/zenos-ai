@@ -95,8 +95,9 @@ script:
         #  {%- else -%}
         #  {}
         #  {%- endif -%}
-        initial_volume: >
+        initial_volume: >-
           {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_variables(volume_entity) | from_json() -}}
         key_exists_initial: "{{- (key != '') and (key in initial_volume) -}}"
         #prewrite_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
         #prewrite_volume: >
