@@ -366,11 +366,8 @@ script:
       then:
         - variables:
             _rtt_sys_wl_raw: >-
-              {%- set _sv = state_attr(_rtt_system, 'variables') | default({}) -%}
-              {%- set _sv = _sv if _sv is mapping else {} -%}
-              {%- set _wr = _sv.get('zen_summarizer_act_whitelist', {}) -%}
-              {%- set _wv1 = _wr.get('value', _wr) if _wr is mapping else {} -%}
-              {{ (_wv1 | from_json) if _wv1 is string else _wv1 }}
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+              {{- CABS.cabinet_drawer_value(_rtt_system, 'zen_summarizer_act_whitelist', {}) | from_json() }}
             _rtt_sys_whitelist_exists: >-
               {{- _rtt_sys_wl_raw is mapping and _rtt_sys_wl_raw.keys() | list | length > 0 -}}
         - if: "{{- not _rtt_sys_whitelist_exists -}}"
@@ -446,11 +443,8 @@ script:
     # Read current whitelist — state_attr direct (filecabinet blocks all syscab writes)
     - variables:
         _wl_raw: >-
-          {%- set _sv = state_attr(_system, 'variables') | default({}) -%}
-          {%- set _sv = _sv if _sv is mapping else {} -%}
-          {%- set _wr = _sv.get('zen_summarizer_act_whitelist', {}) -%}
-          {%- set _wv1 = _wr.get('value', _wr) if _wr is mapping else {} -%}
-          {{ (_wv1 | from_json) if _wv1 is string else _wv1 }}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_drawer_value(_system, 'zen_summarizer_act_whitelist', {}) | from_json() -}}
         _wl_current: >-
           {%- set w = _wl_raw if _wl_raw is mapping else {} -%}
           {{ w.get('allowed_events', []) if w is mapping else [] }}
@@ -1015,19 +1009,26 @@ script:
                 response_variable: result
             # ── Classifier ─────────────────────────────────────────────────
             - variables:
+                #_vars: >-
+                #  {%- set v = state_attr(cab, 'variables') | default(none, true) -%}
+                #  {{ v if v is mapping else {} }}
                 _vars: >-
-                  {%- set v = state_attr(cab, 'variables') | default(none, true) -%}
-                  {{ v if v is mapping else {} }}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                  {{- CABS.cabinet_variables(cab) | from_json() -}}
                 has_volumeinfo: "{{- 'AI_Cabinet_VolumeInfo' in _vars -}}"
                 has_label_index: "{{- '_label_index' in _vars -}}"
                 has_context:     "{{- '_context' in _vars -}}"
                 non_system_drawers: >-
                   {%- set sys = ['AI_Cabinet_VolumeInfo','_label_index','_context', '_restored_marker','_hammered'] -%}
                   {{- _vars.keys() | reject('in', sys) | reject('match', '^_') | list -}}
-                _vi_raw: "{{ _vars.get('AI_Cabinet_VolumeInfo', {}) }}"
+                #_vi_raw: "{{ _vars.get('AI_Cabinet_VolumeInfo', {}) }}"
+                #_vi_val: >-
+                #  {%- set r = _vi_raw.get('value', {}) if _vi_raw is mapping else {} -%}
+                #  {{ r if r is mapping else (r | from_json if r is string else {}) }}
                 _vi_val: >-
-                  {%- set r = _vi_raw.get('value', {}) if _vi_raw is mapping else {} -%}
-                  {{ r if r is mapping else (r | from_json if r is string else {}) }}
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                  {{- CABS.cabinet_drawer_value(cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -}}
+
                 cabinet_guid: "{{- _vi_val.get('id', '') | string | trim -}}"
                 cabinet_state_class: >-
                   {%- if not has_volumeinfo and not has_label_index and not has_context
@@ -1188,13 +1189,19 @@ script:
           _all_cabs: >-
             {{- label_entities('Zen Cabinet' | slugify) | list -}}
       - variables:
+          # @TODO - Inconsistent behaviour - why is mount_status_result being returned as a drawer without going one level deeper into the drawer->value ?
+          # @TODO - pretty sure we're never going to see 'mounted' as a key in 'meta' as 'meta' has only one key, and that is 'value'
           mount_status_result: >-
             {%- set ns = namespace(m={}) -%}
             {%- for eid in _all_cabs -%}
+              {#-
               {%- set _v = state_attr(eid, 'variables') | default({}, true) -%}
               {%- set _v = _v if _v is mapping else {} -%}
               {%- set _mt = _v.get('meta', {}) -%}
               {%- set _mt = _mt if _mt is mapping else (_mt | from_json if _mt is string else {}) -%}
+              -#}
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+              {%- set _mt = CABS.cabinet_drawer(cab, 'meta', {}) | from_json() -%}
               {%- set ns.m = ns.m | combine({eid: {'state': states(eid), 'mounted': _mt.get('mounted', false)}}) -%}
             {%- endfor -%}
             {{ ns.m | combine({'caller_token': caller_token}) }}
@@ -1206,11 +1213,14 @@ script:
         value_template: "{{- op == 'flip_schema_version' -}}"
       then:
       - variables:
-          _syscab_vars: "{{ state_attr('sensor.zenos_system_cabinet', 'variables') | default({}, true) }}"
-          _syscab_mapped: "{{- _syscab_vars if _syscab_vars is mapping else {} -}}"
-          _csve: "{{ _syscab_mapped.get('cab_schema_version', {}) }}"
-          _csve_mapped: "{{- _csve if _csve is mapping else {} -}}"
-          _current_v: "{{- _csve_mapped.get('value', 0) | int(0) -}}"
+          #_syscab_vars: "{{ state_attr('sensor.zenos_system_cabinet', 'variables') | default({}, true) }}"
+          #_syscab_mapped: "{{- _syscab_vars if _syscab_vars is mapping else {} -}}"
+          #_csve: "{{ _syscab_mapped.get('cab_schema_version', {}) }}"
+          #_csve_mapped: "{{- _csve if _csve is mapping else {} -}}"
+          #_current_v: "{{- _csve_mapped.get('value', 0) | int(0) -}}"
+          _current_v: >
+            {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+            {{- CABS.cabinet_drawer_value('sensor.zenos_system_cabinet', 'cab_schema_version', 0) | from_json() | int(0) -}}
           _new_v: "{{- schema_version | default(none) | int(-1) if schema_version | default(none) is not none else (1 if _current_v == 0 else 0) -}}"
       - event: set_variable_legacy
         event_data:
@@ -1311,9 +1321,9 @@ script:
         now_iso: "{{- now().isoformat() -}}"
         schema_version: 1
         cabinet_guid: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
           {{-
-            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' 
-              | format(range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random) 
+              CABS.cabinet_guid_new()
               if (force_new_guid or not cabinet_guid) 
               else cabinet_guid 
           -}}
@@ -1442,11 +1452,15 @@ script:
           response_variable: response
       - conditions:
         - condition: template
+          #value_template: >-
+          #  {{
+          #    state_attr(cabinet_entity, 'variables') is none
+          #    or 'AI_Cabinet_VolumeInfo' not in (state_attr(cabinet_entity, 'variables') | default({}))
+          #  }}
           value_template: >-
-            {{
-              state_attr(cabinet_entity, 'variables') is none
-              or 'AI_Cabinet_VolumeInfo' not in (state_attr(cabinet_entity, 'variables') | default({}))
-            }}
+            {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+            {%- set vol = CABS.cabinet_variables(cabinet_entity, {}) | from_json() -%}
+            {{- 'AI_Cabinet_VolumeInfo' not in vol -}}
         alias: Initialize New Cabinet
         sequence:
         - repeat:
@@ -1482,11 +1496,14 @@ script:
         alias: Repair / Restamp
         sequence:
         - variables:
-            existing: "{{- state_attr(cabinet_entity,'variables') -}}"
+            #existing: "{{- state_attr(cabinet_entity,'variables') -}}"
+            #existing_guid: >-
+            #  {%- set info = existing.get('AI_Cabinet_VolumeInfo', {}) if existing is mapping else {} -%}
+            #  {%- set _val = info.get('value', {}) if info is mapping else {} -%}
+            #  {%- set _val = _val if _val is mapping else (_val | from_json if _val is string else {}) -%}
             existing_guid: >-
-              {%- set info = existing.get('AI_Cabinet_VolumeInfo', {}) if existing is mapping else {} -%}
-              {%- set _val = info.get('value', {}) if info is mapping else {} -%}
-              {%- set _val = _val if _val is mapping else (_val | from_json if _val is string else {}) -%}
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+              {%- set _val = CABS.cabinet_drawer_value(cabinet_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
               {{- _val.get('id', '') -}}
             guid_changed: "{{- force_new_guid or existing_guid != cabinet_guid -}}"
         - choose:
@@ -3099,12 +3116,16 @@ script:
     # Prompt loader writes directly to syscab via set_variable_zenos_system_cabinet.
     # On any run, if cabinet_ro is missing or false, stamp it. Safe to re-run.
     - variables:
-        _pl_sc_vars: "{{- state_attr('sensor.zenos_system_cabinet', 'variables') | default({}, true) -}}"
-        _pl_sc_mapped: "{{- _pl_sc_vars if _pl_sc_vars is mapping else {} -}}"
-        _pl_vi_raw: "{{- _pl_sc_mapped.get('AI_Cabinet_VolumeInfo', {}) -}}"
-        _pl_vi_mapped: "{{- _pl_vi_raw if _pl_vi_raw is mapping else {} -}}"
-        _pl_vi_val_raw: "{{- _pl_vi_mapped.get('value', _pl_vi_mapped) -}}"
-        _pl_vi_val: "{{- _pl_vi_val_raw if _pl_vi_val_raw is mapping else (_pl_vi_val_raw | from_json if _pl_vi_val_raw is string else {}) -}}"
+        #_pl_sc_vars: "{{- state_attr('sensor.zenos_system_cabinet', 'variables') | default({}, true) -}}"
+        #_pl_sc_mapped: "{{- _pl_sc_vars if _pl_sc_vars is mapping else {} -}}"
+        #_pl_vi_raw: "{{- _pl_sc_mapped.get('AI_Cabinet_VolumeInfo', {}) -}}"
+        #_pl_vi_mapped: "{{- _pl_vi_raw if _pl_vi_raw is mapping else {} -}}"
+        #_pl_vi_val_raw: "{{- _pl_vi_mapped.get('value', _pl_vi_mapped) -}}"
+        #_pl_vi_val: "{{- _pl_vi_val_raw if _pl_vi_val_raw is mapping else (_pl_vi_val_raw | from_json if _pl_vi_val_raw is string else {}) -}}"
+
+        _pl_vi_val: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_drawer_value('sensor.zenos_system_cabinet', 'AI_Cabinet_VolumeInfo', {}) | from_json() -}}
         _pl_flags: "{{- _pl_vi_val.get('flags', {}) -}}"
         _pl_flags_mapped: "{{- _pl_flags if _pl_flags is mapping else {} -}}"
         _pl_ro_already: "{{- _pl_flags_mapped.get('cabinet_ro', false) == true -}}"

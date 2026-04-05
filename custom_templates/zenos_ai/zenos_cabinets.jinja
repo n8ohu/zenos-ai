@@ -145,6 +145,7 @@ Purpose: Retrieves the variables attribute from a specific sensor entity while p
 Input: entity_id (string): The full Home Assistant entity ID (e.g., sensor.kitchen_cabinet).
 Logic: Checks if the entity_id is provided and if the entity currently exists/has a valid state in the state machine using has_value().
        If the entity is valid, extracts the variables attribute with defensive fallback for any falsy result.
+       If the variables attribute exists but is not a mapping, returns defensive fallback.
 
 Fallback Behavior: The second parameter of | default(fallback, true) ensures that not only missing attributes,
        but also null, false, empty strings, empty lists, and empty dicts are replaced with the fallback value.
@@ -157,6 +158,9 @@ Technical Note: By using to_json(pretty_print=true), the output is optimized for
     {%- set rv = fallback -%}
     {%- if entity_id and has_value(entity_id) -%}
         {%- set rv = state_attr(entity_id, 'variables') | default(fallback, true) -%}
+    {%- endif -%}
+    {%- if not rv is mapping -%}
+        {%- set rv = fallback -%}
     {%- endif -%}
     {{- rv | to_json(pretty_print=true) -}}
 {%- endmacro -%}
@@ -259,6 +263,10 @@ Logic: Fetches the full drawer using cabinet_drawer().
        Extracts the 'value' field from the drawer dict.
        Handles JSON-encoded strings within the value field for nested encoding scenarios.
 Output: A JSON-formatted string of the value (or fallback if missing).
+
+Encapsulates: FG-38 safe: two-round normalization to handle cases where either the drawer
+             or the value is a JSON-encoded string, ensuring that the final output is always
+             a properly parsed JSON structure or the provided fallback.
 -#}
 {%- macro cabinet_drawer_value(entity_id, drawer_key, fallback={}) -%}
     {%- set drawer = cabinet_drawer(entity_id, drawer_key, {}) | from_json -%}
@@ -394,7 +402,7 @@ Output: A JSON-formatted string of the VolumeInfo metadata block (or fallback if
 Technical Note: By using to_json(pretty_print=true), the output is optimized for debugging in the Developer Tools.
 -#}
 {%- macro cabinet_volume_info(entity_id, fallback = {}) -%}
-    {%- set rv = CAB.cabinet_drawer_value(entity_id, 'AI_Cabinet_VolumeInfo', fallback) | from_json() -%}
+    {%- set rv = cabinet_drawer_value(entity_id, 'AI_Cabinet_VolumeInfo', fallback) | from_json() -%}
     {{- rv | to_json(pretty_print=true) -}}
 {%- endmacro -%}
 
@@ -445,7 +453,7 @@ Logic: Uses cabinet_drawer_value() to fetch the 'members' drawer's value field.
 Output: A JSON-formatted string of the members data (or fallback if not found).
 -#}
 {%- macro cabinet_members(entity_id, fallback = {}) -%}
-    {%- set rv = CAB.cabinet_drawer_value(entity_id, 'members', fallback) | from_json() -%}
+    {%- set rv = cabinet_drawer_value(entity_id, 'members', fallback) | from_json() -%}
     {{- rv | to_json(pretty_print=true) -}}
 {%- endmacro -%}
 

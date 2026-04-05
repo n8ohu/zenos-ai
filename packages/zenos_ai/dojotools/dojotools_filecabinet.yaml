@@ -88,21 +88,26 @@ script:
         is_clone: "{{- action_type == 'clone' -}}"
         is_relabel: "{{- action_type == 'relabel' -}}"
         is_write_action: "{{- action_type in ['create','update','delete','move','copy','mount_cabinet','dismount_cabinet','relabel']}}"
-        initial_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #initial_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #initial_volume: >
+        #  {%- if initial_volume_raw is mapping -%}
+        #  {{- initial_volume_raw -}}
+        #  {%- else -%}
+        #  {}
+        #  {%- endif -%}
         initial_volume: >
-          {%- if initial_volume_raw is mapping -%}
-          {{- initial_volume_raw -}}
-          {%- else -%}
-          {}
-          {%- endif -%}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
         key_exists_initial: "{{- (key != '') and (key in initial_volume) -}}"
-        prewrite_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #prewrite_volume_raw: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
+        #prewrite_volume: >
+        #  {%- if prewrite_volume_raw is mapping -%}
+        #    {{- prewrite_volume_raw -}}
+        #  {%- else -%}
+        #    {}
+        #  {%- endif -%}
         prewrite_volume: >
-          {%- if prewrite_volume_raw is mapping -%}
-            {{- prewrite_volume_raw -}}
-          {%- else -%}
-            {}
-          {%- endif -%}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_variables(volume_entity) | from_json() -}}
         prettify_json_on_fail: "{{- prettify_json_on_fail | default(false) -}}"
         label_raw: "{{- label_targets | default('') -}}"
         resolved_label_targets: >
@@ -1133,7 +1138,7 @@ script:
               {%- set entry = vol.get(key) -%}
               {{- entry is mapping -}}
             {%- else -%}
-              false
+              {{- false -}}
             {%- endif -%}
           timeout: 00:00:05
           continue_on_timeout: true
@@ -1213,7 +1218,7 @@ script:
               {%- set entry = vol.get(key, {}) -%}
               {{- entry.get('value') == new_entry.value -}}
             {%- else -%}
-              false
+              {{- false -}}
             {%- endif -%}
           timeout: 00:00:10
           continue_on_timeout: true
@@ -1260,7 +1265,7 @@ script:
             key: "{{- key -}}"
             volume_entity: "{{- volume_entity -}}"
         - wait_template: >
-           {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%} 
+            {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%} 
             {{- vol is mapping and (key not in vol) -}}
           timeout: 00:00:01
           continue_on_timeout: true
@@ -1326,8 +1331,8 @@ script:
                 volume_entity: "{{- volume_entity -}}"
             - alias: Index prune verification
               wait_template: >
-                {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%}
-                {%- set raw = vol.get('_label_index', {}).get('value') if vol is mapping else {} -%} 
+                {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                 {%- set found = false -%} 
                 {%- if raw is mapping -%}
                   {%- for label, drawers in raw.items() -%}
@@ -1348,8 +1353,8 @@ script:
               continue_on_timeout: true
             - variables:
                 index_pruned_verified: >
-                  {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%} 
-                  {%- set raw = vol.get('_label_index', {}).get('value') if vol is mapping else {} -%} 
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                  {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                   {%- set found = false -%} 
                   {%- if raw is mapping -%}
                     {%- for label, drawers in raw.items() -%}
@@ -1357,7 +1362,7 @@ script:
                         {%- for sub, arr in drawers.items() -%}
                           {%- set al = arr if (arr is iterable and not arr is string) else [arr] -%}
                           {%- if key in al -%}{%- set found = true -%}{%- endif -%}
-                      {%- endfor -%}
+                        {%- endfor -%}
                       {%- elif drawers is iterable and not drawers is string -%}
                         {%- if key in drawers -%}{%- set found = true -%}{%- endif -%}
                       {%- else -%}
@@ -1529,8 +1534,8 @@ script:
                     volume_entity: "{{- volume_entity -}}"
                 - alias: Index prune verification
                   wait_template: >
-                    {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%} 
-                    {%- set raw = vol.get('_label_index', {}).get('value') if vol is mapping else {} -%} 
+                    {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                    {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                     {%- set found = false -%} 
                     {%- if raw is mapping -%}
                       {%- for label, drawers in raw.items() -%}
@@ -1551,8 +1556,8 @@ script:
                   continue_on_timeout: true
                 - variables:
                     index_pruned_verified: >
-                      {%- set vol = state_attr(volume_entity, 'variables') | default({}, true) -%}
-                      {%- set raw = vol.get('_label_index', {}).get('value') if vol is mapping else {} -%}
+                      {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                      {%- set raw = CABS.cabinet_drawer_value(volume_entity, '_label_index', {}) | from_json() -%}
                       {%- set found = false -%}
                       {%- if raw is mapping -%}
                         {%- for label, drawers in raw.items() -%}
@@ -1573,7 +1578,7 @@ script:
             final_response:
               status: "{{- 'success' if write_verified else 'warning' -}}"
               message: >
-                {%- if write_verified -%}  
+                {%- if write_verified -%}
                   Drawer '{{- key -}}' {{ action_type -}}d to '{{- dest_drawer -}}' in '{{- dest_cabinet -}}'.
                 {%- else -%}
                   {{- action_type | title }} completed but write verification failed or delayed.
@@ -1744,15 +1749,15 @@ script:
         sequence:
         - variables:
             target_entity_resolved: >
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
               {%- set ns = namespace(found='') -%}
               {%- for eid in label_entities('zen_cabinet') | list -%}
-                {%- set vinfo = state_attr(eid, 'variables') -%}
+                {%- set vi = CABS.cabinet_drawer_value(eid, 'AI_Cabinet_VolumeInfo', none) | from_json() -%}
                 {%- if vinfo is mapping -%}
-                  {%- set _vi_raw = vinfo.get('AI_Cabinet_VolumeInfo', {}) -%}
-                  {%- set vi = _vi_raw.get('value', {}) if _vi_raw is mapping else {} -%}
-                  {%- set vi = vi if vi is mapping else (vi | from_json if vi is string else {}) -%}
-                  {%- if vi is mapping and vi.get('id', '') == target_guid -%}
+                  {#- @todo - ensure we can never compare empty with empty (''=='')-#}
+                  {%- if  vi.get('id', '') == target_guid -%}
                     {%- set ns.found = eid -%}
+                    {%- break -%}
                   {%- endif -%}
                 {%- endif -%}
               {%- endfor -%}

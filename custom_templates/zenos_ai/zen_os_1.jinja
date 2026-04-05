@@ -74,6 +74,7 @@
 
 {%- import 'zenos_ai/command_interpreter.jinja' as command_interpreter %}
 {%- import 'zenos_ai/flynn_onboarding.jinja' as flynn %}
+{%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
 
 {# ===============================================================
    UNIVERSAL ID NORMALIZER (v1)
@@ -185,6 +186,7 @@
      ============================================================ #}
   {%- for cab in sensor_cabs -%}
 
+    {#-
     {%- set raw_vars = state_attr(cab, 'variables') -%}
     {%- set vars = raw_vars if raw_vars is mapping else {} -%}
 
@@ -196,6 +198,8 @@
           and candidate.value is mapping -%}
       {%- set candidate = candidate.value -%}
     {%- endif -%}
+    -#}
+    {%- set candidate = CABS.cabinet_drawer_value(cab, 'zenai_essence') | from_json() -%}
 
     {%- if candidate is mapping and (
           candidate.get('identity') is mapping
@@ -259,10 +263,13 @@
     {# ---- Stage -1: person.* owner ACL ---- #}
     {%- if raw | lower | regex_search('^person\\.') -%}
       {%- for cab in pool if ns.result is none -%}
+        {#
         {%- set raw_vars = state_attr(cab.entity_id, 'variables') -%}
         {%- set volinfo = raw_vars if raw_vars is mapping else {} -%}
         {%- set vol_ACI = volinfo.get('AI_Cabinet_VolumeInfo', {}) -%}
         {%- set vol_ACI_value = vol_ACI.get('value', {}) if vol_ACI is mapping else {} -%}
+        #}
+        {%- set vol_ACI_value = CABS.cabinet_drawer_value(cab.entity_id, 'AI_Cabinet_VolumeInfo') | from_json() -%}
         {%- set acls = vol_ACI_value.get('acls', {}) if vol_ACI_value is mapping else {} -%}
         {%- set owner = acls.get('owner') -%}
 
@@ -331,6 +338,7 @@
   {%- set candidate = raw -%}
 
   {# unwrap FileCabinet value wrapper once #}
+  {# @todo - resolve_zenai_essence(raw) should only every be passed a 'value' unwrapped by CABS.cabinet_drawer_value()  #}
   {%- if candidate is mapping
         and 'value' in candidate
         and candidate.value is mapping -%}
@@ -421,6 +429,7 @@
   {%- set vol_acls = {} -%}
   {%- if ns.result is none -%}
       {%- set cab_entity = cab.get('entity_id') -%}
+      {#-
       {%- set raw_vars = state_attr(cab_entity, 'variables') -%}
       {%- set volinfo_root = raw_vars if raw_vars is mapping else {} -%}
       {%- set vol_ACI = volinfo_root.get('AI_Cabinet_VolumeInfo', {}) -%}
@@ -431,6 +440,9 @@
       {%- if not (vol_ACI_value is mapping) -%}
         {%- set vol_ACI_value = {} -%}
       {%- endif -%}
+      -#}
+      {%- set vol_ACI_value = CABS.cabinet_drawer_value(cab_entity, 'AI_Cabinet_VolumeInfo') | from_json() -%}
+
       {%- set vol_acls = vol_ACI_value.get('acls', {}) -%}
   {%- endif -%}
 
@@ -624,14 +636,13 @@
 
     {%- if ai_user_candidates | length > 0 -%}
       {%- set preferred_entity = ai_user_candidates | first -%}
+      {%- set zenai_essence_drawer_value = CABS.cabinet_drawer_value(preferred_entity, 'zenai_essence', {}) | from_json() -%}
       {%- set cab = {
         "entity_id": preferred_entity,
         "name": state_attr(preferred_entity, 'friendly_name') | default(ai_user, true),
         "guid": state_attr(preferred_entity, 'id') | default(None),
         "labels": labels(preferred_entity) | default([]),
-        "essence": (
-          (state_attr(preferred_entity, 'variables') or {}).get('zenai_essence', {})
-        ),
+        "essence": zenai_essence_drawer_value,
         "valid": true,
         "type": "ai_user"
       } -%}
@@ -725,8 +736,7 @@
   } | tojson }}
 {%- else %}
   {%- set vars = state_attr(cabinet_entity, 'variables') or {} -%}
-  {%- set raw_essence = vars.get('zenai_essence') -%}
-  {%- set essence_raw = resolve_zenai_essence(raw_essence) -%}
+  {%- set essence_raw = resolve_zenai_essence(CABS.cabinet_drawer_value(cabinet_entity, 'zenai_essence') | from_json()) -%}
   {%- set essence =
         essence_raw | from_json
         if essence_raw is string
@@ -970,19 +980,23 @@
   {%- else %}
 
     {# Pull variables #}
+    {#-
     {%- set sys_vars = state_attr(sys_cab, 'variables') or {} %}
-
+    -#}
     {# Canonical drawer names #}
     {%- set drawer_purpose    = "purpose" -%}
     {%- set drawer_directives = "directives" -%}
     {%- set drawer_cortex     = "cortex" -%}
 
     {# Extract raw #}
+    {#-
     {%- set purpose_val    = sys_vars.get(drawer_purpose, "") %}
     {%- set directives_val = sys_vars.get(drawer_directives, "") %}
     {%- set cortex_val     = sys_vars.get(drawer_cortex, "") %}
+    -#}
 
     {# Unwrap value: wrapper #}
+    {#-
     {%- if purpose_val is mapping and 'value' in purpose_val %}
       {%- set purpose_val = purpose_val.value %}
     {%- endif %}
@@ -992,6 +1006,12 @@
     {%- if cortex_val is mapping and 'value' in cortex_val %}
       {%- set cortex_val = cortex_val.value %}
     {%- endif %}
+    -#}
+    {#- @todo - not that the following lines negate almost all lines above -#}
+    {%- set purpose_val = CABS.cabinet_drawer_value(sys_cab, drawer_purpose, '') | from_json() -%}
+    {%- set directives_val = CABS.cabinet_drawer_value(sys_cab, drawer_directives, '') | from_json() -%}
+    {%- set cortex_val = CABS.cabinet_drawer_value(sys_cab, drawer_cortex, '') | from_json() -%}
+
 
     {# Store results #}
     {%- set ns.result = {
@@ -1066,6 +1086,7 @@
 {%- macro manifest_loader() -%}
   {%- set mani_cab = states('sensor.zen_default_household_cabinet_resolved') -%}
 
+  {#-
   {%- set manifest = {} -%}
 
   {%- if mani_cab -%}
@@ -1078,8 +1099,12 @@
       {%- set manifest = raw_mani -%}
     {%- endif -%}
   {%- endif -%}
+  -#}
 
-  {%- set result = dict(
+  {%- set manifest = CABS.cabinet_drawer_value(mani_cab, 'zen_library_manifest') | from_json() -%}
+
+
+    {%- set result = dict(
     cabinet = mani_cab,
     manifest = manifest
   ) -%}
@@ -1102,11 +1127,14 @@
   {%- set hh_cab = states('sensor.zen_default_household_cabinet_resolved') -%}
   {%- set result = {'status': 'not_built', 'roster': {}, 'tree': {}} -%}
   {%- if hh_cab not in ['', 'unknown', 'unavailable'] -%}
+    {#-
     {%- set hh_vars  = state_attr(hh_cab, 'variables') | default({}, true) -%}
     {%- set hh_vars  = hh_vars if hh_vars is mapping else {} -%}
     {%- set raw_mani = hh_vars.get('zen_identity_manifest') | default({}, true) -%}
     {%- set mani     = raw_mani.get('value', raw_mani) if raw_mani is mapping and 'value' in raw_mani else raw_mani -%}
     {%- set mani     = mani if mani is mapping else {} -%}
+    -#}
+    {%- set mani = CABS.cabinet_drawer_value(hh_cab, 'zen_identity_manifest') | from_json() -%}
     {%- if 'roster' in mani and 'tree' in mani -%}
       {#- v4.3+ shape: both roster and tree present -#}
       {%- set result = mani | combine({'status': 'ok'}) -%}
@@ -1129,6 +1157,7 @@
 #}
 {%- macro root_index() -%}
   {%- set hcab = states('sensor.zen_default_household_cabinet_resolved') -%}
+  {#-
   {%- set ci_entry = {} -%}
   {%- if hcab -%}
     {%- set hc_vars = state_attr(hcab, 'variables') or {} -%}
@@ -1137,6 +1166,9 @@
   {%- endif -%}
   {%- set ci_val = ci_entry.get('value') -%}
   {%- set ci_val = ci_val if ci_val is mapping else {} -%}
+  -#}
+  {%- set ci_val = CABS.cabinet_drawer_value(hcab, '_compact_index') | from_json() -%}
+
   {%- set ci_generated = ci_val.get('generated', '') -%}
   {%- set ci_labels = ci_val.get('labels', []) -%}
   {%- if ci_generated | length > 0 -%}
@@ -1228,9 +1260,13 @@
 
   {# system-priority drawers: include urgency+attention micro-signal from kata only #}
   {%- if value['priority'] | default('') == 'system' -%}
-    {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') -%}
-    {%- set kata_node = (state_attr(kata_cab, 'variables') or {}).get(drawer, {}) -%}
-    {%- set kata_val = kata_node.get('value', kata_node) if kata_node is mapping else {} -%}
+      {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') -%}
+      {#-
+      {%- set kata_node = (state_attr(kata_cab, 'variables') or {}).get(drawer, {}) -%}
+      {%- set kata_val = kata_node.get('value', kata_node) if kata_node is mapping else {} -%}
+      -#}
+      {%- set kata_val = CABS.cabinet_drawer_value(kata_cab, drawer) | from_json() -%}
+
     {%- set kata_signal = {
       'urgency': kata_val.get('urgency', 1),
       'attention': kata_val.get('attention', none)
@@ -1247,14 +1283,19 @@
   {% set dojo_cab = states('sensor.zen_dojo_cabinet_resolved') %}
   {% set kata_cab = states('sensor.zen_kata_cabinet_resolved') %}
   {% set dojo = state_attr(dojo_cab, 'variables') or {} %}
+  {#-
   {% set kata_vars = state_attr(kata_cab, 'variables') or {} %}
+  -#}
   {% set meta = (dojo_kungfu_meta(dojo) | default('{}')) | from_json %}
   {% set data = namespace(components=[]) %}
 
   {# get current zen_summary — flat schema (supersummary writes value directly) #}
+  {#-
   {% set zen_summary_root = kata_vars.get('zen_summary', {}) %}
   {% set zen_summary_val = zen_summary_root.get('value', zen_summary_root) %}
   {% set zen_summary = zen_summary_val if zen_summary_val is mapping else {} %}
+  -#}
+  {%- set zen_summary = CABS.cabinet_drawer_value(kata_cab, 'zen_summary') | from_json() -%}
 
   {% for drawer, node in dojo.items() %}
     {% if drawer == 'kung_fu' %}
@@ -1579,6 +1620,7 @@
         {# ----------------------------------------------------
            2. Load AI Cabinet variables
            ---------------------------------------------------- #}
+        {#-
         {%- set cab_vars = state_attr(ib.get('cabinet'), 'variables') or {} -%}
         {%- set raw_ess = cab_vars.get('zenai_essence') -%}
         {%- if raw_ess is mapping and raw_ess.get('value') is mapping -%}
@@ -1588,6 +1630,10 @@
         {%- else -%}
           {%- set essence = {} -%}
         {%- endif -%}
+        -#}
+
+        {%- set essence = CABS.cabinet_drawer_value(ai_cab, 'zenai_essence') | from_json() -%}
+
 
         {# Familiar — read from essence; companion (three-layer) maps to familiar #}
         {%- if essence.get('companion') is mapping -%}
@@ -1768,6 +1814,7 @@ Executing: ~WAKE~ <{{ now().isoformat() }}>
     {# ----------------------------------------------------
        2. Pull AutoContext from AI Cabinet
        ---------------------------------------------------- -#}
+    {#-
     {%- set auto_vars = state_attr(ai_cab, 'variables') or {} -%}
     {%- set prog = auto_vars.get('programs_auto_exec') -%}
     {%- if prog is mapping and 'value' in prog -%}
@@ -1775,7 +1822,8 @@ Executing: ~WAKE~ <{{ now().isoformat() }}>
     {%- else -%}
       {%- set auto_exec = none -%}
     {%- endif -%}
-
+    -#}
+    {%- set auto_exec = CABS.cabinet_drawer_value(ai_cab, 'programs_auto_exec', none) | from_json() -%}
 AutoContext:
 {{ auto_exec | default("null") | tojson }}
 
@@ -1783,6 +1831,7 @@ AutoContext:
        3. Wake Scene Rendering (Essence Driven)
        Load essence from the persona's cabinet — works for any capsule.
        ---------------------------------------------------- -#}
+    {#-
     {%- set ai_cab_ent = ib.get('cabinet') -%}
     {%- set cab_vars = state_attr(ai_cab_ent, 'variables') or {} -%}
     {%- set raw_ess = cab_vars.get('zenai_essence') -%}
@@ -1793,6 +1842,8 @@ AutoContext:
     {%- else -%}
       {%- set essence = {} -%}
     {%- endif -%}
+    -#}
+    {%- set essence = CABS.cabinet_drawer_value(ai_cab, 'zenai_essence', none) | from_json() -%}
 
     {%- if essence -%}
       {{- render_wake_from_essence(essence) -}}

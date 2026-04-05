@@ -649,13 +649,16 @@ script:
               # Step A.5 — resolve principal chain (stamp once, preserve always)
               - variables:
                   _hh_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
-                  _hh_vars: >-
-                    {{ state_attr(_hh_cab, 'variables') | default({}, true) if _hh_cab != '' else {} }}
+                  #_hh_vars: >-
+                  #  {{ state_attr(_hh_cab, 'variables') | default({}, true) if _hh_cab != '' else {} }}
+                  #_hh_vi: >-
+                  #  {%- set _vi = _hh_vars.get('AI_Cabinet_VolumeInfo', {}) if _hh_vars is mapping else {} -%}
+                  #  {%- set _v1 = _vi.get('value', _vi) if _vi is mapping else {} -%}
+                  #  {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
+                  #  {{ _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) }}
                   _hh_vi: >-
-                    {%- set _vi = _hh_vars.get('AI_Cabinet_VolumeInfo', {}) if _hh_vars is mapping else {} -%}
-                    {%- set _v1 = _vi.get('value', _vi) if _vi is mapping else {} -%}
-                    {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
-                    {{ _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) }}
+                    {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                    {%- set essence = CABS.cabinet_drawer_value(_hh_cab, 'AI_Cabinet_VolumeInfo') | from_json() -%}
                   _household_id: "{{ _hh_vi.get('id', '') if _hh_vi is mapping else '' }}"
                   _puser_entity: >-
                     {{ _in_puser if _in_puser.startswith('person.') else
@@ -683,12 +686,8 @@ script:
                     {%- if _existing_guid != '' -%}
                       {{ _existing_guid }}
                     {%- else -%}
-                      {{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(
-                        range(0, 65536) | random, range(0, 65536) | random,
-                        range(0, 65536) | random, range(0, 65536) | random,
-                        range(0, 65536) | random, range(0, 65536) | random,
-                        range(0, 65536) | random, range(0, 65536) | random
-                      ) }}
+                      {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                      {{- CABS.cabinet_guid_new() -}}
                     {%- endif -%}
 
               # Step B — assemble three-layer essence (core / jacket / companion).
