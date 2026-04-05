@@ -107,8 +107,9 @@ Jinja templates that power prompt assembly, context building, and deterministic 
 
 Files:
 
-* `zen_os1_jinja.md`
-* `zen_query_jinja.md`
+* `zen_os1_jinja.md` — Core prompt assembly engine
+* `zen_query_jinja.md` — ZQ-1 filter engine
+* `zenos_cabinets_jinja.md` — Cabinet macro library (new in 2026.4.0): canonical safe drawer I/O, FG-38 normalization encapsulated
 
 This suite defines how Friday constructs her thoughts.
 

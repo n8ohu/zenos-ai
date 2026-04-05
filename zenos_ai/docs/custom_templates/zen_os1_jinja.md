@@ -2,7 +2,7 @@ ZenOS-AI Template Engine: zen_os_1.jinja
 
 Technical Specification & Prompt Loader Requirements
 
-Version: 4.5.5 'Ready Player Two'
+Version: 2026.4.0 'Ectoplasm'
 Status: Stable & Required for All Front-Line Agents
 
 
@@ -232,6 +232,27 @@ The cabinet must contain:
 - `zenai_essence` (mapping, not wrapped)
 - labels list
 - The label `Zen AI Cabinet`
+
+All drawer reads use `zenos_cabinets.jinja` macros internally — `CABS.cabinet_drawer_value()` for value extraction and `CABS.cabinet_variables()` for full variable loads. The old `state_attr → .get() → .get('value')` chain is retired.
+
+`resolve_zenai_essence(raw)` is now always called with the pre-unwrapped value from `cabinet_drawer_value()`. The wrapper-unwrap step inside the macro is retained as a no-op safety guard but callers must pass the `.value` content, not the full drawer.
+
+
+---
+
+📦 Macro Dependencies
+
+`zen_os_1.jinja` imports two macro libraries at the top of the file:
+
+| Import | Alias | Purpose |
+|--------|-------|---------|
+| `zenos_ai/command_interpreter.jinja` | `command_interpreter` | `~COMMANDS~` dispatch engine (retiring) |
+| `zenos_ai/flynn_onboarding.jinja` | `flynn` | Flynn persistent notification surface |
+| `zenos_ai/zenos_cabinets.jinja` | `CABS` | All cabinet drawer I/O — the canonical safe-read layer |
+
+`CABS` is imported once at the file level. It is available throughout all macros in `zen_os_1.jinja`. Do not re-import inside individual macros or loops.
+
+→ **[zenos_cabinets.jinja reference](zenos_cabinets_jinja.md)**
 
 
 ---

@@ -1,10 +1,10 @@
-# Custom Templates — ZenOS-AI 4.5.5 'Ready Player Two'
+# Custom Templates — ZenOS-AI 2026.4.0 'Ectoplasm'
 
 *Jinja templates powering prompt assembly, context construction, and query processing*
 
 ---
 
-ZenOS-AI's cognitive surface runs on two Jinja template libraries. These live in `custom_templates/zenos_ai/` and are loaded by Home Assistant at startup.
+ZenOS-AI's cognitive surface runs on three Jinja template libraries. These live in `custom_templates/zenos_ai/` and are loaded by Home Assistant at startup.
 
 ---
 
@@ -44,6 +44,25 @@ Used internally by HyperIndex and the Index tool for hypergraph traversal, adjac
 
 ---
 
+### `zenos_cabinets.jinja` — Cabinet Macro Library
+
+The canonical safe-read layer for all ZenOS cabinet I/O in Jinja. Encapsulates the FG-38 two-round normalization pattern for drawer access — every template that reads a cabinet drawer imports this library.
+
+Key macros:
+
+* `cabinet_drawer_value(entity_id, drawer_key, fallback)` — extracts the `.value` field from a named drawer, FG-38 safe
+* `cabinet_drawer(entity_id, drawer_key, fallback)` — full drawer dict including `value`, `timestamp`, `meta`
+* `cabinet_variables(entity_id, fallback)` — full `variables` attribute dict, safe getter
+* `cabinet_volume_info / cabinet_guid / cabinet_acls` — VolumeInfo metadata helpers
+* `volume_drawer_value(volume, drawer_key, fallback)` — value extraction on a pre-fetched dict (use inside loops)
+* `cabinet_guid_new_v4()` — RFC 4122 UUID v4 generator
+
+**Used by:** `zen_os_1.jinja`, `zenos_health.jinja`, `dojotools_filecabinet`, `dojotools_identity`, and all other templates that read cabinet drawers.
+
+→ **[Full reference](zenos_cabinets_jinja.md)**
+
+---
+
 ## Other Files in `custom_templates/zenos_ai/`
 
 | File | Purpose |
@@ -51,7 +70,7 @@ Used internally by HyperIndex and the Index tool for hypergraph traversal, adjac
 | `conversation_agent_prompt_template.yaml` | Paste this into your conversation agent's system prompt in HA. Three lines — imports `zen_os_1.jinja` and calls `render_prompt()`. |
 | `command_interpreter.jinja` | Library v1 command dispatch engine. Routes `~COMMANDS~` syntax to subsystem handlers. **Retiring at GA** — individual commands are migrating to index-supported constructs. No new commands should be added here. |
 | `library_index.jinja` | Library index — registered command domains and their handlers. |
-| `zenos_health.jinja` | Health sensor macro library — `required_labels()`, `slots_all()`, `slot_to_label()`, cabinet state helpers, `is_warmup()`. |
+| `zenos_health.jinja` | Health sensor macro library — `required_labels()`, `slots_all()`, `slot_to_label()`, cabinet state helpers, `is_warmup()`. Imports `zenos_cabinets.jinja` for drawer reads. |
 | `flynn_onboarding.jinja` | Flynn onboarding macros including `active_notification()` — surfaces highest-priority Flynn persistent notification into the prompt. |
 
 ---
