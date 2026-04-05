@@ -1,10 +1,22 @@
 # 📘 **ZenOS-AI Documentation Hub**
 
-> **Version:** 2026.3.1 | **Last Updated:** March 2026 | **License:** MIT
+> **Version:** 2026.4.0 | **Last Updated:** April 2026 | **License:** MIT
 >
-> *Public releases follow Home Assistant's `YYYY.M.patch` convention — `2026.3.0` was the March GA, `2026.3.1` is the current patch. A new month resets to `.0`.*
+> *Public releases follow Home Assistant's `YYYY.M.patch` convention — `2026.4.0` is the April release 'Ectoplasm'. A new month resets to `.0`.*
 
 → [Project Overview & Install](../../README.md)
+
+---
+
+> ### What's New in 2026.4.0 'Ectoplasm'
+>
+> **1. `zen_dojotools_ectoplasm` — new tool.** Spook/HA extended surface wrapper: 25 action types covering repairs, areas, floors, entity/device lifecycle, label assignment to areas and devices, integration config entries, and orphan cleanup. All writes are confirm-gated with a preview pattern. Requires Spook.
+>
+> **2. Index 4.6.3 + Inspect 4.6.2 — topology seeds, pagination, registry modes.** Index now resolves entity sets from device, integration, area, or floor inputs (full precedence chain). `limit`/`offset` pagination with `dry_run` total_count. Inspect gains HA registry query modes: areas, floors, devices, labels, zones, persons — no entity input required.
+>
+> **3. Ninja run governor.** Dedup burnout window absorbs duplicate trigger firings within a configurable window (`zen_ninja_config.burnout_seconds`, default 5 min). `force: true` bypasses for admin overrides.
+>
+> → [Full Release Notes — Ectoplasm](releases/ectoplasm.md)
 
 ---
 
@@ -95,8 +107,9 @@ Jinja templates that power prompt assembly, context building, and deterministic 
 
 Files:
 
-* `zen_os1_jinja.md`
-* `zen_query_jinja.md`
+* `zen_os1_jinja.md` — Core prompt assembly engine
+* `zen_query_jinja.md` — ZQ-1 filter engine
+* `zenos_cabinets_jinja.md` — Cabinet macro library (new in 2026.4.0): canonical safe drawer I/O, FG-38 normalization encapsulated
 
 This suite defines how Friday constructs her thoughts.
 
@@ -243,6 +256,20 @@ This is Friday’s trust spine — the system that decides which parts of the wo
 ## 🗺️ **12. Roadmap**
 
 **File:** `docs/roadmap.md`
+
+**2026.4.0 'Ectoplasm' — Shipped (2026-04-04)**
+
+* Ectoplasm — new DojoTool: Spook/HA extended surface wrapper (repairs, areas, floors, entity/device lifecycle, labels, integrations, orphan cleanup)
+* Scribe 1.2.0 — `enable`/`disable` mode aliases, `domain_inspect_domains`/`limit` wired, `repair` mode, `meta.enabled` in thought payload, emission fields in `_thought_payload`
+* Index 4.6.3 — topology seeds (device/integration/area/floor), pagination (limit/offset), Inspect registry modes, +history, auto-cap
+* Inspect 4.6.2 — registry enum modes (area_info, floor_info, device_info, *_list, integration_entities)
+* Ninja Summarizer — run governor (dedup burnout window, `force` bypass, configurable via `zen_ninja_config`)
+* AdminTools — `zen_admintools_run_repair`, `ship_alert_manager` + `ship_taskmaster` KFCs in prompt loader
+* Dispatcher 1.1.0 — two-level routing, urgency signal arch, event bus audit trail
+
+See: [Release Notes — Ectoplasm](releases/ectoplasm.md)
+
+---
 
 **2026.3.1 — Shipped (2026-03-27)**
 

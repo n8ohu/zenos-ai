@@ -1,4 +1,4 @@
-# ZenOS-AI Troubleshooting Guide — 4.5.5 'Ready Player Two'
+# ZenOS-AI Troubleshooting Guide — 2026.4.0 'Ectoplasm'
 
 *Gauges → Kill Switches → Repair Tools. Start at the top, work down.*
 

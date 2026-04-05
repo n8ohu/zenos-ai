@@ -1,4 +1,4 @@
-# Zen DojoTools Scribe — 4.5.5 'Ready Player Two'
+# Zen DojoTools Scribe — 4.6.0 'Ectoplasm'
 
 *Guided authoring and lifecycle management for KF4 artifacts*
 
@@ -50,6 +50,9 @@ in different states.
 | `publish_kfc` | Press a formal scroll to the Dojo as a live KFC. Requires `artifact_state == formal` and `publish_confirm: true`. |
 | `dry_run` | Preview scope discovery and authoring guidance without writing anything. |
 | `list_triggers` | Return all available scheduler trigger IDs. |
+| `enable` | Shorthand — patch `meta.enabled: true` without a full rewrite. |
+| `disable` | Shorthand — patch `meta.enabled: false` without a full rewrite. |
+| `repair` | Detect and flatten wrapper-accumulated drawer corruption. `dry_run: true` by default — set `false` to write. |
 
 **Default:** No input → `mode: help`.
 
@@ -112,6 +115,10 @@ Use this when one domain (e.g., `water_manager`) needs multiple summarizer views
 | `trigger_subscriptions` | Comma-separated scheduler trigger IDs |
 | `delay_seconds` | Summarizer stagger delay (0–300s) |
 | `custom_trigger_override` | Explicit trigger override for this run |
+| `drift_threshold` | Urgency score at or above this value triggers forced supersummary. Default 5. |
+| `emission_cooldown_minutes` | Minimum minutes between urgency/action emissions. Default 60. |
+| `suggested_act_event` | Static suggested_act_event slug for this KFC — must be a registered dojotool slug or blank. |
+| `master_switch` | `input_boolean` entity ID that gates this component (optional). Preserved for backward compat. |
 
 ### Component Content
 
@@ -149,6 +156,8 @@ Use this when one domain (e.g., `water_manager`) needs multiple summarizer views
 | `filter_json` | ZQ-1 post-filter |
 | `expand_scope` | Pass scope through Inspect for entity-level detail |
 | `output_fields` | Inspect field shaping when `expand_scope: true` |
+| `domain_inspect_domains` | Comma-separated HA domains to restrict step-4b domain inspect (e.g. `"todo,calendar"`). Empty = all entities from index result (default). |
+| `domain_inspect_limit` | Max entity count for step-4b domain inspect. Default 25. |
 
 ### Safety
 

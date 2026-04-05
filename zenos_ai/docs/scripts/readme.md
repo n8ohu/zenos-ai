@@ -33,7 +33,7 @@ Below is the official documentation index for all ZenOS-AI DojoTools modules.
 
 ---
 
-## **0. Zen DojoTools Scribe — 4.5.5 'Ready Player Two'**
+## **0. Zen DojoTools Scribe — 4.6.0 'Ectoplasm'**
 
 **File:** `zen_dojotools_scribe_readme.md`
 **Type:** Technical Documentation
@@ -43,7 +43,11 @@ Guided authoring and lifecycle management for KF4 artifacts. Fully MCP-exposed �
 
 * Three artifact classes: `thought` (mutable draft), `scroll` (formal, read-only), `kfc` (published, live in Dojo)
 * Full lifecycle: `new_thought` → `patch` → `formalize_scroll` → `publish_kfc`
+* `enable` / `disable` — shorthand mode aliases to patch `meta.enabled` without a full rewrite
+* `repair` — detect and flatten wrapper-accumulated drawer corruption
 * Scope discovery built in — `new_thought` calls Index automatically to capture a live entity snapshot before the first line is written
+* `domain_inspect_domains` / `domain_inspect_limit` — constrain step-4b domain inspect by HA domain and entity count
+* Emission fields (`drift_threshold`, `emission_cooldown_minutes`, `suggested_act_event`) now wired through all payload paths
 * `dry_run` — preview scope and guidance without committing
 * `list_triggers` — return all available scheduler trigger IDs
 * Non-destructive by default — `patch` preserves existing content; `replace`, `clear`, `delete`, and `publish_kfc` all require explicit confirmation
@@ -54,7 +58,7 @@ A capable LLM can run the full authoring loop — scope a domain, draft the comp
 
 ---
 
-## **1. Zen DojoTools AdminTools — 4.5.5 'Ready Player Two'**
+## **1. Zen DojoTools AdminTools — 4.6.0 'Ectoplasm'**
 
 **File:** `zen_dojotools_admintools_readme.md`
 **Type:** Technical Documentation
@@ -67,7 +71,8 @@ Ring-2 administrative tools for component registration, cabinet repair, template
 * `zen_admintools_cabinetadmin` — Inspect, restore, reset, hammer, init, or `reset_all` Ring-0 cabinets
 * `zen_admintools_cabinetadmin_factory` — Factory-stamp or repair a cabinet's VolumeInfo header
 * `zen_admintools_kfc_migration_press` — One-time migration: seed KF4 scheduling fields into existing drawers
-* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose (v29/latest = GA Ninja Fusion, v30 = Living Index opt-in, v27 = RC2, v31 = Signal Frame)
+* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose. Includes `ship_alert_manager` and `ship_taskmaster` KFC gates. (v32/latest = True Voice)
+* `zen_admintools_run_repair` — Human-confirmed passthrough to versioned maint/ repair scripts (operator use only)
 
 All tools in this module are admin-only. For KFC component registration, use `zen_dojotools_scribe` (DojoTools namespace, fully MCP-exposed).
 
@@ -180,7 +185,7 @@ How to wire an HA automation that fires a component summarizer run on a real-wor
 
 ---
 
-## **7. Zen DojoTools Summarizers — 4.5.5 'Ready Player Two'**
+## **7. Zen DojoTools Summarizers — 4.6.0 'Ectoplasm'**
 
 **File:** `zen_dojotools_summarizers_readme.md`
 **Type:** Technical Documentation
@@ -190,6 +195,7 @@ The cognition pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 
 * **Ninja Summarizer** (`zen_dojotools_ninja_summarizer`) — per-component kata writer. Reads one KFC component's Dojo drawer, runs HyperIndex + library command, sends to AI monk, writes kata drawer.
 * **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. Reads all active kata drawers (gated by `meta.enabled`), sends to AI monk, writes `zen_summary` — the canonical home state that loads Friday's prompt.
+* **Run governor** — dedup burnout window prevents duplicate runs within a configurable window (`zen_ninja_config.burnout_seconds`, default 300s). Bypass with `force: true`.
 * Three kill switches: master (`zen_summarizers_enabled`), ninja, supersummary — **all default off** (ship disabled; enable after verifying AI task entity points at a local model — cost risk if pointed at a paid API)
 * Auto-refire on re-enable via `zen_pipeline_autofire_on_enable`
 
@@ -394,7 +400,7 @@ If Friday trusts a Cabinet, it's because the Manifest told her it's safe.
 
 ---
 
-## **18. Zen DojoTools Index — 4.5.5 'Ready Player Two'**
+## **18. Zen DojoTools Index — 4.6.3 'Ectoplasm'**
 
 **File:** `zen_dojotools_index_readme.md`
 **Type:** Technical Documentation
@@ -405,9 +411,13 @@ The entity-and-label correlation engine of ZenOS-AI.
 Supports:
 
 * Entity & label set logic (AND/OR/NOT/XOR/`*`)
-* Label → entity resolution
+* Full topology seed chain per operand: `entities > label > device > integration > area > floor`
+* Pagination via `limit` / `offset`; `dry_run` returns `total_count`
+* Auto-cap at 50 on topology/wildcard seeds with `expand_entities: true` and no explicit limit
+* `+history` flag for 24h recorder stats (requires explicit limit)
 * Index Command DSL mode
 * Integration with Zen Inspect
+* Inspect registry modes: `area_info`, `floor_info`, `device_info`, `area/floor/label/zone/person/device_list`, `integration_entities`
 * Adjacency label discovery
 * Drawer-level correlation
 * JSON-safe structured outputs
@@ -416,7 +426,7 @@ The Zen Index is Friday's "graph engine," letting her understand relationships b
 
 ---
 
-## **19. Zen DojoTools Inspect — 4.5.5 'Ready Player Two'**
+## **19. Zen DojoTools Inspect — 4.6.2 'Ectoplasm'**
 
 **File:** `zen_dojotools_inspect_readme.md`
 **Type:** Technical Documentation
@@ -426,15 +436,39 @@ A safe, deterministic deep-inspection tool for entities — Friday's x-ray machi
 
 Provides:
 
-* Entity snapshots
+* Entity snapshots (default `mode: inspect`)
 * Labels as `{slug: description}` dict — inline semantic context, no secondary lookup needed
 * Fully sanitized attributes
 * Cabinet sensor header detection
 * Statistics eligibility detection
 * Optional extended device forensics
+* HA registry modes: `area_info`, `floor_info`, `device_info`, `area_list`, `floor_list`, `label_list`, `zone_list`, `person_list`, `device_list`, `integration_entities`
 * JSON-stable output for LLM use
 
 Inspect shows Friday "what something is" without ever exposing dangerous internals.
+
+---
+
+## **20. Zen DojoTools Ectoplasm — 4.6.0 'Ectoplasm'**
+
+**File:** `zen_dojotools_ectoplasm_readme.md`
+**Type:** Technical Documentation
+
+**Summary:**
+Spook/HA extended surface wrapper. Manages structural HA state that the standard service layer does not expose. Fully MCP-exposed. Requires Spook integration.
+
+Covers:
+
+* **Repairs** — create, remove, ignore/unignore HA repair issues; list active repairs and ghost entities
+* **Areas** — create, delete, assign/unassign devices and entities to areas
+* **Floors** — create, delete, assign/unassign areas to floors
+* **Entity lifecycle** — hide/unhide, disable/enable, rename
+* **Device lifecycle** — disable/enable
+* **Label assignment** — assign/unassign labels to areas and devices (entity label ops remain in `zen_dojotools_labels`)
+* **Integration config entries** — disable/enable
+* **Housekeeping** — orphan entity cleanup
+
+All write actions are confirm-gated: omit `confirm_action` for a preview; set `true` to execute. Read actions (`repair_list`, `ghost_list`) execute immediately.
 
 ---
 

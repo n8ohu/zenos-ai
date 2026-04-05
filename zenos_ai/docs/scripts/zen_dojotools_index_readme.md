@@ -1,4 +1,4 @@
-# Zen DojoTools Index — 4.5.5 'Ready Player Two'
+# Zen DojoTools Index — 4.6.3 'Ectoplasm'
 **File:** `zen_dojotools_zen_index_readme.md`  
 **Type:** Technical Documentation  
 
@@ -35,10 +35,19 @@ across the ZenOS-AI entity graph.
 ## Core Capabilities
 
 ### 🔍 Entity & Label Set Logic
-Supports two user-input sets (`entities_1`, `entities_2`)  
-plus two label inputs (`label_1`, `label_2`).
+Each of two operand sets (`op1`, `op2`) resolves via a precedence chain:
 
-Label inputs are resolved through Home Assistant’s `label_entities()` helper.
+```
+entities_N  >  label_N  >  device_N  >  integration_N  >  area_N  >  floor_N
+```
+
+The first non-empty input in the chain wins. This means you can seed a set from a label, a device ID, an integration domain, an area, or an entire floor — without touching entity IDs directly.
+
+Label inputs are resolved through Home Assistant’s `label_entities()` helper.  
+Device inputs expand via `device_entities()`.  
+Integration inputs expand via `integration_entities()`.  
+Area inputs expand via `area_entities()`.  
+Floor inputs expand via `floor_areas()` → `area_entities()` (full floor traversal).
 
 Each pair is combined using a selectable set operator:
 
@@ -86,6 +95,16 @@ the result includes `drawers` — a dict of `{drawer_key: blurb_text}` entries.
 
 These are brief summaries only (the index is an index, not a book).
 For full drawer content, use FileCabinet directly.
+
+### 📄 Pagination
+`limit` and `offset` enable paged retrieval over large result sets.
+
+- `limit: 0` = no limit (default)
+- `dry_run: true` returns `total_count` so you can plan a paging loop before executing
+- **Auto-cap:** when `expand_entities: true` and a topology/wildcard seed is used with no explicit `limit`, the result is automatically capped at **50 entities**. Set `limit` explicitly to override.
+- **`+history` requires `limit`:** requesting recorder statistics without a limit on a topology/wildcard seed is a hard error. Always set an explicit limit when using `+history`.
+
+Always `dry_run` first on topology seeds to check `total_count` before committing to `expand_entities: true`.
 
 ### 🛡 Fully Safe Parsing & Concurrency
 The Zen Index uses:
@@ -137,14 +156,16 @@ and the system falls back to the global label index.
 ## Input Modes & Behavior
 
 ### ▶️ Standard Mode (no index_command)
-Uses `entities_1`, `entities_2`, `label_1`, `label_2`:
+Uses the full precedence chain per operand:
 
-1. Resolve labels → entity lists
-2. Apply set operator
-3. Optionally expand via Inspect (passes `output_fields` + `label_targets` derived from `label_1`/`label_2`)
-4. Read `drawers` from Inspect response
-5. Compute adjacency
-6. Render unified output
+1. Resolve op1 and op2 via `entities > label > device > integration > area > floor`
+2. Apply set operator (AND / OR / NOT / XOR / *)
+3. Apply ZQ-1 `filter_json` post-filter
+4. Apply `limit` / `offset` pagination
+5. Optionally expand via Inspect (passes `output_fields` + `label_targets` derived from `label_1`/`label_2`)
+6. Read `drawers` from Inspect response
+7. Compute adjacency
+8. Render unified output
 
 ### ▶️ Index Command Mode
 Designed for high-level, LLM-driven queries.
@@ -154,6 +175,24 @@ Designed for high-level, LLM-driven queries.
 - Zen Index sanitizes and returns structured results  
 
 Timeouts are gracefully surfaced to the agent.
+
+### ▶️ Inspect Registry Modes (non-entity)
+These modes bypass the entity set entirely and query the HA registry directly. Pass `mode: <mode_name>` with no entity inputs.
+
+| Mode | Input | Returns |
+|---|---|---|
+| `area_info` | `area_id` | Single area: name, floor_id, labels, entity_ids, device_ids, counts |
+| `floor_info` | `floor_id` | Single floor: name, area_ids, area_count |
+| `device_info` | `device_id` | Single device: name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entity_ids |
+| `area_list` | — | All areas: count, areas[]{area_id, name, floor_id, labels} |
+| `floor_list` | — | All floors: count, floors[]{floor_id, name, area_ids, area_count} |
+| `label_list` | — | All labels: count, labels[]{label_id, entity_count, area_count} |
+| `zone_list` | — | All zones: count, zones[]{entity_id, name, lat, lon, radius, passive, icon} |
+| `person_list` | — | All persons: count, persons[]{entity_id, name, state, user_id, device_trackers, source, lat, lon} |
+| `device_list` | — | All devices (tooling primitive — large installs return very large responses). AI workflow: `floor_list` → `area_info` → `device_info` instead. |
+| `integration_entities` | `integration` | Entities by integration domain: integration, entity_ids, entity_count |
+
+> **`device_list` note:** iterates all states to find unique device IDs. Not intended for direct AI calls on large installs. Use `floor_list` → `area_info` → `device_info` drill-down instead.
 
 ---
 
@@ -208,6 +247,44 @@ label_targets: "kung_fu,zen"
 
 Returns enriched entity list plus `drawers: {drawer_key: blurb}` for matched labels.
 
+### Topology seed — all entities on a floor
+```yaml
+floor_1: ground_floor
+operator: AND
+dry_run: true
+```
+Check `total_count` first. Then add `limit: 25` to page.
+
+### Topology seed — device entity set
+```yaml
+device_1: <device_id>
+operator: AND
+expand_entities: true
+output_fields: "+attributes"
+limit: 10
+```
+
+### Pagination loop
+```yaml
+label_1: water
+operator: AND
+limit: 20
+offset: 0   # page 1; increment by 20 for subsequent pages
+dry_run: true  # first: get total_count
+```
+
+### Registry lookup — all areas on a floor
+```yaml
+mode: floor_info
+floor_id: ground_floor
+```
+
+### Registry lookup — area drill-down
+```yaml
+mode: area_info
+area_id: living_room
+```
+
 ### Advanced: DSL-driven query
 ```
 
@@ -247,11 +324,16 @@ This is the *search brainstem* of ZenOS-AI.
 
 ## Summary
 
-The Zen Index 4.5.5 'Ready Player Two' provides:
+The Zen Index 4.6.3 'Ectoplasm' provides:
 
 - A fully featured, label/entity correlation engine
-- Integrated set logic with four operators
+- Full topology seed chain per operand: entities > label > device > integration > area > floor
+- Integrated set logic with four operators (AND / OR / NOT / XOR / *)
 - Zen Indexer DSL support
+- Pagination via `limit` / `offset`; `dry_run` returns `total_count` for paging loops
+- Auto-cap of 50 on topology/wildcard seeds with `expand_entities: true` and no limit
+- `+history` flag for 24h recorder stats (requires explicit limit)
+- Inspect registry modes: `area_info`, `floor_info`, `device_info`, `area_list`, `floor_list`, `label_list`, `zone_list`, `person_list`, `device_list`, `integration_entities`
 - Optional Zen Inspect expansion with `output_fields` passthrough
 - Label-targeted drawer blurbs via `label_targets` → Inspect → FileCabinet
 - `result.drawers` is a dict of blurbs, not a list of key names

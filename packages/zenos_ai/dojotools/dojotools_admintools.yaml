@@ -58,7 +58,7 @@ script:
         kfc_template_seed: >-
           {{
             {
-              "schema_version": "1.2.0",
+              "schema_version": "1.3.0",
               "structure": {
                 "version": None,
                 "friendly_name": None,
@@ -70,6 +70,10 @@ script:
                 "trigger_subscriptions": [],
                 "delay_seconds": 0,
                 "kata_key": None,
+                "drift_threshold": None,
+                "emission_cooldown_minutes": None,
+                "suggested_act_event": None,
+                "index_call": None,
                 "meta": {
                   "enabled": None,
                   "requires": {
@@ -79,7 +83,7 @@ script:
                 }
               },
               "example": {
-                "version": "1.2.0",
+                "version": "1.3.0",
                 "friendly_name": "Alert Manager",
                 "label": "Alert Manager",
                 "component_summary": "Monitors system alerts and persistent notifications.",
@@ -89,6 +93,17 @@ script:
                 "trigger_subscriptions": ["ha_start", "daily_midnight", "hourly_trigger", "home_mode_updates", "alarm_panel"],
                 "delay_seconds": 0,
                 "kata_key": "alert_manager",
+                "drift_threshold": 7,
+                "emission_cooldown_minutes": 60,
+                "suggested_act_event": None,
+                "index_call": {
+                  "label_1": "alert_manager",
+                  "label_2": None,
+                  "operator": "AND",
+                  "filter_json": None,
+                  "expand_entities": True,
+                  "output_fields": []
+                },
                 "meta": {
                   "enabled": True,
                   "requires": {
@@ -98,27 +113,85 @@ script:
                 }
               },
               "notes": {
-                "meta.requires": "Stub in 1.2.0 — cert and level are stored but not enforced. zen_auth enforcement arrives in SP1."
+                "meta.requires": "Stub in 1.2.0 — cert and level are stored but not enforced. zen_auth enforcement arrives in SP1.",
+                "drift_threshold": "Urgency score at or above this value triggers a forced supersummary synthesis. Default 7.",
+                "emission_cooldown_minutes": "Minimum minutes between urgency/action emissions for this component. Default 60. Prevents spam if urgency stays elevated across synthesis cycles.",
+                "suggested_act_event": "Event kind string Monk may return when action_required is true. Must be in zen_summarizer_act_whitelist to emit."
               }
             } | tojson
           }}
     - variables:
-        _rtt_kata: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
-        _rtt_dojo: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
+        kata_template_seed: >-
+          {{
+            {
+              "schema_version": "1.0.0",
+              "structure": {
+                "subjective": None,
+                "general_inference": None,
+                "attention": None,
+                "objective": None,
+                "events": [],
+                "watchlist": [],
+                "error": None,
+                "post": True,
+                "urgency": 0,
+                "confidence": 0.0,
+                "action_required": False,
+                "suggested_act_desc": None,
+                "suggested_act_event": None,
+                "period": None,
+                "last_emission_at": None
+              },
+              "example": {
+                "subjective": "Household alert count rising.",
+                "general_inference": "Three alerts unacknowledged since 06:00.",
+                "attention": "Check alert backlog — 3 unacknowledged.",
+                "objective": "Resolve unacknowledged alerts.",
+                "events": ["2025-09-23T06:00:00Z: alert created"],
+                "watchlist": ["alert_manager"],
+                "error": None,
+                "post": True,
+                "urgency": 3,
+                "confidence": 0.85,
+                "action_required": False,
+                "suggested_act_desc": None,
+                "suggested_act_event": None,
+                "period": "Home-Morning",
+                "last_emission_at": None
+              },
+              "notes": {
+                "period": "Semantic home mode at kata write time. One of: Home-Wake, Home-Morning, Home, Home-Evening, Night, Night-Late, Away, Paused. Ninja always stamps this from input_select.zen_home_mode — never trust Monk's returned value for this field.",
+                "last_emission_at": "ISO timestamp of last urgency/action emission for this component. Null if no emission has fired. Used by cooldown gate — do not write manually.",
+                "urgency": "0–10 integer. Ninja fires summary_force when urgency >= KFC drift_threshold.",
+                "action_required": "Boolean. True means Monk identified an action needed. Triggers dojotool_call(urgency_handler) and three-layer gate for suggested_act_event."
+              }
+            } | tojson
+          }}
+        act_whitelist_seed: >-
+          {{
+            {
+              "allowed_events": [],
+              "note": "Operator-managed whitelist. Add event kind strings via zen_admintools_summarizer_act. Empty by default — all action emission is blocked until explicitly allowed."
+            } | tojson
+          }}
+    - variables:
+        _rtt_kata: "{{- states('sensor.zen_kata_cabinet_resolved') -}}"
+        _rtt_dojo: "{{- states('sensor.zen_dojo_cabinet_resolved') -}}"
+        _rtt_system: "{{- states('sensor.zen_system_cabinet_resolved') -}}"
     - action: script.zen_dojotools_filecabinet
       data:
         action_type: read
         show_hidden_volumes: false
         volume_entity_id:
-          - "{{ _rtt_kata }}"
+          - "{{- _rtt_kata -}}"
         key: zen_template
       response_variable: _rtt_kata_read
     - variables:
         _rtt_kata_version: >-
           {%- set raw = _rtt_kata_read.result | default('{}') -%}
           {%- set val = (raw | from_json) if raw is string else raw -%}
-          {{ val.get('schema_version', '') }}
-    - if: "{{ _rtt_kata_version != '1.2.0' }}"
+          {{- val.get('schema_version', '') -}}
+    - if: "{{- _rtt_kata_version != '1.2.0' -}}"
       then:
         - action: script.zen_dojotools_filecabinet
           data:
@@ -126,19 +199,48 @@ script:
             show_hidden_volumes: false
             force_action: true
             volume_entity_id:
-              - "{{ _rtt_kata }}"
+              - "{{- _rtt_kata -}}"
             key: zen_template
-            value: '{{ zen_template_seed }}'
+            value: "{{- zen_template_seed -}}"
             set_timestamp: true
             label_input: zen_summary, zen, summary
-    - if: "{{ _rtt_dojo != '' }}"
+    # kata_template — per-component Monk output schema
+    - action: script.zen_dojotools_filecabinet
+      data:
+        action_type: read
+        show_hidden_volumes: false
+        volume_entity_id:
+          - "{{- _rtt_kata -}}"
+        key: kata_template
+      response_variable: _rtt_kata_tmpl_read
+    - variables:
+        _rtt_kata_tmpl_version: >-
+          {%- set raw = _rtt_kata_tmpl_read.result | default('{}') -%}
+          {%- set val = (raw | from_json) if raw is string else raw -%}
+          {%- set inner = val.get('value', val) if val is mapping else {} -%}
+          {%- set inner2 = (inner | from_json) if inner is string else inner -%}
+          {{- inner2.get('schema_version', '') if inner2 is mapping else '' -}}
+    - if: "{{- _rtt_kata_tmpl_version != '1.0.0' -}}"
+      then:
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: update
+            show_hidden_volumes: false
+            force_action: true
+            volume_entity_id:
+              - "{{- _rtt_kata -}}"
+            key: kata_template
+            value: "{{- kata_template_seed -}}"
+            set_timestamp: true
+            label_input: zen_summary, zen, summary
+    - if: "{{- _rtt_dojo != '' -}}"
       then:
         - action: script.zen_dojotools_filecabinet
           data:
             action_type: read
             show_hidden_volumes: false
             volume_entity_id:
-              - "{{ _rtt_dojo }}"
+              - "{{- _rtt_dojo -}}"
             key: kfc_template
           response_variable: _rtt_dojo_read
         - variables:
@@ -146,10 +248,10 @@ script:
               {%- set raw = _rtt_dojo_read.result | default('{}') -%}
               {%- set val = (raw | from_json) if raw is string else raw -%}
               {%- set inner = val.get('value', val) if val is mapping else {} -%}
-              {{ (inner | from_json) if inner is string else inner }}
-            _rtt_dojo_version: "{{ _rtt_dojo_raw.get('schema_version', '') if _rtt_dojo_raw is mapping else '' }}"
-            _kfc_is_string: "{{ _rtt_dojo_raw is string }}"
-        - if: "{{ _rtt_dojo_version != '1.2.0' or _kfc_is_string }}"
+              {{- (inner | from_json) if inner is string else inner -}}
+            _rtt_dojo_version: "{{- _rtt_dojo_raw.get('schema_version', '') if _rtt_dojo_raw is mapping else '' -}}"
+            _kfc_is_string: "{{- _rtt_dojo_raw is string -}}"
+        - if: "{{- _rtt_dojo_version != '1.3.0' or _kfc_is_string -}}"
           then:
             - action: script.zen_dojotools_filecabinet
               data:
@@ -157,26 +259,26 @@ script:
                 show_hidden_volumes: false
                 force_action: true
                 volume_entity_id:
-                  - "{{ _rtt_dojo }}"
+                  - "{{- _rtt_dojo -}}"
                 key: kfc_template
-                value: '{{ kfc_template_seed }}'
+                value: "{{- kfc_template_seed -}}"
                 set_timestamp: true
                 label_input: kfc, dojo, zen
         - alias: Upconvert KFC drawers 1.1.0 → 1.2.0
           if:
             - condition: template
-              value_template: "{{ _rtt_dojo_version == '1.1.0' }}"
+              value_template: "{{- _rtt_dojo_version == '1.1.0' -}}"
           then:
             - variables:
                 _dojo_all: >-
                   {{ state_attr(_rtt_dojo, 'variables') | default({}, true) }}
             - repeat:
                 for_each: >-
-                  {{ _dojo_all.keys() | reject('in', ['AI_Cabinet_VolumeInfo', 'kfc_template']) | list }}
+                  {{- _dojo_all.keys() | reject('in', ['AI_Cabinet_VolumeInfo', 'kfc_template']) | list -}}
                 sequence:
                   - variables:
-                      _kfc_key: "{{ repeat.item }}"
-                      _kfc_raw: "{{ _dojo_all.get(repeat.item, {}) }}"
+                      _kfc_key: "{{- repeat.item -}}"
+                      _kfc_raw: "{{- _dojo_all.get(repeat.item, {}) -}}"
                       _kfc_v1: >-
                         {%- set _r = _kfc_raw -%}
                         {%- set _v1 = _r.get('value', _r) if _r is mapping else {} -%}
@@ -184,7 +286,7 @@ script:
                         {{ _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) }}
                   - if:
                       - condition: template
-                        value_template: "{{ _kfc_v1 is mapping and _kfc_v1.get('kata_key', '') != '' }}"
+                        value_template: "{{- _kfc_v1 is mapping and _kfc_v1.get('kata_key', '') != '' -}}"
                     then:
                       - variables:
                           _kfc_existing_meta: >-
@@ -212,17 +314,214 @@ script:
                           force_action: true
                           set_timestamp: false
                           volume_entity_id:
-                            - "{{ _rtt_dojo }}"
-                          key: "{{ _kfc_key }}"
-                          value: "{{ _kfc_updated }}"
+                            - "{{- _rtt_dojo -}}"
+                          key: "{{- _kfc_key -}}"
+                          value: "{{- _kfc_updated -}}"
+        - alias: Upconvert KFC drawers 1.2.0 → 1.3.0
+          if:
+            - condition: template
+              value_template: "{{- _rtt_dojo_version in ['1.1.0', '1.2.0'] -}}"
+          then:
+            - variables:
+                _dojo_all_13: >-
+                  {{ state_attr(_rtt_dojo, 'variables') | default({}, true) }}
+            - repeat:
+                for_each: >-
+                  {{- _dojo_all_13.keys() | reject('in', ['AI_Cabinet_VolumeInfo', 'kfc_template']) | list -}}
+                sequence:
+                  - variables:
+                      _kfc_key: "{{- repeat.item -}}"
+                      _kfc_raw: "{{- _dojo_all_13.get(repeat.item, {}) -}}"
+                      _kfc_v1: >-
+                        {%- set _r = _kfc_raw -%}
+                        {%- set _v1 = _r.get('value', _r) if _r is mapping else {} -%}
+                        {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
+                        {{ _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) }}
+                  - if:
+                      - condition: template
+                        value_template: "{{- _kfc_v1 is mapping and _kfc_v1.get('kata_key', '') != '' -}}"
+                    then:
+                      - variables:
+                          _kfc_updated: >-
+                            {{
+                              _kfc_v1 | combine({
+                                'drift_threshold': _kfc_v1.get('drift_threshold', 7),
+                                'emission_cooldown_minutes': _kfc_v1.get('emission_cooldown_minutes', 60),
+                                'suggested_act_event': _kfc_v1.get('suggested_act_event', none)
+                              }) | tojson
+                            }}
+                      - action: script.zen_dojotools_filecabinet
+                        data:
+                          action_type: update
+                          show_hidden_volumes: false
+                          force_action: true
+                          set_timestamp: false
+                          volume_entity_id:
+                            - "{{- _rtt_dojo -}}"
+                          key: "{{- _kfc_key -}}"
+                          value: "{{- _kfc_updated -}}"
+    # System cabinet — seed zen_summarizer_act_whitelist if missing
+    # Uses event bus (set_variable_zenos_system_cabinet) — filecabinet blocks syscab writes
+    - if: "{{- _rtt_system != '' -}}"
+      then:
+        - variables:
+            _rtt_sys_wl_raw: >-
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+              {{- CABS.cabinet_drawer_value(_rtt_system, 'zen_summarizer_act_whitelist', {}) | from_json() }}
+            _rtt_sys_whitelist_exists: >-
+              {{- _rtt_sys_wl_raw is mapping and _rtt_sys_wl_raw.keys() | list | length > 0 -}}
+        - if: "{{- not _rtt_sys_whitelist_exists -}}"
+          then:
+            - event: set_variable_zenos_system_cabinet
+              event_data:
+                key: zen_summarizer_act_whitelist
+                value: "{{- act_whitelist_seed -}}"
+                set_timestamp: true
     alias: Zen AdminTools Reset Template
     description: >-
-      Zen AdminTools Reset Templates (1.2.0). Presses zen_template into the Kata
-      cabinet and kfc_template into the Dojo cabinet. Called by Flynn gate-3 if
-      either template is missing or version is outdated. On upgrade from 1.1.0:
-      adds meta.enabled + meta.requires to all existing KFC drawers and applies
-      Idempotent.
+      Zen AdminTools Reset Templates (1.3.0). Presses zen_template and
+      kata_template into the Kata cabinet, kfc_template into the Dojo cabinet,
+      and zen_summarizer_act_whitelist into the System cabinet. Called by Flynn
+      gate-3 if templates are missing or outdated. Upconverts KFC drawers from
+      1.1.0 or 1.2.0 to 1.3.0 (adds drift_threshold, emission_cooldown_minutes,
+      suggested_act_event). Idempotent.
 
+
+  zen_admintools_summarizer_act:
+    alias: Zen AdminTools Summarizer Act Whitelist
+    description: >-
+      Manages the zen_summarizer_act_whitelist drawer in the System cabinet.
+      Controls which suggested_act_event kinds the ninja summarizer is allowed
+      to emit on the event bus. Closed by default — operator must explicitly
+      add event kinds. The kill switch (input_boolean.zen_action_emission_enabled)
+      is a separate master toggle; this whitelist is a per-event-kind gate.
+    icon: mdi:shield-check
+    mode: single
+    fields:
+      action_type:
+        name: Action Type
+        description: list | add | remove | reset
+        required: true
+        selector:
+          select:
+            options:
+              - list
+              - add
+              - remove
+              - reset
+      event:
+        name: Event Kind
+        description: The suggested_act_event kind string to add or remove. Required for add/remove.
+        required: false
+        selector:
+          text:
+      caller_token:
+        name: Caller Token
+        description: Opaque correlation token. Not interpreted by this script.
+        required: false
+        selector:
+          text:
+
+    sequence:
+    - variables:
+        caller_token: "{{- caller_token | default('') -}}"
+        action_type: "{{- action_type | default('list') | lower -}}"
+        event: "{{- event | default('') | trim -}}"
+        _system: "{{- states('sensor.zen_system_cabinet_resolved') -}}"
+    - if:
+      - condition: template
+        value_template: "{{- _system == '' -}}"
+      then:
+      - variables:
+          _sa_stop:
+            status: error
+            message: System cabinet unavailable.
+            caller_token: "{{- caller_token -}}"
+      - stop: >-
+          summarizer_act failed — system cabinet not resolved
+        response_variable: _sa_stop
+    # Read current whitelist — state_attr direct (filecabinet blocks all syscab writes)
+    - variables:
+        _wl_raw: >-
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_drawer_value(_system, 'zen_summarizer_act_whitelist', {}) | from_json() -}}
+        _wl_current: >-
+          {%- set w = _wl_raw if _wl_raw is mapping else {} -%}
+          {{ w.get('allowed_events', []) if w is mapping else [] }}
+    # list
+    - if:
+      - condition: template
+        value_template: "{{- action_type == 'list' -}}"
+      then:
+      - variables:
+          result:
+            status: success
+            action_type: list
+            allowed_events: "{{- _wl_current -}}"
+            count: "{{- _wl_current | length -}}"
+            caller_token: "{{- caller_token -}}"
+      - stop: list complete
+        response_variable: result
+    # reset
+    - if:
+      - condition: template
+        value_template: "{{- action_type == 'reset' -}}"
+      then:
+      - event: set_variable_zenos_system_cabinet
+        event_data:
+          key: zen_summarizer_act_whitelist
+          value:
+            allowed_events: []
+            note: Operator-managed whitelist.
+          set_timestamp: true
+      - variables:
+          result:
+            status: success
+            action_type: reset
+            message: Whitelist cleared. All action emission blocked until events are re-added.
+            caller_token: "{{- caller_token -}}"
+      - stop: reset complete
+        response_variable: result
+    # add / remove — require event field
+    - if:
+      - condition: template
+        value_template: "{{- event == '' -}}"
+      then:
+      - variables:
+          _sa_missing_event:
+            status: error
+            message: event field required for add/remove.
+            caller_token: "{{- caller_token -}}"
+      - stop: >-
+          summarizer_act add/remove requires event field
+        response_variable: _sa_missing_event
+    - variables:
+        _wl_updated: >-
+          {%- if action_type == 'add' -%}
+            {%- if event not in _wl_current -%}
+              {{ (_wl_current + [event]) | tojson }}
+            {%- else -%}
+              {{ _wl_current | tojson }}
+            {%- endif -%}
+          {%- else -%}
+            {{ _wl_current | reject('equalto', event) | list | tojson }}
+          {%- endif -%}
+    - event: set_variable_zenos_system_cabinet
+      event_data:
+        key: zen_summarizer_act_whitelist
+        value: >-
+          {{ {'allowed_events': _wl_updated | from_json if _wl_updated is string else _wl_updated, 'note': 'Operator-managed whitelist.'} | tojson }}
+        set_timestamp: true
+    - variables:
+        result:
+          status: success
+          action_type: "{{- action_type -}}"
+          event: "{{- event -}}"
+          allowed_events: >-
+            {{ _wl_updated | from_json if _wl_updated is string else _wl_updated }}
+          caller_token: "{{- caller_token -}}"
+    - stop: "{{- action_type -}} complete"
+      response_variable: result
 
   zen_admintools_reset_labels:
     alias: Zen AdminTools Reset Labels (NUCLEAR)
@@ -269,37 +568,37 @@ script:
         caller_token: "{{- caller_token | default('') -}}"
     - if:
       - condition: template
-        value_template: '{{ not confirm }}'
+        value_template: "{{- not confirm -}}"
       then:
       - stop: >-
           Nuclear reset refused — confirm: true required. All zen_ labels and
           assignments will be permanently deleted. Set confirm: true to proceed.
 
     - variables:
-        zen_labels: '{{ labels() | select(''match'', ''^zen_'') | list }}'
+        zen_labels: "{{- labels() | select('match', '^zen_') | list -}}"
 
     # Pass 1 — untag all entities from every zen_ label
     - repeat:
-        for_each: '{{ zen_labels }}'
+        for_each: "{{- zen_labels -}}"
         sequence:
         - variables:
-            lbl_entities: '{{ label_entities(repeat.item) | list }}'
+            lbl_entities: "{{- label_entities(repeat.item) | list -}}"
         - if:
           - condition: template
-            value_template: '{{ lbl_entities | length > 0 }}'
+            value_template: "{{- lbl_entities | length > 0 -}}"
           then:
           - action: homeassistant.remove_label_from_entity
             data:
-              label_id: '{{ repeat.item }}'
-              entity_id: '{{ lbl_entities }}'
+              label_id: "{{- repeat.item -}}"
+              entity_id: "{{- lbl_entities -}}"
 
     # Pass 2 — delete all zen_ labels
     - repeat:
-        for_each: '{{ zen_labels }}'
+        for_each: "{{- zen_labels -}}"
         sequence:
         - action: homeassistant.delete_label
           data:
-            label_id: '{{ repeat.item }}'
+            label_id: "{{- repeat.item -}}"
 
     # Pass 3 — kick resolvers; Flynn sentinel fires from zen_label_health change
     - event: zen_resolver_refresh
@@ -311,8 +610,8 @@ script:
             Nuclear label reset complete. {{ zen_labels | length }} zen_ label(s)
             deleted. zen_resolver_refresh fired. Flynn will recreate and reassign
             on next sentinel cycle.
-          deleted_count: "{{ zen_labels | length }}"
-          caller_token: "{{ caller_token }}"
+          deleted_count: "{{- zen_labels | length -}}"
+          caller_token: "{{- caller_token -}}"
     - stop: reset labels complete
       response_variable: result
 
@@ -457,7 +756,7 @@ script:
         - sensor.zenos_default_ai_user_cabinet
         - sensor.zenos_default_ai_user_history_cabinet
     - variables:
-        op: '{{ mode }}'
+        op: "{{- mode -}}"
         use_universe: >
           {{- target_cabinet|default('') in ['', None] -}}
         effective_targets: >
@@ -468,7 +767,7 @@ script:
           {%- endif -%}
     - if:
       - condition: template
-        value_template: '{{ op == ''help'' }}'
+        value_template: "{{- op == 'help' -}}"
       then:
       - variables:
           _help:
@@ -573,29 +872,29 @@ script:
     - choose:
       - conditions:
         - condition: template
-          value_template: '{{ op == ''hammer'' and not hammer_ok }}'
+          value_template: "{{- op == 'hammer' and not hammer_ok -}}"
         sequence:
         - variables:
             result:
               status: error
               message: 'Hammer mode requires hammer_ok: true'
-              caller_token: "{{ caller_token }}"
+              caller_token: "{{- caller_token -}}"
         - stop: hammer blocked
           response_variable: result
     - variables:
         inspect_acc: {}
         result: {}
     - repeat:
-        for_each: '{{ effective_targets }}'
+        for_each: "{{- effective_targets -}}"
         sequence:
         - variables:
-            cab: '{{ repeat.item }}'
-            vars: '{{ state_attr(cab,''variables'') | default({}, true) }}'
-            drawers: '{{ vars.keys() | list }}'
+            cab: "{{- repeat.item -}}"
+            vars: "{{ state_attr(cab,'variables') | default({}, true) }}"
+            drawers: "{{- vars.keys() | list -}}"
         - choose:
           - conditions:
             - condition: template
-              value_template: '{{ op == ''inspect'' }}'
+              value_template: "{{- op == 'inspect' -}}"
             sequence:
             - variables:
                 _scroll_keys: >-
@@ -608,7 +907,7 @@ script:
                       {%- set ns.s = ns.s + [key] -%}
                     {%- endif -%}
                   {%- endfor -%}
-                  {{ ns.s }}
+                  {{- ns.s -}}
             - variables:
                 inspect_acc: >-
                   {{- inspect_acc | combine({
@@ -620,70 +919,70 @@ script:
                   }) -}}
           - conditions:
             - condition: template
-              value_template: '{{ op == ''restore'' }}'
+              value_template: "{{- op == 'restore' -}}"
             sequence:
             - if:
               - condition: template
-                value_template: '{{ vars == {} }}'
+                value_template: "{{- vars == {} -}}"
               then:
               - event: set_variable_legacy
                 event_data:
-                  volume_entity: '{{ cab }}'
+                  volume_entity: "{{- cab -}}"
                   key: _restored_marker
                   value:
                     value: restored
-                    timestamp: '{{ now().isoformat() }}'
+                    timestamp: "{{- now().isoformat() -}}"
                   set_timestamp: true
           - conditions:
             - condition: template
-              value_template: '{{ op == ''reset'' }}'
+              value_template: "{{- op == 'reset' -}}"
             sequence:
             - event: clear_variables_legacy
               event_data:
-                volume_entity: '{{ cab }}'
+                volume_entity: "{{- cab -}}"
                 key: '*'
           - conditions:
             - condition: template
-              value_template: '{{ op == ''hammer'' }}'
+              value_template: "{{- op == 'hammer' -}}"
             sequence:
             - event: clear_variables_legacy
               event_data:
-                volume_entity: '{{ cab }}'
+                volume_entity: "{{- cab -}}"
                 key: '*'
             - event: set_variable_legacy
               event_data:
-                volume_entity: '{{ cab }}'
+                volume_entity: "{{- cab -}}"
                 key: _hammered
                 value:
                   value: destroyed
-                  timestamp: '{{ now().isoformat() }}'
+                  timestamp: "{{- now().isoformat() -}}"
                 set_timestamp: true
-            - if: "{{ confirm_init | default(false) | bool }}"
+            - if: "{{- confirm_init | default(false) | bool -}}"
               then:
               - action: script.zen_admintools_cabinetadmin_factory
                 data:
                   confirm_action: true
-                  cabinet_entity: "{{ cab }}"
-                  cabinet_type: "{{ cab_type | default('') }}"
+                  cabinet_entity: "{{- cab -}}"
+                  cabinet_type: "{{- cab_type | default('') -}}"
                 response_variable: _hammer_init_result
               - variables:
-                  _hammer_init_guid: "{{ _hammer_init_result.get('guid', '') if _hammer_init_result is mapping else '' }}"
+                  _hammer_init_guid: "{{- _hammer_init_result.get('guid', '') if _hammer_init_result is mapping else '' -}}"
           - conditions:
             - condition: template
-              value_template: '{{ op == ''init'' }}'
+              value_template: "{{- op == 'init' -}}"
             sequence:
             # ── Boot guard — refuse if cab not yet restored from recorder ──
             # unavailable = recorder hasn't restored yet, state is indeterminate.
             # unknown = no recorder history at all = truly virgin. Allow.
             - if:
               - condition: template
-                value_template: "{{ states(cab) == 'unavailable' }}"
+                value_template: "{{- states(cab) == 'unavailable' -}}"
               then:
               - variables:
                   result:
                     status: refused
                     mode: init
-                    target: "{{ cab }}"
+                    target: "{{- cab -}}"
                     action_taken: none
                     reason: cab_unavailable
               - stop: cab unavailable — wait for HA to stabilize
@@ -694,13 +993,13 @@ script:
             # init state = triggered + no VolumeInfo = unambiguously virgin → skip.
             - if:
               - condition: template
-                value_template: "{{ states(cab) == 'unknown' and not (confirm_action | default(false)) }}"
+                value_template: "{{- states(cab) == 'unknown' and not (confirm_action | default(false)) -}}"
               then:
               - variables:
                   result:
                     status: refused
                     mode: init
-                    target: "{{ cab }}"
+                    target: "{{- cab -}}"
                     action_taken: none
                     reason: confirm_required
                     message: >-
@@ -710,21 +1009,27 @@ script:
                 response_variable: result
             # ── Classifier ─────────────────────────────────────────────────
             - variables:
+                #_vars: >-
+                #  {%- set v = state_attr(cab, 'variables') | default(none, true) -%}
+                #  {{ v if v is mapping else {} }}
                 _vars: >-
-                  {%- set v = state_attr(cab, 'variables') | default(none, true) -%}
-                  {{ v if v is mapping else {} }}
-                has_volumeinfo: "{{ 'AI_Cabinet_VolumeInfo' in _vars }}"
-                has_label_index: "{{ '_label_index' in _vars }}"
-                has_context:     "{{ '_context' in _vars }}"
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                  {{- CABS.cabinet_variables(cab) | from_json() -}}
+                has_volumeinfo: "{{- 'AI_Cabinet_VolumeInfo' in _vars -}}"
+                has_label_index: "{{- '_label_index' in _vars -}}"
+                has_context:     "{{- '_context' in _vars -}}"
                 non_system_drawers: >-
-                  {%- set sys = ['AI_Cabinet_VolumeInfo','_label_index','_context',
-                                 '_restored_marker','_hammered'] -%}
-                  {{ _vars.keys() | reject('in', sys) | reject('match', '^_') | list }}
-                _vi_raw: "{{ _vars.get('AI_Cabinet_VolumeInfo', {}) }}"
+                  {%- set sys = ['AI_Cabinet_VolumeInfo','_label_index','_context', '_restored_marker','_hammered'] -%}
+                  {{- _vars.keys() | reject('in', sys) | reject('match', '^_') | list -}}
+                #_vi_raw: "{{ _vars.get('AI_Cabinet_VolumeInfo', {}) }}"
+                #_vi_val: >-
+                #  {%- set r = _vi_raw.get('value', {}) if _vi_raw is mapping else {} -%}
+                #  {{ r if r is mapping else (r | from_json if r is string else {}) }}
                 _vi_val: >-
-                  {%- set r = _vi_raw.get('value', {}) if _vi_raw is mapping else {} -%}
-                  {{ r if r is mapping else (r | from_json if r is string else {}) }}
-                cabinet_guid: "{{ _vi_val.get('id', '') | string | trim }}"
+                  {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+                  {{- CABS.cabinet_drawer_value(cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -}}
+
+                cabinet_guid: "{{- _vi_val.get('id', '') | string | trim -}}"
                 cabinet_state_class: >-
                   {%- if not has_volumeinfo and not has_label_index and not has_context
                          and (non_system_drawers | length == 0)
@@ -737,30 +1042,30 @@ script:
                   {%- endif -%}
             # ── Route ──────────────────────────────────────────────────────
             - choose:
-              - conditions: "{{ cabinet_state_class == 'virgin' }}"
+              - conditions: "{{- cabinet_state_class == 'virgin' -}}"
                 sequence:
                 - action: script.zen_admintools_cabinetadmin_factory
                   data:
                     confirm_action: true
-                    cabinet_entity: "{{ cab }}"
-                    cabinet_type: "{{ cab_type | default('') }}"
+                    cabinet_entity: "{{- cab -}}"
+                    cabinet_type: "{{- cab_type | default('') -}}"
                   response_variable: _stamp_result
                 - variables:
                     result:
                       status: success
                       mode: init
-                      target: "{{ cab }}"
+                      target: "{{- cab -}}"
                       classification: virgin
                       action_taken: stamped
                       reason: initialized
-                      stamp_result: "{{ _stamp_result }}"
-              - conditions: "{{ cabinet_state_class == 'good' }}"
+                      stamp_result: "{{- _stamp_result -}}"
+              - conditions: "{{- cabinet_state_class == 'good' -}}"
                 sequence:
                 - variables:
                     result:
                       status: refused
                       mode: init
-                      target: "{{ cab }}"
+                      target: "{{- cab -}}"
                       classification: good
                       action_taken: none
                       reason: already_initialized
@@ -773,13 +1078,13 @@ script:
               # hammer or repair. Must rearm input_boolean.zenos_cab_init_rearm.
               - if:
                 - condition: template
-                  value_template: "{{ not is_state('input_boolean.zenos_cab_init_rearm', 'on') }}"
+                  value_template: "{{- not is_state('input_boolean.zenos_cab_init_rearm', 'on') -}}"
                 then:
                 - variables:
                     result:
                       status: refused
                       mode: init
-                      target: "{{ cab }}"
+                      target: "{{- cab -}}"
                       classification: potentially_bad
                       action_taken: none
                       reason: rearm_required
@@ -792,8 +1097,8 @@ script:
                   result:
                     status: refused
                     mode: init
-                    target: "{{ cab }}"
-                    classification: "{{ cabinet_state_class }}"
+                    target: "{{- cab -}}"
+                    classification: "{{- cabinet_state_class -}}"
                     action_taken: none
                     reason: repair_required
               - stop: repair required
@@ -801,49 +1106,49 @@ script:
           # ── repair_mount — force meta.mounted: true (bypass state guards) ──
           - conditions:
             - condition: template
-              value_template: '{{ op == ''repair_mount'' }}'
+              value_template: "{{- op == 'repair_mount' -}}"
             sequence:
             - event: set_variable_legacy
               event_data:
-                volume_entity: '{{ cab }}'
+                volume_entity: "{{- cab -}}"
                 key: meta
                 value: "{{ {'mounted': true} }}"
                 set_timestamp: true
-            - wait_template: "{{ states(cab) == 'online_mounted' }}"
+            - wait_template: "{{- states(cab) == 'online_mounted' -}}"
               timeout: '00:00:05'
               continue_on_timeout: true
             - event: zen_event
               event_data:
                 event:
                   kind: cabinet_mounted
-                  component: "{{ cab }}"
+                  component: "{{- cab -}}"
                   severity: info
                   summary: "CabinetAdmin repair_mount: '{{ cab }}' forced to mounted (verified: {{ states(cab) == 'online_mounted' }})."
           # ── repair_dismount — force meta.mounted: false (bypass state guards) ─
           - conditions:
             - condition: template
-              value_template: '{{ op == ''repair_dismount'' }}'
+              value_template: "{{- op == 'repair_dismount' -}}"
             sequence:
             - event: set_variable_legacy
               event_data:
-                volume_entity: '{{ cab }}'
+                volume_entity: "{{- cab -}}"
                 key: meta
                 value: "{{ {'mounted': false} }}"
                 set_timestamp: true
-            - wait_template: "{{ states(cab) in ['online_unmounted', 'dismounted'] }}"
+            - wait_template: "{{- states(cab) in ['online_unmounted', 'dismounted'] -}}"
               timeout: '00:00:05'
               continue_on_timeout: true
             - event: zen_event
               event_data:
                 event:
                   kind: cabinet_dismounted
-                  component: "{{ cab }}"
+                  component: "{{- cab -}}"
                   severity: info
                   summary: "CabinetAdmin repair_dismount: '{{ cab }}' forced to dismounted (verified: {{ states(cab) in ['online_unmounted', 'dismounted'] }})."
     # ── inspect — emit accumulated result after loop ─────────────────────────
     - if:
       - condition: template
-        value_template: '{{ op == ''inspect'' }}'
+        value_template: "{{- op == 'inspect' -}}"
       then:
       - variables:
           inspect_acc: "{{ inspect_acc | combine({'caller_token': caller_token | default('')}) if inspect_acc is mapping else inspect_acc }}"
@@ -852,44 +1157,51 @@ script:
     # ── hammer — return result with optional init_guid ────────────────────────
     - if:
       - condition: template
-        value_template: '{{ op == ''hammer'' }}'
+        value_template: "{{- op == 'hammer' -}}"
       then:
       - variables:
-          _hammer_result: "{{
-            {
-              'status': 'ok',
-              'op': 'hammer',
-              'target': cab,
-              'init_guid': _hammer_init_guid | default(''),
-              'auto_init': confirm_init | default(false) | bool,
-              'caller_token': caller_token | default('')
-            }
-          }}"
+          _hammer_result: >
+            {{-
+              {
+                'status': 'ok',
+                'op': 'hammer',
+                'target': cab,
+                'init_guid': _hammer_init_guid | default(''),
+                'auto_init': confirm_init | default(false) | bool,
+                'caller_token': caller_token | default('')
+              }
+            -}}
       - stop: hammer complete
         response_variable: _hammer_result
     # ── init — return result after classification and stamp ───────────────────
     - if:
       - condition: template
-        value_template: '{{ op == ''init'' }}'
+        value_template: "{{- op == 'init' -}}"
       then:
       - stop: init complete
         response_variable: result
     # ── mount_status — read mount state across all zen_cabinet entities ───────
     - if:
       - condition: template
-        value_template: '{{ op == ''mount_status'' }}'
+        value_template: "{{- op == 'mount_status' -}}"
       then:
       - variables:
           _all_cabs: >-
-            {{ label_entities('Zen Cabinet' | slugify) | list }}
+            {{- label_entities('Zen Cabinet' | slugify) | list -}}
       - variables:
+          # @TODO - Inconsistent behaviour - why is mount_status_result being returned as a drawer without going one level deeper into the drawer->value ?
+          # @TODO - pretty sure we're never going to see 'mounted' as a key in 'meta' as 'meta' has only one key, and that is 'value'
           mount_status_result: >-
             {%- set ns = namespace(m={}) -%}
             {%- for eid in _all_cabs -%}
+              {#-
               {%- set _v = state_attr(eid, 'variables') | default({}, true) -%}
               {%- set _v = _v if _v is mapping else {} -%}
               {%- set _mt = _v.get('meta', {}) -%}
               {%- set _mt = _mt if _mt is mapping else (_mt | from_json if _mt is string else {}) -%}
+              -#}
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+              {%- set _mt = CABS.cabinet_drawer(cab, 'meta', {}) | from_json() -%}
               {%- set ns.m = ns.m | combine({eid: {'state': states(eid), 'mounted': _mt.get('mounted', false)}}) -%}
             {%- endfor -%}
             {{ ns.m | combine({'caller_token': caller_token}) }}
@@ -898,15 +1210,18 @@ script:
     # ── flip_schema_version — toggle cab_schema_version in syscab ────────────
     - if:
       - condition: template
-        value_template: '{{ op == ''flip_schema_version'' }}'
+        value_template: "{{- op == 'flip_schema_version' -}}"
       then:
       - variables:
-          _syscab_vars: '{{ state_attr(''sensor.zenos_system_cabinet'', ''variables'') | default({}, true) }}'
-          _syscab_mapped: '{{ _syscab_vars if _syscab_vars is mapping else {} }}'
-          _csve: '{{ _syscab_mapped.get(''cab_schema_version'', {}) }}'
-          _csve_mapped: '{{ _csve if _csve is mapping else {} }}'
-          _current_v: '{{ _csve_mapped.get(''value'', 0) | int(0) }}'
-          _new_v: '{{ schema_version | default(none) | int(-1) if schema_version | default(none) is not none else (1 if _current_v == 0 else 0) }}'
+          #_syscab_vars: "{{ state_attr('sensor.zenos_system_cabinet', 'variables') | default({}, true) }}"
+          #_syscab_mapped: "{{- _syscab_vars if _syscab_vars is mapping else {} -}}"
+          #_csve: "{{ _syscab_mapped.get('cab_schema_version', {}) }}"
+          #_csve_mapped: "{{- _csve if _csve is mapping else {} -}}"
+          #_current_v: "{{- _csve_mapped.get('value', 0) | int(0) -}}"
+          _current_v: >
+            {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+            {{- CABS.cabinet_drawer_value('sensor.zenos_system_cabinet', 'cab_schema_version', 0) | from_json() | int(0) -}}
+          _new_v: "{{- schema_version | default(none) | int(-1) if schema_version | default(none) is not none else (1 if _current_v == 0 else 0) -}}"
       - event: set_variable_legacy
         event_data:
           key: cab_schema_version
@@ -917,19 +1232,19 @@ script:
           result:
             status: success
             message: "cab_schema_version {{ _current_v }} → {{ _new_v }} in syscab. Flynn now runs in {{ 'mount-aware' if _new_v >= 1 else 'legacy' }} mode."
-            previous_value: "{{ _current_v }}"
-            new_value: "{{ _new_v }}"
-            caller_token: "{{ caller_token }}"
+            previous_value: "{{- _current_v -}}"
+            new_value: "{{- _new_v -}}"
+            caller_token: "{{- caller_token -}}"
       - stop: flip_schema_version complete
         response_variable: result
     # ── reset_all — nuclear cabinet wipe + reseed + Flynn bootstrap ──────────
     - if:
       - condition: template
-        value_template: '{{ op == ''reset_all'' }}'
+        value_template: "{{- op == 'reset_all' -}}"
       then:
       - if:
         - condition: template
-          value_template: '{{ not confirm }}'
+          value_template: "{{- not confirm -}}"
         then:
         - variables:
             result:
@@ -938,16 +1253,16 @@ script:
                 reset_all refused — confirm: true required. This wipes all ring-0
                 canonical cabinets, reseeds schemas, and triggers Flynn bootstrap.
                 No undo. Set confirm: true to proceed.
-              caller_token: "{{ caller_token }}"
+              caller_token: "{{- caller_token -}}"
         - stop: confirm required
           response_variable: result
       # Step 1 — wipe all ring-0 cabinets
       - repeat:
-          for_each: '{{ canon_ring0_cabinets }}'
+          for_each: "{{- canon_ring0_cabinets -}}"
           sequence:
           - event: clear_variables_legacy
             event_data:
-              volume_entity: '{{ repeat.item }}'
+              volume_entity: "{{- repeat.item -}}"
               key: '*'
       # Step 2 — reseed kfc_template + zen_template
       - action: script.zen_admintools_reset_template
@@ -962,8 +1277,8 @@ script:
               cabinet(s) wiped. Schemas reseeded via reset_template.
               zen_resolver_refresh fired. Flynn will bootstrap on next sentinel
               cycle. User cabinets were not touched.
-            wiped_count: "{{ canon_ring0_cabinets | length }}"
-            caller_token: "{{ caller_token }}"
+            wiped_count: "{{- canon_ring0_cabinets | length -}}"
+            caller_token: "{{- caller_token -}}"
       - stop: reset_all complete
         response_variable: result
 
@@ -971,129 +1286,192 @@ script:
         result:
           status: success
           message: "AdminTools completed '{{ op }}' on {{ effective_targets | length }} cabinet(s)."
-          op: "{{ op }}"
-          target_count: "{{ effective_targets | length }}"
-          caller_token: "{{ caller_token }}"
+          op: "{{- op -}}"
+          target_count: "{{- effective_targets | length -}}"
+          caller_token: "{{- caller_token -}}"
     - stop: complete
       response_variable: result
 
   zen_admintools_cabinetadmin_factory:
     sequence:
     - variables:
-        confirm_action: '{{ confirm_action | default(false) }}'
+        owner_person: "{{- owner_person | default('') -}}"
+        partner_person: "{{- partner_person | default('') -}}"
+        cabinet_guid: "{{- cabinet_guid | default('') -}}"
+        auto_profile: "{{- auto_profile | default(true) -}}"
+        confirm_action: "{{- confirm_action | default(false) -}}"
+        force_new_guid: "{{- force_new_guid | default(false) -}}"
         caller_token: "{{- caller_token | default('') -}}"
     - choose:
       - conditions:
         - condition: template
-          value_template: '{{ not confirm_action }}'
+          value_template: "{{- not confirm_action -}}"
         sequence:
         - variables:
             response:
               status: error
               message: 'Confirmation required — set confirm_action: true.'
-              caller_token: '{{ caller_token }}'
+              caller_token: "{{- caller_token -}}"
         - stop: Confirmation required
           response_variable: response
     - variables:
-        cabinet_entity: '{{ cabinet_entity | default('''') }}'
-        cabinet_type: '{{ cabinet_type | default(''AI Data Storage Cabinet'') }}'
-        cabinet_friendly: '{{ state_attr(cabinet_entity,''friendly_name'') | default(cabinet_entity)
-          }}'
-        now_iso: '{{ now().isoformat() }}'
+        cabinet_entity: "{{- cabinet_entity | default('') -}}"
+        cabinet_type: "{{- cabinet_type | default('AI Data Storage Cabinet') -}}"
+        cabinet_friendly: "{{- state_attr(cabinet_entity,'friendly_name') | default(cabinet_entity) -}}"
+        now_iso: "{{- now().isoformat() -}}"
         schema_version: 1
-        cabinet_guid: "{{ '%04x%04x-%04x-%04x-%04x-%04x%04x%04x' | format(range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random,range(0,65536)|random) if (force_new_guid or not cabinet_guid) else cabinet_guid }}"
-        labels_from_manifest: '{{ state_attr(''sensor.zen_library_manifest'',''value'')
-          | default({}, true) }}'
-        flag_profile: "{% if not auto_profile %}\n  {{ explicit_flag_profile | default('standard')
-          }}\n{% else %}\n  {% set lbls = labels_from_manifest | string | lower %}\n
-          \ {% if 'household_cabinet' in lbls %}system\n  {% elif 'family_cabinet' in
-          lbls %}secure\n  {% elif 'user_cabinet' in lbls or 'ai_user' in lbls %}public\n
-          \ {% elif 'kata_cabinet' in lbls or 'kata_storage' in lbls %}system\n  {%
-          elif 'chat_history' in lbls or cabinet_type | lower == 'chat history cabinet'
-          %}secure\n  {% elif 'archive_cabinet' in lbls or cabinet_type | lower == 'archive
-          cabinet' %}system\n  {% else %}standard{% endif %}\n{% endif %}"
-        flags: "{% set fp = flag_profile %}\n{% set is_kata = 'kata' in (cabinet_type
-          | lower) %}\n{% set is_syscab = cabinet_entity == 'sensor.zenos_system_cabinet'
-          %}\n{% if fp == 'system' %}\n  {% set _f = {'system': True, 'hidden': False,
-          'read_only': True, 'secure_mode': True, 'gc_eligible': is_kata} %}\n{%
-          elif fp == 'secure' %}\n  {% set _f = {'system': False, 'hidden': True,
-          'read_only': True, 'secure_mode': True, 'gc_eligible': false} %}\n{% elif
-          fp == 'public' %}\n  {% set _f = {'system': False, 'hidden': False, 'read_only':
-          False, 'secure_mode': False, 'gc_eligible': false} %}\n{% else %}\n  {%
-          set _f = {'system': False, 'hidden': False, 'read_only': False, 'secure_mode':
-          False, 'gc_eligible': false} %}\n{% endif %}\n{{ _f | combine({'cabinet_ro':
-          true} if is_syscab else {}) }}"
-        acl_family: "{% set fam_guid = family_guid | default('default-guid') %} {% set
-          manifest = state_attr('sensor.zen_library_manifest','value') | default({},
-          true) %} {% set fam_name = 'My Family' %} {% if manifest is mapping %}\n  {%
-          for ent, data in manifest.items() %}\n    {% if data.metadata.id == fam_guid
-          %}\n      {% set fam_name = data.friendly_name | default('My Family') %}\n
-          \   {% endif %}\n  {% endfor %}\n{% endif %} {{\n  [\n    {\n      \"family_guid\":
-          fam_guid,\n      \"nickname\": fam_name\n    }\n  ]\n}}"
-        mount_scan: '{{ mount_scan | default(true) }}'
-        existing_drawers: '{{ state_attr(cabinet_entity,''variables'') | default({},
-          true) }}'
-        mounts_out: "{% if mount_scan and existing_drawers is mapping %}
-    {%- set ns = namespace(mounts=[]) -%}
-    {%- for k in existing_drawers.keys() if '[' in k and 'mount:' in k -%}
-      {%- set rel = k.split('[')[0].strip() -%}
-      {%- set tgt = k.split('mount:')[1].split(']')[0] -%}
-      {%- set ns.mounts = ns.mounts + [{'relation': rel, 'target_volume_id': tgt}] -%}
-    {%- endfor -%}
-    {{ ns.mounts }}
-  {% else %}[]{% endif %}"
+        cabinet_guid: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{-
+              CABS.cabinet_guid_new()
+              if (force_new_guid or not cabinet_guid) 
+              else cabinet_guid 
+          -}}
+        labels_from_manifest: >
+          {{- state_attr('sensor.zen_library_manifest','value') | default({}, true) -}}
+        flag_profile: >
+          {% if not auto_profile %}
+            {{- explicit_flag_profile | default('standard') -}}
+          {% else %}
+            {%- set lbls = labels_from_manifest | string | lower -%}
+            {%- if 'household_cabinet' in lbls -%}system
+            {%- elif 'family_cabinet' in lbls -%}secure
+            {%- elif 'user_cabinet' in lbls or 'ai_user' in lbls -%}public
+            {%- elif 'kata_cabinet' in lbls or 'kata_storage' in lbls -%}system
+            {%- elif 'chat_history' in lbls or cabinet_type | lower == 'chat history cabinet' -%}secure
+            {%- elif 'archive_cabinet' in lbls or cabinet_type | lower == 'archive cabinet' %}system
+            {%- else -%}standard
+            {%- endif %}
+          {%- endif -%}
+        flags: >
+          {%- set fp = flag_profile -%}
+          {%- set is_kata = 'kata' in (cabinet_type | lower) -%}
+          {%- set is_syscab = cabinet_entity == 'sensor.zenos_system_cabinet' -%}
+          {%- if fp == 'system' -%}
+            {%- set _f = {'system': True, 'hidden': False, 'read_only': True, 'secure_mode': True, 'gc_eligible': is_kata} -%}
+          {%- elif fp == 'secure' %}
+            {% set _f = {'system': False, 'hidden': True, 'read_only': True, 'secure_mode': True, 'gc_eligible': false} -%}
+          {%- elif fp == 'public' %}
+            {%- set _f = {'system': False, 'hidden': False, 'read_only': False, 'secure_mode': False, 'gc_eligible': false} -%}
+          {%- else -%}
+            {%- set _f = {'system': False, 'hidden': False, 'read_only': False, 'secure_mode': False, 'gc_eligible': false} -%}
+          {%- endif -%}
+          {{- _f | combine({'cabinet_ro': true} if is_syscab else {}) -}}
+        acl_family: >
+          {%- set fam_guid = family_guid | default('default-guid') -%}
+          {%- set manifest = state_attr('sensor.zen_library_manifest','value') | default({}, true) -%}
+          {%- set fam_name = 'My Family' -%} 
+          {%- if manifest is mapping -%}
+            {%- for ent, data in manifest.items() -%}
+              {%- if data.metadata.id == fam_guid -%}
+                {%- set fam_name = data.friendly_name | default('My Family') -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endif -%}
+          {{- [ { "family_guid": fam_guid, "nickname": fam_name } ] -}}
+        mount_scan: "{{- mount_scan | default(true) -}}"
+        existing_drawers: "{{ state_attr(cabinet_entity,'variables') | default({}, true) }}"
+        mounts_out: >
+          {%- if mount_scan and existing_drawers is mapping -%}
+            {%- set ns = namespace(mounts=[]) -%}
+            {%- for k in existing_drawers.keys() if '[' in k and 'mount:' in k -%}
+              {%- set rel = k.split('[')[0].strip() -%}
+              {%- set tgt = k.split('mount:')[1].split(']')[0] -%}
+              {%- set ns.mounts = ns.mounts + [{'relation': rel, 'target_volume_id': tgt}] -%}
+            {%- endfor -%}
+            {{- ns.mounts -}}
+          {%- else -%}
+            []
+          {%- endif -%}
         drawers_to_init:
-          AI_Cabinet_VolumeInfo: "{{\n  {\n    \"id\": cabinet_guid,\n
-            \     \"friendly_name\": cabinet_friendly,\n      \"type\": cabinet_type,\n
-            \     \"schema_version\": schema_version,\n      \"created\": now_iso,\n
-            \     \"updated\": now_iso,\n      \"flags\": flags,\n      \"acls\": {\n
-            \       \"owner\": (\n          [{ \"entity_id\": owner_person,\n             \"sid\":
-            state_attr(owner_person,\"user_id\") | default(\"no-sid\"),\n             \"role\":
-            \"owner\" }]\n          if owner_person and owner_person.startswith(\"person.\")\n
-            \         else []\n        ),\n        \"partner\": (\n          [{ \"entity_id\":
-            partner_person,\n             \"sid\": state_attr(partner_person,\"user_id\")
-            | default(\"no-sid\"),\n             \"role\": \"partner\" }]\n          if
-            partner_person and partner_person.startswith(\"person.\")\n          else
-            []\n        ),\n        \"family\": (\n          acl_family\n          if
-            acl_family is iterable and not (acl_family is string)\n          else (acl_family
-            | from_json)\n        )\n      },\n      \"entity_labels\":\n        ([\"chat\",\"history\",\"secure\",\"context\",\"transcript\",\"cabinet\"]\n
-            \        if cabinet_type | lower == 'chat history cabinet'\n         else
-            [\"system\",\"cabinet\",\"volumeinfo\"])\n  } | tojson\n}}"
-          _label_index: '{{ {} | tojson }}'
+          AI_Cabinet_VolumeInfo: >
+            {{-
+              {
+                "id": cabinet_guid,
+                "friendly_name": cabinet_friendly,
+                "type": cabinet_type,
+                "schema_version": schema_version,
+                "created": now_iso,
+                "updated": now_iso,
+                "flags": flags,
+                "acls": {
+                  "owner": (
+                    [{
+                        "entity_id": owner_person,
+                        "sid": state_attr(owner_person,"user_id") | default("no-sid"),
+                        "role": "owner" 
+                    }]
+                    if owner_person and owner_person.startswith("person.")
+                    else []
+                  ),
+                  "partner": (
+                    [{
+                      "entity_id": partner_person,
+                      "sid": state_attr(partner_person,"user_id") | default("no-sid"),
+                      "role": "partner"
+                    }]
+                    if partner_person and partner_person.startswith("person.")
+                      else []
+                  ),
+                  "family": (
+                    acl_family
+                    if acl_family is iterable and not (acl_family is string)
+                      else (acl_family | from_json)
+                  )
+                },
+                "entity_labels":
+                    (
+                      ["chat","history","secure","context","transcript","cabinet"]
+                      if cabinet_type | lower == 'chat history cabinet'
+                       else ["system","cabinet","volumeinfo"]
+                    )  
+                } | tojson
+            -}}
+          _label_index: "{{- {} | tojson -}}"
           meta: "{{ {'mounted': cabinet_entity == 'sensor.zenos_system_cabinet'} | tojson }}"
-          _zen_relationships: "{{\n  {\n    \"mounts_out\": mounts_out,\n
-            \     \"mounts_in\": [],\n      \"mount_policy\": \"allow_all\" if flag_profile
-            == 'system' else \"restricted\"\n  } | tojson\n}}"
+          _zen_relationships: >
+            {{-
+              {
+                "mounts_out": mounts_out,
+                "mounts_in": [],
+                "mount_policy": "allow_all" if flag_profile == 'system' else "restricted"
+              } 
+            | tojson
+            -}}
     - choose:
       - conditions:
         - condition: template
-          value_template: '{{ cabinet_entity in ['''', None] }}'
+          value_template: "{{- cabinet_entity in ['', None] -}}"
         sequence:
         - variables:
             response:
               status: error
               message: No cabinet_entity provided.
-              caller_token: '{{ caller_token }}'
+              caller_token: "{{- caller_token -}}"
         - stop: Missing entity
           response_variable: response
       - conditions:
         - condition: template
+          #value_template: >-
+          #  {{
+          #    state_attr(cabinet_entity, 'variables') is none
+          #    or 'AI_Cabinet_VolumeInfo' not in (state_attr(cabinet_entity, 'variables') | default({}))
+          #  }}
           value_template: >-
-            {{
-              state_attr(cabinet_entity, 'variables') is none
-              or 'AI_Cabinet_VolumeInfo' not in (state_attr(cabinet_entity, 'variables') | default({}))
-            }}
+            {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+            {%- set vol = CABS.cabinet_variables(cabinet_entity, {}) | from_json() -%}
+            {{- 'AI_Cabinet_VolumeInfo' not in vol -}}
         alias: Initialize New Cabinet
         sequence:
         - repeat:
-            for_each: '{{ drawers_to_init | dictsort }}'
+            for_each: "{{- drawers_to_init | dictsort -}}"
             sequence:
             - event: set_variable_legacy
               event_data:
-                key: '{{ repeat.item[0] }}'
-                value: '{{ repeat.item[1] }}'
+                key: "{{- repeat.item[0] -}}"
+                value: "{{- repeat.item[1] -}}"
                 set_timestamp: true
-                volume_entity: '{{ cabinet_entity }}'
+                volume_entity: "{{- cabinet_entity -}}"
                 _cabinetadmin_init: true
                 force: true
         - event: zen_event
@@ -1103,42 +1481,42 @@ script:
             severity: info
             summary: 'Post-stamp boot touch for {{ cabinet_entity }}'
             metadata:
-              volume_entity: '{{ cabinet_entity }}'
+              volume_entity: "{{- cabinet_entity -}}"
         - variables:
             response:
               status: success
-              guid: "{{ cabinet_guid }}"
-              message: 'Cabinet ''{{ cabinet_entity }}'' initialized with GUID {{ cabinet_guid
-                }}, profile ''{{ flag_profile }}'', and {{ mounts_out | length }} mounts.
-
-                '
-              caller_token: '{{ caller_token }}'
+              guid: "{{- cabinet_guid -}}"
+              message: "Cabinet '{{ cabinet_entity }}' initialized with GUID {{ cabinet_guid }}, profile '{{ flag_profile }}', and {{ mounts_out | length }} mounts."
+              caller_token: "{{- caller_token -}}"
         - stop: Init complete
           response_variable: response
       - conditions:
         - condition: template
-          value_template: '{{ state_attr(cabinet_entity,''variables'') is mapping }}'
+          value_template: "{{- state_attr(cabinet_entity,'variables') is mapping -}}"
         alias: Repair / Restamp
         sequence:
         - variables:
-            existing: '{{ state_attr(cabinet_entity,''variables'') }}'
+            #existing: "{{- state_attr(cabinet_entity,'variables') -}}"
+            #existing_guid: >-
+            #  {%- set info = existing.get('AI_Cabinet_VolumeInfo', {}) if existing is mapping else {} -%}
+            #  {%- set _val = info.get('value', {}) if info is mapping else {} -%}
+            #  {%- set _val = _val if _val is mapping else (_val | from_json if _val is string else {}) -%}
             existing_guid: >-
-              {%- set info = existing.get('AI_Cabinet_VolumeInfo', {}) if existing is mapping else {} -%}
-              {%- set _val = info.get('value', {}) if info is mapping else {} -%}
-              {%- set _val = _val if _val is mapping else (_val | from_json if _val is string else {}) -%}
-              {{ _val.get('id', '') }}
-            guid_changed: '{{ force_new_guid or existing_guid != cabinet_guid }}'
+              {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+              {%- set _val = CABS.cabinet_drawer_value(cabinet_entity, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+              {{- _val.get('id', '') -}}
+            guid_changed: "{{- force_new_guid or existing_guid != cabinet_guid -}}"
         - choose:
           - conditions:
             - condition: template
-              value_template: '{{ guid_changed }}'
+              value_template: "{{- guid_changed -}}"
             sequence:
             - event: set_variable_legacy
               event_data:
                 key: AI_Cabinet_VolumeInfo
-                value: '{{ drawers_to_init[''AI_Cabinet_VolumeInfo''] }}'
+                value: "{{- drawers_to_init['AI_Cabinet_VolumeInfo'] -}}"
                 set_timestamp: true
-                volume_entity: '{{ cabinet_entity }}'
+                volume_entity: "{{- cabinet_entity -}}"
                 _cabinetadmin_init: true
                 force: true
         - event: zen_event
@@ -1148,17 +1526,13 @@ script:
             severity: info
             summary: 'Post-stamp boot touch for {{ cabinet_entity }}'
             metadata:
-              volume_entity: '{{ cabinet_entity }}'
+              volume_entity: "{{- cabinet_entity -}}"
         - variables:
             response:
               status: success
-              guid: "{{ cabinet_guid }}"
-              message: 'Repaired ''{{ cabinet_entity }}'' (profile ''{{ flag_profile
-                }}''). {% if guid_changed %}GUID restamped: {{ cabinet_guid }}.{% endif
-                %}
-
-                '
-              caller_token: '{{ caller_token }}'
+              guid: "{{- cabinet_guid -}}"
+              message: "Repaired '{{ cabinet_entity }}' (profile '{{ flag_profile }}'). {% if guid_changed -%}GUID restamped: {{ cabinet_guid }}.{%- endif -%}"
+              caller_token: "{{- caller_token -}}"
         - stop: Repair complete
           response_variable: response
       default:
@@ -1166,7 +1540,7 @@ script:
           response:
             status: error
             message: Unknown cabinet state.
-            caller_token: '{{ caller_token }}'
+            caller_token: "{{- caller_token -}}"
       - stop: Fallback
         response_variable: response
     - variables:
@@ -1292,6 +1666,22 @@ script:
         default: true
         selector:
           boolean:
+      ship_alert_manager:
+        name: "Ship KFC: Alert Manager"
+        description: >-
+          Write the alert_manager default KFC to the Dojo cabinet. Monitors active
+          alerts, alert_when_off entities, and persistent notifications. Default false.
+        default: false
+        selector:
+          boolean:
+      ship_taskmaster:
+        name: "Ship KFC: Taskmaster"
+        description: >-
+          Write the taskmaster default KFC to the Dojo cabinet. Monitors task load,
+          calendar, and bed/occupancy context via the conductor pattern. Default false.
+        default: false
+        selector:
+          boolean:
       caller_token:
         name: Caller Token
         description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
@@ -1309,7 +1699,7 @@ script:
           {%- set raw = cortex_version | default('latest') | string | lower | trim
           -%} {%- if raw in ['32', 'latest'] -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
     - choose:
-      - conditions: '{{ _cv | string == ''30'' }}'
+      - conditions: "{{- _cv | string == '30' -}}"
         sequence:
         - alias: 'set_variable: Purpose (v30 — 2026 GA)'
           event: set_variable_zenos_system_cabinet
@@ -1406,7 +1796,7 @@ script:
               requires config changes, describe clearly what needs to\n  change and
               ask the user or an admin to implement it."
             set_timestamp: true
-      - conditions: '{{ _cv | string == ''32'' }}'
+      - conditions: "{{- _cv | string == '32' -}}"
         sequence:
         - alias: 'set_variable: Purpose (v32 — 2026 True Voice)'
           event: set_variable_zenos_system_cabinet
@@ -1597,7 +1987,7 @@ script:
             ask the user or an admin to implement it."
           set_timestamp: true
     - choose:
-      - conditions: '{{ _cv | string == ''30'' }}'
+      - conditions: "{{- _cv | string == '30' -}}"
         sequence:
         - alias: 'set_variable: Cortex (v30 — 2026 GA)'
           event: set_variable_zenos_system_cabinet
@@ -1786,13 +2176,10 @@ script:
                 - script.zen_dojotools_labels
                 - script.zen_dojotools_library
                 - script.zen_dojotools_history
-                - {name: script.zen_dojotools_todo, note: 'If no specific task given,
-                    check taskmaster hyperindex for task list.', domains: [todo]}
+                - {name: script.zen_dojotools_todo, note: 'If no specific task given, check taskmaster hyperindex for task list.', domains: [todo]}
                 - {name: script.zen_dojotools_calendar, domains: [calendar]}
-                - {name: script.zen_dojotools_mealie_helper, note: 'On-premise. Query
-                    freely.', domains: [shopping_list, recipes, meal_plans]}
-                - {name: script.zen_dojotools_grocy_helper, note: 'On-premise. Query
-                    freely. Synonymous with Inventory.', domains: [erp, inventory, storage]}
+                - {name: script.zen_dojotools_mealie_helper, note: 'On-premise. Query freely.', domains: [shopping_list, recipes, meal_plans]}
+                - {name: script.zen_dojotools_grocy_helper, note: 'On-premise. Query freely. Synonymous with Inventory.', domains: [erp, inventory, storage]}
                 - script.zen_dojotools_logviewer
                 - script.zen_dojotools_ninja_summarizer
                 - script.zen_dojotools_supersummary
@@ -1805,7 +2192,7 @@ script:
                 retention: {max_records: 50, rotation: by_date}
                 note: Many learned items — ask Boss to update cortex or toolset.
             set_timestamp: true
-      - conditions: '{{ _cv | string == ''32'' }}'
+      - conditions: "{{- _cv | string == '32' -}}"
         sequence:
         - alias: 'set_variable: Cortex (v32 — 2026 True Voice)'
           event: set_variable_zenos_system_cabinet
@@ -2470,7 +2857,7 @@ script:
     #   1. Add a boolean field: ship_<kata_key> with default: false
     #   2. Add a 3-step if-gated block below: new_thought → formalize_scroll → publish_kfc
     #   3. zen_system stays default: true — all others ship unchecked
-    - if: "{{ ship_zen_system | default(true) | bool }}"
+    - if: "{{- ship_zen_system | default(true) | bool -}}"
       then:
         - alias: 'Ship default KFC: zen_system (Scribe — new_thought)'
           action: script.zen_dojotools_scribe
@@ -2522,26 +2909,233 @@ script:
             caller_id: zen_admintools_zenos_prompt_loader
           response_variable: _zen_system_kfc_result
 
+    - if: "{{- ship_alert_manager | default(false) | bool -}}"
+      then:
+        # ── alert_manager — demos action emission (safety/system alerts) ────
+        - alias: 'Ship default KFC: alert_manager (Scribe — new_thought)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: new_thought
+            key: alert_manager
+            friendly_name: Alert Manager
+            label: alerts
+            version_semantic: "1.3.0"
+            component_summary: >-
+              Monitors active HA persistent notifications, alert-producing entities,
+              and alert_when_off system switches; surfaces unacknowledged warnings
+              and escalation-worthy conditions across all subsystems.
+            component_instructions: >-
+              You are reading the home alert surface. This component aggregates alerts from all subsystems.
+
+              DATA SOURCES:
+              - label:alerts entities — all entities tagged as alert producers or alert routing endpoints
+              - label:alert_when_off entities — entities where OFF state = problem (master switches, key sensors)
+              - HA persistent_notifications (if available via state)
+
+              TRIAGE PRIORITY:
+              1. Safety alerts first: fire, CO, leak, security breach
+              2. System health: master switches that are off unexpectedly
+              3. Maintenance: overdue tasks, low supplies, scheduled items missed
+              4. Informational: low-priority FYIs
+
+              URGENCY RULES:
+              - Any safety alert active -> urgency: 9
+              - 3+ alert_when_off entities in OFF state -> urgency: 6
+              - 1-2 alert_when_off entities off -> urgency: 4 (check if intentional)
+              - No active alerts -> urgency: 1
+
+              FOR alert_when_off entities:
+              These entities are NOMINAL when ON and PROBLEMATIC when OFF.
+              An entity in OFF state should be flagged unless it's in a known maintenance window.
+              Cross-reference home_mode — 'away' or 'sleep' modes may justify some switches being off.
+
+              ATTENTION: List each active alert with entity friendly_name and current state.
+              Do not list entities that are ON/nominal — only deviations.
+
+              AVAILABLE ACTIONS (suggested_act_event):
+                Valid values — use ONLY these, no others:
+                  zen_dojotools_notification_router — deliver an urgent alert brief to household admin.
+                    Use when: action_required is true AND urgency >= 5 AND a safety or system alert
+                    requires immediate human awareness.
+                  null — no action. Use when action_required is false OR urgency < 5.
+                DO NOT invent or use any other slug. If unsure, use null.
+            trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel"
+            drift_threshold: 5
+            emission_cooldown_minutes: 30
+            suggested_act_event: zen_dojotools_notification_router
+            delay_seconds: 0
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: alert_manager (Scribe — formalize_scroll)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: formalize_scroll
+            key: alert_manager
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: alert_manager (Scribe — publish_kfc)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: publish_kfc
+            key: alert_manager
+            publish_confirm: true
+            caller_id: zen_admintools_zenos_prompt_loader
+          response_variable: _alert_manager_kfc_result
+
+    - if: "{{- ship_taskmaster | default(false) | bool -}}"
+      then:
+        # ── taskmaster — demos conductor pattern + action emission ───────────
+        - alias: 'Ship default KFC: taskmaster (Scribe — new_thought)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: new_thought
+            key: taskmaster
+            friendly_name: Taskmaster
+            label: taskmaster
+            version_semantic: "1.3.1"
+            component_summary: >-
+              Monitors household task load and personal context — calendar events,
+              bed state transitions, occupancy changes, and to-do items — surfacing
+              scheduling conflicts, morning briefing cues, and overdue tasks.
+              Friday's Personal Task List is the primary schedule conductor.
+            component_instructions: >-
+              SCOPE: Task and calendar monitoring for household members.
+                Member identities from family cabinet.
+                Calendar and todo entities via label: taskmaster.
+
+              STATUS VOCABULARY (Microsoft To-Do integration):
+                notStarted = pending/incomplete (equivalent to needs_action)
+                completed   = done
+                inProgress  = in progress (rare)
+                Do NOT treat 'notStarted' as an unknown or error state.
+
+              DATA ACCESS:
+                Todo item content is in review_data.results[*].attributes.all_todos — a list
+                of todo items per entity, keyed by entity_id in results[]. Entity state is
+                only an incomplete item count — do NOT use it as content.
+                domain_context.todo.lists — system-wide list metadata (entity_id,
+                friendly_name, labels). NOT item content — do not read tasks from here.
+                Calendar events are in review_data.domain_context.calendar.
+                Attribute values use Python repr format: datetimes appear as
+                datetime.datetime(2026, 4, 1, 8, 0) — parse as strings, not ISO.
+
+              OVERDUE SEMANTICS:
+                overdue_todos is computed by HA at midnight — items due 'today' appear overdue
+                immediately, even if their scheduled time window (in subject line) is still future.
+                A task with due: today and a scheduled time that has NOT yet passed is UPCOMING,
+                not missed. Only treat as missed/escalate if:
+                  - due: yesterday or earlier (truly past-day), OR
+                  - due: today AND scheduled time in subject has already passed
+                Do not flag same-day future-window tasks as incomplete or overdue.
+
+              PRIMARY CONDUCTOR: todo.friday_s_personal_task_list (label: schedule)
+                This is NOT a data source — it is the meta-layer schedule driver.
+                Each item represents a scheduled activity block:
+                  - summary: time window name (e.g. "Morning Routine", "Evening Wrap")
+                  - description: RRULE + references to domain todo lists it governs
+                  - due: scheduled time for this block
+                READ THIS FIRST from:
+                  results[entity_id==todo.friday_s_personal_task_list].attributes.all_todos
+                Match active items to the current period. Active items tell you WHICH domain
+                lists are relevant right now. Inactive/future blocks should be noted but not
+                foregrounded.
+
+              DATA SOURCES (domain todo lists — read based on conductor signal):
+                label: daily   — household_chores, nathan_health_tasks (recurring daily)
+                label: weekly  — grocy_chores, grocy_tasks (weekly cadence)
+                label: tasks   — ninja_tickets, automation_todo_list (async backlog)
+                Item content: results[entity_id==<entity_id>].attributes.all_todos
+                Pull from the domain lists that the active conductor item references.
+                If no conductor item is active for this period, surface upcoming blocks.
+
+              CALENDAR ENTITIES (label: calendar):
+                Events in review_data.domain_context.calendar.
+                Cross-reference with conductor blocks for scheduling conflicts.
+
+              TRIGGER CONTEXT:
+                - nathan_bed_changes / kim_bed_changes: wake or sleep transition — shift morning/evening mode
+                - home_occupancy_change: arrival or departure — task context shifts
+                - quarter_hour: regular cadence check
+
+              MORNING (after wake trigger):
+                1. Read conductor: results[entity_id==todo.friday_s_personal_task_list].attributes.all_todos
+                2. Pull tasks from referenced domain lists
+                3. Any calendar events today?
+                4. Any tasks overdue from yesterday?
+                Surface as brief morning summary with time-ordered schedule.
+
+              EVENING (bed sensors -> sleep):
+                1. What conductor blocks ran today?
+                2. What wasn't completed?
+                3. What's on tomorrow's conductor?
+
+              URGENCY RULES:
+                - Calendar event starting within 30 min, person not moving -> urgency: 5
+                - Active conductor block with past-due required tasks (scheduled time already passed) -> urgency: 4
+                - Task with due: yesterday or earlier, still notStarted -> urgency: 3
+                - Morning brief pending -> urgency: 2
+                - Nothing pressing -> urgency: 1
+
+              ASYNC BACKLOG (label: tasks):
+                ninja_tickets, automation_todo_list — surface count + top items only.
+                Do not foreground over conductor-driven tasks.
+
+              AVAILABLE ACTIONS (suggested_act_event):
+                Valid values — use ONLY these, no others:
+                  zen_dojotools_notification_router — deliver a notification brief to household admin.
+                    Use when: action_required is true AND urgency >= 5 AND a time-sensitive
+                    brief or critical alert should be delivered immediately.
+                    Urgency 3-4 = informational only — update kata, do not notify.
+                  null — no action. Use when action_required is false OR urgency < 5.
+                DO NOT invent or use any other slug. If unsure, use null.
+
+              FIELD NOTES:
+                suggested_act_event: must be one of the AVAILABLE ACTIONS above or null.
+                period: semantic string from home_mode (morning/evening/night/etc) — NOT a timestamp.
+            trigger_subscriptions: "home_occupancy_change,nathan_bed_changes,kim_bed_changes,force_summary,quarter_hour"
+            domain_inspect_domains: "todo,calendar"
+            domain_inspect_limit: 25
+            drift_threshold: 5
+            emission_cooldown_minutes: 60
+            delay_seconds: 30
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: taskmaster (Scribe — formalize_scroll)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: formalize_scroll
+            key: taskmaster
+            caller_id: zen_admintools_zenos_prompt_loader
+        - alias: 'Ship default KFC: taskmaster (Scribe — publish_kfc)'
+          action: script.zen_dojotools_scribe
+          data:
+            mode: publish_kfc
+            key: taskmaster
+            publish_confirm: true
+            caller_id: zen_admintools_zenos_prompt_loader
+          response_variable: _taskmaster_kfc_result
+
     # ── Idempotent: ensure syscab VolumeInfo carries cabinet_ro: true ─────────
     # Prompt loader writes directly to syscab via set_variable_zenos_system_cabinet.
     # On any run, if cabinet_ro is missing or false, stamp it. Safe to re-run.
     - variables:
-        _pl_sc_vars: '{{ state_attr(''sensor.zenos_system_cabinet'', ''variables'') | default({}, true) }}'
-        _pl_sc_mapped: '{{ _pl_sc_vars if _pl_sc_vars is mapping else {} }}'
-        _pl_vi_raw: '{{ _pl_sc_mapped.get(''AI_Cabinet_VolumeInfo'', {}) }}'
-        _pl_vi_mapped: '{{ _pl_vi_raw if _pl_vi_raw is mapping else {} }}'
-        _pl_vi_val_raw: '{{ _pl_vi_mapped.get(''value'', _pl_vi_mapped) }}'
-        _pl_vi_val: '{{ _pl_vi_val_raw if _pl_vi_val_raw is mapping else (_pl_vi_val_raw | from_json if _pl_vi_val_raw is string else {}) }}'
-        _pl_flags: '{{ _pl_vi_val.get(''flags'', {}) }}'
-        _pl_flags_mapped: '{{ _pl_flags if _pl_flags is mapping else {} }}'
-        _pl_ro_already: '{{ _pl_flags_mapped.get(''cabinet_ro'', false) == true }}'
-    - if: '{{ not _pl_ro_already }}'
+        #_pl_sc_vars: "{{- state_attr('sensor.zenos_system_cabinet', 'variables') | default({}, true) -}}"
+        #_pl_sc_mapped: "{{- _pl_sc_vars if _pl_sc_vars is mapping else {} -}}"
+        #_pl_vi_raw: "{{- _pl_sc_mapped.get('AI_Cabinet_VolumeInfo', {}) -}}"
+        #_pl_vi_mapped: "{{- _pl_vi_raw if _pl_vi_raw is mapping else {} -}}"
+        #_pl_vi_val_raw: "{{- _pl_vi_mapped.get('value', _pl_vi_mapped) -}}"
+        #_pl_vi_val: "{{- _pl_vi_val_raw if _pl_vi_val_raw is mapping else (_pl_vi_val_raw | from_json if _pl_vi_val_raw is string else {}) -}}"
+
+        _pl_vi_val: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_drawer_value('sensor.zenos_system_cabinet', 'AI_Cabinet_VolumeInfo', {}) | from_json() -}}
+        _pl_flags: "{{- _pl_vi_val.get('flags', {}) -}}"
+        _pl_flags_mapped: "{{- _pl_flags if _pl_flags is mapping else {} -}}"
+        _pl_ro_already: "{{- _pl_flags_mapped.get('cabinet_ro', false) == true -}}"
+    - if: "{{- not _pl_ro_already -}}"
       then:
         - alias: 'Stamp cabinet_ro: true on syscab VolumeInfo (idempotent)'
           event: set_variable_zenos_system_cabinet
           event_data:
             key: AI_Cabinet_VolumeInfo
-            value: "{{ {'value': _pl_vi_val | combine({'flags': _pl_flags_mapped | combine({'cabinet_ro': true})})} }}"
+            value: "{{- {'value': _pl_vi_val | combine({'flags': _pl_flags_mapped | combine({'cabinet_ro': true})})} -}}"
             set_timestamp: true
 
     - alias: 'Stamp meta.mounted: true on syscab (idempotent — ensures online_mounted state)'
@@ -2552,11 +3146,12 @@ script:
         set_timestamp: true
 
     alias: Zen AdminTools ZenOS-AI Prompt Loader (v29/v30/v32)
-    description: 'Sets the ''Cortex'', ''Directives'', and ''Purpose'' sections for
-      the ZenOS-AI Prompt Loader. Use cortex_version field to select: 31 / signal_frame
-      = 2026 Interaction Protocol (Signal Frame), 30 / latest = 2026 GA Friday Delta,
-      29 = prior GA, 27 = Quiet Fusion (legacy).
-
+    description: >
+      Sets the 'Cortex', 'Directives', and 'Purpose' sections for the ZenOS-AI Prompt Loader. 
+      Use cortex_version field to select: 
+      - 31 / signal_frame = 2026 Interaction Protocol (Signal Frame)
+      - 30 / latest = 2026 GA Friday Delta
+      - 29 = prior GA, 27 = Quiet Fusion (legacy)
 
       Purpose: Who am I?
 
@@ -2566,13 +3161,13 @@ script:
 
 
       This also happens to be a convenient place to edit these items as well...  Recommend
-      NOT exposing this to your LLM/Assist.'
+      NOT exposing this to your LLM/Assist.
     icon: mdi:brain
 
 
   zen_admintools_run_repair:
     sequence:
-    - if: "{{ not confirm_action }}"
+    - if: "{{- not confirm_action -}}"
       then:
         - variables:
             response:
@@ -2581,40 +3176,41 @@ script:
         - stop: Confirmation required
           response_variable: response
     - variables:
-        _repair: "{{ repair_action | default('') | trim }}"
+        _repair: "{{- repair_action | default('') | trim -}}"
     - choose:
         - conditions:
             - condition: template
-              value_template: "{{ _repair == 'identity_family_repair_4_5_6' }}"
+              value_template: "{{- _repair == 'identity_family_repair_4_5_6' -}}"
           sequence:
             - action: script.zen_maint_4_5_6_identity_family_repair
               response_variable: _repair_result
             - variables:
-                response: "{{ _repair_result | default({'status': 'error', 'message': 'Repair script returned no result.'}) }}"
+                response: "{{- _repair_result | default({'status': 'error', 'message': 'Repair script returned no result.'}) -}}"
         - conditions:
             - condition: template
-              value_template: "{{ _repair == 'stamp_cab_guid_4_5_6' }}"
+              value_template: "{{- _repair == 'stamp_cab_guid_4_5_6' -}}"
           sequence:
             - action: script.zen_maint_4_5_6_stamp_cab_guid
               data:
-                cabinet_entity: "{{ entity_id | default('') | trim }}"
+                cabinet_entity: "{{- entity_id | default('') | trim -}}"
               response_variable: _repair_result
             - variables:
-                response: "{{ _repair_result | default({'status': 'error', 'message': 'Repair script returned no result.'}) }}"
+                response: "{{- _repair_result | default({'status': 'error', 'message': 'Repair script returned no result.'}) -}}"
         - conditions:
             - condition: template
-              value_template: "{{ _repair == 'roster_guid_repair_4_5_6' }}"
+              value_template: "{{- _repair == 'roster_guid_repair_4_5_6' -}}"
           sequence:
             - action: script.zen_maint_4_5_6_roster_guid_repair
               response_variable: _repair_result
             - variables:
-                response: "{{ _repair_result | default({'status': 'error', 'message': 'Repair script returned no result.'}) }}"
+                response: "{{- _repair_result | default({'status': 'error', 'message': 'Repair script returned no result.'}) -}}"
       default:
         - variables:
             response:
               status: error
-              repair_action: "{{ _repair }}"
+              repair_action: "{{- _repair -}}"
               message: "Unknown repair_action '{{ _repair }}'. Valid: identity_family_repair_4_5_6, stamp_cab_guid_4_5_6, roster_guid_repair_4_5_6."
+    # @todo - pretty sure this 'return' bareword is not valid syntax
     - stop: return
       response_variable: response
     alias: Zen AdminTools Run Repair

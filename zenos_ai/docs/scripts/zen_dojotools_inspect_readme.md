@@ -1,4 +1,4 @@
-# Zen DojoTools Inspect — 4.5.5 'Ready Player Two'
+# Zen DojoTools Inspect — 4.6.2 'Ectoplasm'
 **File:** `zen_dojotools_inspect_readme.md`  
 **Type:** Technical Documentation  
 
@@ -195,6 +195,29 @@ The blurbs are brief summaries only; full drawer content requires FileCabinet di
 
 ---
 
+### 🗺 Non-Entity Registry Modes
+When `mode` is set to a registry mode, Inspect bypasses the entity loop entirely and queries the HA registry. These are read-only, no entity input required (except where noted).
+
+| Mode | Input | Returns |
+|---|---|---|
+| `area_info` | `area_id` (required) | name, floor_id, labels, entity_ids, entity_count, device_ids, device_count |
+| `floor_info` | `floor_id` (required) | name, area_ids, area_count |
+| `device_info` | `device_id` (required) | name, manufacturer, model, area_id, floor_id, labels, area_labels, config_entries, entity_ids, entity_count |
+| `area_list` | — | All areas: count, areas[]{area_id, name, floor_id, labels} |
+| `floor_list` | — | All floors: count, floors[]{floor_id, name, area_ids, area_count} |
+| `label_list` | — | All labels: count, labels[]{label_id, entity_count, area_count} |
+| `zone_list` | — | All zones: count, zones[]{entity_id, name, lat, lon, radius, passive, icon} |
+| `person_list` | — | All persons: count, persons[]{entity_id, name, state, user_id, device_trackers, source, lat, lon} |
+| `device_list` | — | All devices (large installs: very large responses — use floor_list → area_info → device_info drill-down for AI workflows) |
+| `integration_entities` | `integration` domain slug (required) | integration, entity_ids, entity_count |
+| `help` | — | Full schema, contract, and examples |
+
+Default mode is `inspect` (entity loop).
+
+> `aliases` and `level` are not surfaced — no HA Jinja read path exists for them. `config_entry_list` is also blocked (config entries are not in Jinja; use REST API `/api/config/config_entries/entry` if needed).
+
+---
+
 ### 🧠 Infer Mode (Reserved)
 Field: `infer`
 
@@ -353,6 +376,23 @@ entity_id: sensor.family_cabinet
 
 Inspect returns Cabinet header metadata only.
 
+### Registry — all floors
+```yaml
+mode: floor_list
+```
+
+### Registry — area drill-down
+```yaml
+mode: area_info
+area_id: living_room
+```
+
+### Registry — device drill-down
+```yaml
+mode: device_info
+device_id: <device_id>
+```
+
 ---
 
 ## Why Inspect Exists
@@ -389,9 +429,9 @@ it's because Inspect told her what it is — safely.
 
 ## Summary
 
-The Zen DojoTools Inspect 4.5.5 'Ready Player Two' provides:
+The Zen DojoTools Inspect 4.6.2 'Ectoplasm' provides:
 
-- multi-entity snapshot
+- multi-entity snapshot (default `mode: inspect`)
 - caller-controlled output fields (`output_fields`)
 - always-on device block with integration resolution
 - extended device tree with sibling + config entry mapping
@@ -400,6 +440,7 @@ The Zen DojoTools Inspect 4.5.5 'Ready Player Two' provides:
 - statistics eligibility detection (opt-in)
 - label-targeted drawer blurbs via FileCabinet (`label_targets`)
 - inline label descriptions via `{slug: description}` dict on every entity
+- HA registry modes: `area_info`, `floor_info`, `device_info`, `area_list`, `floor_list`, `label_list`, `zone_list`, `person_list`, `device_list`, `integration_entities`
 - JSON-compatible, LLM-stable outputs
 - strict no-write behavior
 - guaranteed safety against HA quirks

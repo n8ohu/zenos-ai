@@ -10,6 +10,14 @@ ZenOS-AI is a cabinet-centric AI framework for deterministic, inspectable househ
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention. Each new month starts at `.0`. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
 
+**2026.4.0 'Ectoplasm' — Shipped (2026-04-04)**
+
+Ectoplasm release. New tool: `zen_dojotools_ectoplasm` — Spook/HA extended surface wrapper covering repairs, areas, floors, entity/device lifecycle, label assignment to areas and devices, integration config entries, and orphan cleanup. Confirm-gated writes with preview pattern throughout. Scribe 1.2.0: `enable`/`disable` mode aliases patch `meta.enabled` without full rewrites; `domain_inspect_domains`/`domain_inspect_limit` wired through all payload paths; `meta.enabled` now written into thought artifacts; missing emission fields backfilled. Index 4.6.3: full topology seed chain (device/integration/area/floor), pagination (limit/offset, `dry_run` returns `total_count`), auto-cap at 50 on topology/wildcard expand, `+history` field, all Inspect registry modes surfaced. Inspect 4.6.2: registry enum modes — area_info, floor_info, device_info, area/floor/label/zone/person/device_list, integration_entities. Ninja Summarizer: run governor with configurable dedup burnout window (`zen_ninja_config.burnout_seconds`, default 300s), `force` bypass. AdminTools: `zen_admintools_run_repair` documented; `ship_alert_manager` (v1.3.0) and `ship_taskmaster` (v1.3.1) in-box KFCs added to prompt loader with independent gates. Dispatcher 1.1.0: two-level routing, urgency signal arch stub.
+
+See: [Release Notes — Ectoplasm](releases/ectoplasm.md)
+
+---
+
 **2026.3.1 — Shipped (2026-03-27)**
 
 Identity graph, alertmanager, and GUID correctness batch. `unlink_partners` variable name fix (ACL

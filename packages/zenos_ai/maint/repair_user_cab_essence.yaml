@@ -116,17 +116,25 @@ script:
 
     # ── Read all cabinet variables once ──────────────────────────────────────
     - variables:
-        _cab_vars_raw: "{{ state_attr(_target_cab, 'variables') | default({}, true) }}"
-        _cab_vars: "{{ _cab_vars_raw if _cab_vars_raw is mapping else {} }}"
+        #_cab_vars_raw: "{{ state_attr(_target_cab, 'variables') | default({}, true) }}"
+        #_cab_vars: "{{ _cab_vars_raw if _cab_vars_raw is mapping else {} }}"
+        _cab_vars: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_variables(_target_cab) | from_json() -}}
 
     # ── Read VolumeInfo → GUID + friendly_name ────────────────────────────────
     # FG-38 safe: two-round normalization
     - variables:
         _vi_info: >-
+          {#-
           {%- set _e = _cab_vars.get('AI_Cabinet_VolumeInfo', {}) -%}
           {%- set _e = _e if _e is mapping else (_e | from_json if _e is string else {}) -%}
           {%- set _vi = _e.get('value', _e) -%}
           {%- set _vi = _vi if _vi is mapping else (_vi | from_json if _vi is string else {}) -%}
+          -#}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {%- set _vi = CABS.cabinet_drawer_value(_target_cab, 'AI_Cabinet_VolumeInfo') | from_json() -%}
+          
           {{ {
             'guid': _vi.get('id', '') | trim,
             'friendly_name': _vi.get('friendly_name', _vi.get('name', '')) | trim
@@ -134,11 +142,9 @@ script:
 
     - variables:
         _guid: >-
-          {%- set _v = _vi_info | from_json if _vi_info is string else (_vi_info if _vi_info is mapping else {}) -%}
-          {{ _v.get('guid', '') }}
+          {{ _vi_info.get('guid', '') }}
         _vi_friendly_name: >-
-          {%- set _v = _vi_info | from_json if _vi_info is string else (_vi_info if _vi_info is mapping else {}) -%}
-          {{ _v.get('friendly_name', '') }}
+          {{ _vi_info.get('friendly_name', '') }}
 
     # Guard: GUID must be present before writing anything
     - if: "{{ _guid == '' }}"
@@ -158,10 +164,14 @@ script:
     # FG-38 safe: two-round normalization on profile
     - variables:
         _profile_info: >-
+          {#-
           {%- set _p = _cab_vars.get('_user_profile', {}) -%}
           {%- set _p = _p if _p is mapping else (_p | from_json if _p is string else {}) -%}
           {%- set _p = _p.get('value', _p) if _p is mapping else {} -%}
           {%- set _p = _p if _p is mapping else (_p | from_json if _p is string else {}) -%}
+          -#}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {%- set _p = CABS.cabinet_drawer_value(_target_cab, '_user_profile') | from_json() -%}
           {{ {
             'name': _p.get('name', '') | trim,
             'person_entity': _p.get('person_entity', '') | trim
@@ -300,15 +310,21 @@ script:
     # ── Verify ────────────────────────────────────────────────────────────────
     - delay: "00:00:01"
     - variables:
-        _post_vars_raw: "{{ state_attr(_target_cab, 'variables') | default({}, true) }}"
-        _post_vars: "{{ _post_vars_raw if _post_vars_raw is mapping else {} }}"
+        #_post_vars_raw: "{{ state_attr(_target_cab, 'variables') | default({}, true) }}"
+        #_post_vars: "{{ _post_vars_raw if _post_vars_raw is mapping else {} }}"
+        #_post_verify: >-
+        #  {%- set _raw = _post_vars.get('zenai_essence', {}) -%}
+        #  {%- set _e = _raw if _raw is mapping else (_raw | from_json if _raw is string else {}) -%}
+        #  {%- set _e = _e.get('value', _e) if _e is mapping else {} -%}
+        #  {%- set _e = _e if _e is mapping else (_e | from_json if _e is string else {}) -%}
+        #  {%- set _core = _e.get('core', {}) if _e is mapping else {} -%}
+        #  {{ (_core.get('id', '') | trim) if _core is mapping else '' }}
+        _post_value: >
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {{- CABS.cabinet_drawer_value(_target_cab, 'zenai_essence') | from_json() -}}
         _post_verify: >-
-          {%- set _raw = _post_vars.get('zenai_essence', {}) -%}
-          {%- set _e = _raw if _raw is mapping else (_raw | from_json if _raw is string else {}) -%}
-          {%- set _e = _e.get('value', _e) if _e is mapping else {} -%}
-          {%- set _e = _e if _e is mapping else (_e | from_json if _e is string else {}) -%}
-          {%- set _core = _e.get('core', {}) if _e is mapping else {} -%}
-          {{ (_core.get('id', '') | trim) if _core is mapping else '' }}
+          {%- set _core = _post_value.get('core', {}) -%}
+          {{- _core.get('id', '') | trim -}}
 
     - variables:
         _verify_ok: "{{ _post_verify == _guid }}"

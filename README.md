@@ -10,14 +10,13 @@ Let's automate everything that isn't nailed down.
 
 And a few things that are.
 
-**Current version: 2026.3.1**
+**Current version: 2026.4.0 'Ectoplasm'**
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention — if you're already running HA, you already know this clock. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
 
-2026.3.0 'Ready Player Two' shipped 2026-03-26 — identity and lifecycle release, 21/21 UAT green on live H:\ install.
-2026.3.1 — identity graph wiring, home mode timer seeding, alertmanager persistence, name resolution fix.
+2026.4.0 'Ectoplasm' shipped 2026-04-04 — new `zen_dojotools_ectoplasm` (Spook/HA extended surface: repairs, areas, floors, entity/device lifecycle, labels, integrations), Index 4.6.3 topology seeds + pagination + registry modes, Inspect 4.6.2 registry enum modes, Ninja run governor, Scribe 1.2.0.
 
-Full notes: [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md) | [2026.3.1 Patch Notes](zenos_ai/docs/releases/patch_4_5_6.md)
+Full notes: [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md) | [2026.3.1 Patch Notes](zenos_ai/docs/releases/patch_4_5_6.md)
 
 ---
 

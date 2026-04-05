@@ -1,6 +1,6 @@
 # ZenOS-AI: First Run Guide
 
-> **Version:** 4.5.5 'Ready Player Two' | **Last Updated:** March 2026
+> **Version:** 2026.4.0 'Ectoplasm' | **Last Updated:** March 2026
 
 ---
 

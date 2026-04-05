@@ -78,7 +78,7 @@ script:
               reason for status.\",\n      \"expiration\": \"Retain status until (default
               5 min.)\"\n    },\n    \"notes\": [\n      \"Use read to view the latest message.\",\n      \"Update and delete not supported by integration.\"\n    ],\n    \"setup\": {\n      \"input_text.zen_teams_chat_id\": \"Your Teams chat thread ID. To find it: run action_type: read — the response includes partner_chat_id pulled from sensor.homeassistant_chat. Copy that value into input_text.zen_teams_chat_id in HA Helpers. You can also find it in Developer Tools > States under sensor.homeassistant_chat attributes.\"\n    }\n  } | tojson\n}}"
         - variables:
-            help_response: "{{ (help_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            help_response: "{{ (help_response if help_response is mapping else (help_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: help_response
         - set_conversation_response: '{{ help_response }}'
@@ -94,16 +94,12 @@ script:
             importance: '{{state_attr(chat_sensor,''importance'') | default('''') }}'
             last_updated: '{{ states[chat_sensor][''last_updated''] |as_datetime | as_local
               | string | default('''') }}'
-            last_chat: "{{\n  {\n    \"last_updated\": last_updated,\n    \"from_display_name\":
-              from_display_name,\n    \"partner_chat_id\": partner_chat_id | default(''),\n
-              \   \"data\": filtered_chat_data | default('{}'),\n    \"content\": content,\n
-              \   \"importance\": importance\n  } | tojson\n}}"
-            result: "{{\n  {\n    \"status\": \"success\",\n    \"action_type\": \"read\",\n
-              \   \"my_chat_display_name\": my_chat_display_name,\n    \"teams_status\":
-              teams_status | default(''),\n    \"last_chat\": last_chat | default('{}'),\n
-              \ } | tojson\n}}"
-        - variables:
-            result: "{{ (result | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            last_chat: "{{ {'last_updated': last_updated, 'from_display_name': from_display_name,
+              'partner_chat_id': partner_chat_id | default(''), 'data': filtered_chat_data
+              | default({}), 'content': content, 'importance': importance} }}"
+            result: "{{ {'status': 'success', 'action_type': 'read', 'my_chat_display_name':
+              my_chat_display_name, 'teams_status': teams_status | default(''), 'last_chat':
+              last_chat, 'caller_token': caller_token | default('')} }}"
         - stop: Pass response variables back to LLM
           response_variable: result
         - set_conversation_response: '{{ result }}'
@@ -125,22 +121,18 @@ script:
             target:
               entity_id: sensor.homeassistant_chat
           - variables:
-              send_response: "{{\n  {\n    \"status\": \"success\",\n    \"action_type\":
-                \"send\",\n    \"chat_id\": chat_id,\n    \"message\": message\n  }
-                | tojson\n}}"
-          - variables:
-              send_response: "{{ (send_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+              send_response: "{{ {'status': 'success', 'action_type': 'send', 'chat_id':
+                chat_id, 'message': message, 'caller_token': caller_token | default('')}
+                }}"
           - stop: Pass response variables back to LLM
             response_variable: send_response
           - set_conversation_response: '{{ send_response }}'
           else:
           - variables:
-              error_no_chat_id: "{{\n  {\n    \"status\": \"error\",\n    \"error_message\":
-                \"Create / Send requires valid Chat ID that is not your own and Message.\",\n
-                \   \"chat_id\": chat_id | default(''),\n    \"message\": message |
-                default('')\n  } | tojson\n}}"
-          - variables:
-              error_no_chat_id: "{{ (error_no_chat_id | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+              error_no_chat_id: "{{ {'status': 'error', 'error_message': 'Create / Send
+                requires valid Chat ID that is not your own and Message.', 'chat_id':
+                chat_id | default(''), 'message': message | default(''), 'caller_token':
+                caller_token | default('')} }}"
           - stop: Pass response variables back to LLM
             response_variable: error_no_chat_id
           - set_conversation_response: '{{ unsupported_response }}'
@@ -167,11 +159,9 @@ script:
             entity_id: sensor.homeassistant_status
           data: '{{ data }}'
         - variables:
-            result: "{{\n  {\n    \"status\": \"success\",\n    \"action_type\": \"set\",\n
-              \   \"availability\": availability,\n    \"activity\": activity,\n    \"expiration\":
-              expiration,\n  } | tojson\n}}"
-        - variables:
-            result: "{{ (result | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            result: "{{ {'status': 'success', 'action_type': 'set', 'availability': availability,
+              'activity': activity, 'expiration': expiration, 'caller_token': caller_token
+              | default('')} }}"
         - stop: Pass response variables back to LLM
           response_variable: result
         - set_conversation_response: '{{ result }}'
@@ -181,11 +171,9 @@ script:
           value_template: '{{ action_type in [''update'',''delete''] }}'
         sequence:
         - variables:
-            unsupported_response: "{{\n  {\n    \"status\": \"error\",\n    \"message\":
-              \"Update/delete not supported by Teams integration. Use create (send)
-              or read.\"\n  } | tojson\n}}"
-        - variables:
-            unsupported_response: "{{ (unsupported_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            unsupported_response: "{{ {'status': 'error', 'message': 'Update/delete not
+              supported by Teams integration. Use create (send) or read.', 'caller_token':
+              caller_token | default('')} }}"
         - stop: Pass response variables back to LLM
           response_variable: unsupported_response
         - set_conversation_response: '{{ unsupported_response }}'
@@ -343,7 +331,7 @@ script:
               \"subject\": \"Team Update\", \"body\": \"<b>Status OK</b>\", \"contentType\":
               \"HTML\", \"importance\": \"High\" },\n    ]\n  } | tojson\n}}"
         - variables:
-            help_data: "{{ (help_data | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            help_data: "{{ (help_data if help_data is mapping else (help_data | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: help_data
           enabled: true
@@ -355,20 +343,23 @@ script:
         sequence:
         - variables:
             inbox_sensor: sensor.ms365_inbox
-            inbox: "{%- set sensor = expand(inbox_sensor) -%}\n{%- for mailbox in sensor
-              -%}\n  {%- for message in mailbox.attributes.data -%}\n    {{\n      {\n
-              \       \"subject\": message.subject |default(''),\n        \"received\":
-              message.received | as_datetime() | as_local | string | default(''),\n
-              \       \"from\": message.sender | default(''),\n        \"to\": message.to
-              | default('[]'),\n        \"cc\": message.cc | default('[]'),\n        \"is_read\":
-              message.is_read | default(False),\n        \"flag\": message.flag | default('{}'),\n
-              \       \"has_attachments\": message.has_attachments | default(False),\n
-              \       \"body\": message.body | default('')\n       } | tojson\n    }}\n
-              \ {%- endfor -%}\n{%- endfor -%}"
-            final_response: "{{\n  {\n    \"status\": \"success\",\n    \"inbox\": inbox\n
-              \ } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            inbox: >-
+              {%- set ns = namespace(items=[]) -%}
+              {%- for mailbox in expand(inbox_sensor) -%}
+                {%- for message in mailbox.attributes.data -%}
+                  {%- set ns.items = ns.items + [{'subject': message.subject | default(''),
+                    'received': message.received | as_datetime() | as_local | string | default(''),
+                    'from': message.sender | default(''), 'to': message.to | default([]),
+                    'cc': message.cc | default([]), 'is_read': message.is_read | default(false),
+                    'flag': message.flag | default({}), 'has_attachments': message.has_attachments
+                    | default(false), 'body': message.body | default('')}] -%}
+                {%- endfor -%}
+              {%- endfor -%}
+              {{ ns.items | tojson }}
+        - variables:
+            final_response: "{{ {'status': 'success', 'inbox': inbox | from_json if inbox
+              is string else inbox, 'caller_token': caller_token | default('')} }}"
         - stop: Pass response variables back to LLM
           response_variable: final_response
           enabled: true
@@ -397,7 +388,7 @@ script:
               \"Read message '\" ~ uid ~ \"' from \" ~ folder_lookup ~ \".\",\n    \"mail\":
               mail_json\n  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: final_response
           enabled: true
@@ -442,7 +433,7 @@ script:
             - variables:
                 final_response: "{{\n  {\n    \"status\": \"success\",\n    \"action_type\": action_type | default(''),\n    \"title\": subject | default(''),\n    \"to\": to_list | default([])\n  } | tojson\n}}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop: Pass response variables back to LLM
               response_variable: final_response
               enabled: true
@@ -451,7 +442,7 @@ script:
           - variables:
               final_response: "{{\n  {\n    \"status\": \"error\",\n    \"message\": \"Mail send blocked: \" ~ (\"whitelist not configured. Set input_text.zen_mail_whitelist in HA Helpers to: OFF (unrestricted), *@yourdomain.com (domain wildcard), or an exact address.\" if whitelist_missing else \"recipient not permitted by whitelist.\")\n  } | tojson\n}}"
           - variables:
-              final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+              final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
           - stop: Pass response variables back to LLM
             response_variable: final_response
             enabled: true
@@ -468,7 +459,7 @@ script:
               required field(s) for \" ~ action_type ~ \". See help for usage.\",\n
               \   \"help_hint\": \"Use action_type: help for details.\"\n  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: final_response
           enabled: true
@@ -616,12 +607,16 @@ script:
           == 1 and items[0] in ['''', None, ''*'']) }}'
         list_query: '{{ is_list_wildcard or action_type not in [''create'',''read'',''update'',''delete'']
           }}'
-        todo_lists_data: "[\n{%- for l in states.todo -%}\n  {\n    \"entity_id\"\
-          : \"{{ l.entity_id }}\",\n    \"friendly_name\": \"{{ l.attributes.friendly_name\
-          \ }}\",\n    \"labels\": [\n      {%- for lid in labels(l.entity_id) -%}\n\
-          \        \"{{ label_name(lid) }}\"{% if not loop.last %}, {% endif %}\n \
-          \     {%- endfor -%}\n    ]\n  }{% if not loop.last %}, {% endif %}\n{%-\
-          \ endfor -%}\n] | tojson | fromjson"
+        todo_lists_data: >-
+          {%- set ns = namespace(items=[]) -%}
+          {%- for l in states.todo -%}
+            {%- set ns2 = namespace(lbls=[]) -%}
+            {%- for lid in labels(l.entity_id) -%}
+              {%- set ns2.lbls = ns2.lbls + [label_name(lid)] -%}
+            {%- endfor -%}
+            {%- set ns.items = ns.items + [{'entity_id': l.entity_id, 'friendly_name': l.attributes.friendly_name | default(''), 'labels': ns2.lbls}] -%}
+          {%- endfor -%}
+          {{ ns.items | tojson }}
         is_ms365_todo: '{{ todo_list_entity in integration_entities(''ms365'') }}'
         reminder: '{{ reminder | default('''') }}'
     - choose:
@@ -631,11 +626,16 @@ script:
             }}'
         sequence:
         - variables:
-            final_response: "{{\n  {\n    \"status\": \"info\",\n    \"message\":\
-              \ \"All available to-do lists with labels.\",\n    \"lists\": todo_lists_data\n\
-              \  } | tojson\n}}"
+            final_response: >-
+              {{
+                {
+                  "status": "info",
+                  "message": "All available to-do lists with labels.",
+                  "lists": todo_lists_data if todo_lists_data is not string else (todo_lists_data | from_json)
+                } | tojson
+              }}
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -656,7 +656,7 @@ script:
               \ and bulk update supported.\",\n      \"Complex multi-item edits remain\
               \ restricted to status changes.\"\n    ]\n  } |\n  tojson\n}}"
         - variables:
-            help_data: "{{ (help_data | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            help_data: "{{ (help_data if help_data is mapping else (help_data | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: help_data
         - set_conversation_response: '{{ help_data }}'
@@ -689,7 +689,7 @@ script:
                   \ '\" ~ list_name ~ \"'.\",\n    \"list_name\": list_name,\n   \
                   \ \"items\": items\n  } | tojson\n}}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop: Pass response variables back to LLM
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'
@@ -703,7 +703,7 @@ script:
                   : \"Multiple complex updates not supported. Only bulk status updates\
                   \ allowed.\",\n    \"list_name\": list_name\n  } | tojson\n}}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop: Pass response variables back to LLM
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'
@@ -730,7 +730,7 @@ script:
                 \ ~ list_name ~ \"'.\",\n    \"item\": update_data,\n    \"list_name\"\
                 : list_name\n  } | tojson\n}}"
           - variables:
-              final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+              final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
           - stop: Pass response variables back to LLM
             response_variable: final_response
           - set_conversation_response: '{{ final_response }}'
@@ -755,7 +755,7 @@ script:
               \  \"count\": items_only | length,\n  \"items\": items_only\n} | tojson\
               \ }}\n"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass items back to LLM
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -796,7 +796,7 @@ script:
         - variables:
             final_response: "{{\n  {\n    \"status\": \"success\",\n    \"message\": \"Created \" ~ (items | length) ~ \" item(s) in '\" ~ list_name ~ \"'.\",\n    \"list_name\": list_name,\n    \"items\": items\n  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -818,7 +818,7 @@ script:
         - variables:
             final_response: "{{\n  {\n    \"status\": \"success\",\n    \"message\": \"Deleted \" ~ (items | length) ~ \" item(s) from '\" ~ list_name ~ \"'.\",\n    \"list_name\": list_name\n  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -828,7 +828,7 @@ script:
           : \"noop\",\n      \"message\": \"No matching branch produced a response.\"\
           \n    } | tojson\n  )\n}}"
     - variables:
-        final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson if (final_response | from_json) is mapping else final_response }}"
+        final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson if (final_response | from_json) is mapping else final_response }}"
     - stop: Pass context
       response_variable: final_response
     - set_conversation_response: '{{ final_response }}'
@@ -925,12 +925,12 @@ script:
         calendar_entity_exists: '{{ calendar_entity_resolved in valid_calendar_entities
           }}'
         is_ms365_cal: '{{ calendar_entity_resolved in integration_entities(''ms365'') }}'
-        start: "{% set raw = start if start is defined else now().replace(hour=0,\
+        start: "{% set raw = start if (start is defined and start | string | trim != '') else now().replace(hour=0,\
           \ minute=0, second=0) %} {% if raw is string %}\n  {% set dt = as_datetime(raw)\
           \ if 'T' in raw else strptime(raw, \"%Y-%m-%d\") %}\n{% else %}\n  {% set\
           \ dt = raw %}\n{% endif %} {{ dt | as_local | as_timestamp | timestamp_custom(\"\
           %Y-%m-%dT%H:%M:%S%:z\", false) }}"
-        end: "{% set raw = end if end is defined else (now().replace(hour=0, minute=0,\
+        end: "{% set raw = end if (end is defined and end | string | trim != '') else (now().replace(hour=0, minute=0,\
           \ second=0) + timedelta(days=1)) %} {% if raw is string %}\n  {% set dt\
           \ = as_datetime(raw) if 'T' in raw else strptime(raw, \"%Y-%m-%d\") %}\n\
           {% else %}\n  {% set dt = raw %}\n{% endif %} {{ dt | as_local | as_timestamp\
@@ -959,7 +959,7 @@ script:
               : \"Multiple calendars match the query. Please specify a single calendar\
               \ for this action.\"\n  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop:
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -974,7 +974,7 @@ script:
               : \"No calendars found for labels: \" ~ (label_targets | join(', '))\
               \ ~ \".\"\n  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop:
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -1008,7 +1008,7 @@ script:
               \ aggregates events across all matching entities.\"\n    ]\n  } | tojson\n\
               }}"
         - variables:
-            help_data: "{{ (help_data | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            help_data: "{{ (help_data if help_data is mapping else (help_data | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop:
           response_variable: help_data
         - set_conversation_response: '{{ help_data }}'
@@ -1024,7 +1024,7 @@ script:
               \ a valid entity_id or use '*' to list calendars.\"\n  } | tojson\n\
               }}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop:
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -1040,7 +1040,7 @@ script:
               : \"Create requires a single explicit calendar target (entity_id or label).\"\
               \n  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop:
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -1066,7 +1066,7 @@ script:
               : \"Listed all available calendars.\",\n    \"calendars\": cal_list\n\
               \  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop:
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -1091,29 +1091,32 @@ script:
             - variables:
                 events: '{{ read_events[repeat.item][''events''] if read_events[repeat.item]
                   is defined else [] }}'
-                event_list: "[\n  {%- for event in events -%}\n    {\n      \"summary\"\
-                  : \"{{ event.summary }}\",\n      \"start\": \"{{ event.start }}\"\
-                  ,\n      \"end\": \"{{ event.end }}\",\n      \"event_id\": \"{{\
-                  \ event.event_id | default('') }}\",\n      \"description\": \"\
-                  {{ event.description | default('') }}\",\n      \"location\": \"\
-                  {{ event.location | default('') }}\",\n      \"all_day\": \"{{ event.all_day\
-                  \ | default(false) }}\",\n      \"created\": \"{{ event.created\
-                  \ | default('') }}\",\n      \"updated\": \"{{ event.updated | default('')\
-                  \ }}\"\n    }{% if not loop.last %}, {% endif %}\n  {%- endfor -%}\n\
-                  ]"
-                one_result: "{\n  \"calendar_entity\": \"{{ repeat.item }}\",\n \
-                  \ \"event_count\": {{ events | length }},\n  \"events\": {{ event_list\
-                  \ }}\n}"
+            - variables:
+                event_items: >-
+                  {%- set ns = namespace(items=[]) -%}
+                  {%- for event in events -%}
+                    {%- set ns.items = ns.items + [{'summary': event.summary | default(''),
+                      'start': event.start | default(''), 'end': event.end | default(''),
+                      'event_id': event.event_id | default(''), 'description': event.description
+                      | default(''), 'location': event.location | default(''), 'all_day':
+                      event.all_day | default(false), 'created': event.created | default(''),
+                      'updated': event.updated | default('')}] -%}
+                  {%- endfor -%}
+                  {{ ns.items | tojson }}
+            - variables:
+                one_result: "{{ {'calendar_entity': repeat.item, 'friendly_name': state_attr(repeat.item,
+                  'friendly_name') | default(''), 'event_count': events | length, 'events':
+                  event_items | from_json if event_items is string else event_items}
+                  }}"
             - variables:
                 all_event_results: '{{ all_event_results + [one_result] }}'
         - variables:
-            final_response: "{{\n  {\n    \"status\": \"success\",\n    \"message\"\
-              : \"Aggregated events from \" ~ (target_calendars | length) ~ \" calendars.\"\
-              ,\n    \"results\": all_event_results,\n    \"note\": \"Use 'inspect'\
-              \ to locate event_id(s). Providers may return timestamps in UTC or offset;\
-              \ normalize externally during UAT.\"\n  }\n}}\n"
-        - variables:
-            final_response: "{{ final_response | combine({'caller_token': caller_token | default('')}) if final_response is mapping else final_response }}"
+            final_response: "{{ {'status': 'success', 'message': 'Aggregated events from
+              ' ~ (target_calendars | length) ~ ' calendars.', 'total_event_count':
+              all_event_results | sum(attribute='event_count'), 'results': all_event_results,
+              'note': \"Use 'inspect' to locate event_id(s). Providers may return timestamps
+              in UTC or offset; normalize externally during UAT.\", 'caller_token': caller_token
+              | default('')} }}"
         - stop:
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -1178,7 +1181,7 @@ script:
                       : \"Created MS365 event '\" ~ ms365_create_data.subject ~ \"'\
                       .\",\n    \"event\": ms365_create_data\n  } | tojson\n}}"
                 - variables:
-                    final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                    final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
                 - stop:
                   response_variable: final_response
                 - set_conversation_response: '{{ final_response }}'
@@ -1205,7 +1208,7 @@ script:
                   \ | length > 0) else calendar_entity_resolved)\n    ) ~ \"'.\",\n\
                   \    \"event\": create_data\n  } | tojson\n}}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop:
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'
@@ -1218,7 +1221,7 @@ script:
                   : \"Invalid date range: start must be before end. Got start='\" ~\
                   \ start ~ \"', end='\" ~ end ~ \"'.\"\n  } | tojson\n}}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop:
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'
@@ -1252,7 +1255,7 @@ script:
                   : \"Updated MS365 event '\" ~ ms365_modify_data.subject ~ \"'.\"\
                   ,\n    \"event\": ms365_modify_data\n  } | tojson\n}}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop: Pass response variables back to LLM
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'
@@ -1312,7 +1315,7 @@ script:
               \    ) ~ \"'. \" ~ (warn_msg | default(\"\")),\n    \"event\": create_data\n\
               \  } | tojson\n}}"
         - variables:
-            final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+            final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
         - stop: Pass response variables back to LLM
           response_variable: final_response
         - set_conversation_response: '{{ final_response }}'
@@ -1354,7 +1357,7 @@ script:
                   \    \"inspect\": inspect_response | default({})\n  } | tojson\n\
                   }}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop:
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'
@@ -1374,7 +1377,7 @@ script:
                   \ limitation; operation safely blocked.\",\n    \"inspect\": inspect_response\
                   \ | default({})\n  } | tojson\n}}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop:
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'
@@ -1403,7 +1406,7 @@ script:
                   : calendar_entity_resolved,\n    \"event_id\": event_id\n  } | tojson\n\
                   }}"
             - variables:
-                final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token | default('')}) | tojson }}"
+                final_response: "{{ (final_response if final_response is mapping else (final_response | from_json)) | combine({'caller_token': caller_token | default('')}) | tojson }}"
             - stop:
               response_variable: final_response
             - set_conversation_response: '{{ final_response }}'

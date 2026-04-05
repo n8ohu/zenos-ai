@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Scribe
-# Version: 1.1.0
+# Version: 1.2.0
 #
 # Purpose:
 #   Guided authoring and maintenance for KF4 artifacts.
@@ -79,9 +79,8 @@ script:
     fields:
       mode:
         name: Mode
-        description: help/read/new/patch/replace/clear/delete/formalize/publish/dry/list
-        required: false
-        default: help
+        description: help/read/new/patch/replace/clear/delete/formalize/publish/dry/list/enable/disable
+        required: true
         selector:
           select:
             options:
@@ -350,6 +349,67 @@ script:
             max: 300
             step: 5
 
+      drift_threshold:
+        name: Drift Threshold
+        description: urgency score at or above this value triggers forced supersummary. Default 5.
+        required: false
+        default: 5
+        selector:
+          number:
+            min: 0
+            max: 100
+            step: 1
+
+      emission_cooldown_minutes:
+        name: Emission Cooldown Minutes
+        description: minimum minutes between urgency/action emissions. Default 60.
+        required: false
+        default: 60
+        selector:
+          number:
+            min: 0
+            max: 1440
+            step: 5
+
+      domain_inspect_domains:
+        name: Domain Inspect Domains
+        description: >-
+          Comma-separated HA domains to pass to step 4b domain inspect (e.g. "todo, calendar").
+          Empty = all entities from index result (default behavior).
+        required: false
+        selector:
+          text:
+
+      domain_inspect_limit:
+        name: Domain Inspect Limit
+        description: Max entity count for step 4b domain inspect. Default 25.
+        required: false
+        default: 25
+        selector:
+          number:
+            min: 1
+            max: 100
+            step: 1
+
+      suggested_act_event:
+        name: Suggested Act Event
+        description: >-
+          The static suggested_act_event slug for this KFC, or blank for Monk-decided.
+          This value appears in component_instructions AVAILABLE ACTIONS as a valid option.
+          Must be a registered dojotool slug (e.g. zen_dojotools_notification_router) or blank.
+        required: false
+        selector:
+          text:
+
+      master_switch:
+        name: Master Switch
+        description: input_boolean entity ID that gates this component (optional)
+        required: false
+        selector:
+          entity:
+            filter:
+              domain: input_boolean
+
       enabled:
         name: Enabled
         description: component enabled state
@@ -526,6 +586,8 @@ script:
           _shared_trigger_list_raw: "{{ shared_trigger_subscriptions | default('', true) | string | trim }}"
           _trigger_list_raw: "{{ trigger_subscriptions | default('', true) | string | trim }}"
           _custom_trigger_list_raw: "{{ custom_trigger_override | default('', true) | string | trim }}"
+          _domain_inspect_domains_raw: "{{ domain_inspect_domains | default('', true) | string | trim }}"
+          _domain_inspect_limit: "{{ domain_inspect_limit | default(25) | int(25) }}"
           _changes: "{{ changes | default({}, true) }}"
           _clear_fields: "{{ clear_fields | default([], true) }}"
           _replace_confirm: "{{ replace_confirm | default(false) | bool }}"
@@ -572,6 +634,12 @@ script:
             {% else %}
               []
             {% endif %}
+          _domain_inspect_domains: >-
+            {% if _domain_inspect_domains_raw != '' %}
+              {{ _domain_inspect_domains_raw | regex_findall('[^,\s]+') }}
+            {% else %}
+              []
+            {% endif %}
           _primary_index_key: >-
             {% set p = primary_index_key | default(_slug, true) | string | trim %}
             {{ p | slugify }}
@@ -581,6 +649,20 @@ script:
           _parent_component_key: >-
             {% set p = parent_component_key | default('', true) | string | trim %}
             {{ p | slugify }}
+
+      # -------------------------------------------------------------------
+      # STEP 2c — Mode normalization: enable/disable shorthand -> patch
+      # -------------------------------------------------------------------
+      - variables:
+          _mode: "{{ 'patch' if _mode in ['enable', 'disable'] else _mode }}"
+          _changes: >-
+            {% if _mode == 'enable' %}
+              {{ {'meta': {'enabled': true}} }}
+            {% elif _mode == 'disable' %}
+              {{ {'meta': {'enabled': false}} }}
+            {% else %}
+              {{ _changes }}
+            {% endif %}
 
       # -------------------------------------------------------------------
       # STEP 2b — Target resolution (household/family via VolumeInfo, person via identity)
@@ -932,7 +1014,15 @@ script:
                       caller_token: "{{ caller_token }}"
                     response_variable: _index_response
               - variables:
-                  _index_summary: "{{ _index_response | default({}, true) }}"
+                  _index_summary: >-
+                    {%- set _r = _index_response | default({}, true) -%}
+                    {%- set _simple = _r.get('result', {}).get('simple', []) -%}
+                    {%- set _op = _r.get('operator', '') -%}
+                    {%- if _simple | length == 0 and _op == '*' -%}
+                      {{ {"status": "label_not_found", "label_1": _label_1, "operator": _op, "entity_count": 0} }}
+                    {%- else -%}
+                      {{ _r }}
+                    {%- endif -%}
               - variables:
                   _thought_payload: >-
                     {{
@@ -954,7 +1044,9 @@ script:
                           "operator": _operator,
                           "filter_json": _filter_json,
                           "expand_entities": _expand_scope,
-                          "output_fields": _output_fields
+                          "output_fields": _output_fields,
+                          "domain_inspect_domains": _domain_inspect_domains,
+                          "domain_inspect_limit": _domain_inspect_limit
                         },
                         "scope_summary": _index_summary,
                         "scope_safety": {
@@ -994,7 +1086,12 @@ script:
                           "shared_labelset": _shared_labelset
                         },
                         "tool": tool | default('', true),
+                        "drift_threshold": drift_threshold | default(5) | int(5),
+                        "emission_cooldown_minutes": emission_cooldown_minutes | default(60) | int(60),
+                        "suggested_act_event": (suggested_act_event | default('') | trim) if (suggested_act_event | default('') | trim) != '' else none,
+                        "master_switch": master_switch | default('', true),
                         "meta": {
+                          "enabled": enabled | default(true) | bool,
                           "read_only": false,
                           "formalized_from": "",
                           "published_from": "",
@@ -1549,7 +1646,9 @@ script:
                           "operator": _operator,
                           "filter_json": _filter_json,
                           "expand_entities": _expand_scope,
-                          "output_fields": _output_fields
+                          "output_fields": _output_fields,
+                          "domain_inspect_domains": _domain_inspect_domains,
+                          "domain_inspect_limit": _domain_inspect_limit
                         }),
                         "component_summary": base.get('component_summary', component_summary | default('', true)),
                         "component_instructions": base.get('component_instructions', component_instructions | default('', true)),
@@ -1558,6 +1657,10 @@ script:
                         "trigger_subscriptions": base.get('trigger_subscriptions', _effective_trigger_list),
                         "custom_trigger_override": base.get('custom_trigger_override', _custom_trigger_list),
                         "delay_seconds": base.get('delay_seconds', delay_seconds | default(0) | int(0)),
+                        "drift_threshold": base.get('drift_threshold', drift_threshold | default(5) | int(5)),
+                        "emission_cooldown_minutes": base.get('emission_cooldown_minutes', emission_cooldown_minutes | default(60) | int(60)),
+                        "suggested_act_event": base.get('suggested_act_event', (suggested_act_event | default('') | trim) if (suggested_act_event | default('') | trim) != '' else none),
+                        "master_switch": base.get('master_switch', master_switch | default('', true)),
                         "component_group": base.get('component_group', {
                           "primary_index_key": _primary_index_key,
                           "component_key": _component_key,
