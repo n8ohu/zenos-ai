@@ -20,7 +20,7 @@ This walkthrough takes you from zero to your first notification using `alert_man
 
 Or via prompt_loader if you're an admin: set `meta.enabled: true` in the `alert_manager` Dojo drawer using `zen_dojotools_scribe`.
 
-Either way, confirm it's on before continuing.
+To confirm it's on, ask your AI: *"Is alert_manager enabled?"* It will read the Dojo drawer and tell you.
 
 ---
 
@@ -38,7 +38,9 @@ notify:
       - service: mobile_app_your_phone  # replace with your actual notify service
 ```
 
-Reload HA after adding this. Confirm `notify.admin_devices` appears in Developer Tools → Services.
+To find your phone's notify service name: **Developer Tools → Services**, filter by `notify.mobile_app_` — it will be something like `notify.mobile_app_pixel_8` or `notify.mobile_app_my_iphone`. Use the part after `notify.` in the config above.
+
+**Restart HA** after adding this (a config reload is not sufficient — `configuration.yaml` changes require a full restart). Confirm `notify.admin_devices` appears in Developer Tools → Services after restart.
 
 ---
 
@@ -48,7 +50,7 @@ Pick one entity you want `alert_manager` to watch. A good first choice: a smoke 
 
 In HA's entity registry, add the label **`Alert Manager`** to that entity.
 
-That's it. No code. The HyperIndex finds it automatically on the next summarizer run.
+That's it. No code. The HyperIndex resolves the label automatically — Step 4 fires the first run manually so you don't have to wait for a scheduled sweep.
 
 ---
 
@@ -86,9 +88,9 @@ If the kata is empty or the entity isn't mentioned, double-check the label name.
 
 ## Step 6 — Get the notification
 
-If the entity you tagged is in a concerning state (e.g. the door is open, the sensor is on), `alert_manager` should have set `action_required: true` in the kata. On the next emission window, the notification router fires automatically.
+For a notification to fire, the entity needs to be in its alert state — door open, sensor on, whatever "bad" looks like for your entity. If it's currently healthy, `action_required` comes back false and nothing is sent. **Trigger the alert state now** if you want to test the full path.
 
-To test it right now without waiting:
+Once the kata has `action_required: true`, the notification router fires on the next emission cycle (the scheduler runs at minimum every hour when enabled). To test it right now without waiting:
 
 > "Send me the alert manager summary"
 

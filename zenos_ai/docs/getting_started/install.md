@@ -42,7 +42,13 @@ homeassistant:
 
 This tells HA to load all YAML files under `packages/` as configuration packages.
 
-If you already have a packages block, merge this in — don't add a second `homeassistant:` key.
+If you already have a `homeassistant:` block, add the `packages:` line under it — don't create a second `homeassistant:` key. Example:
+
+```yaml
+homeassistant:
+  customize: !include customize.yaml   # existing line — keep it
+  packages: !include_dir_named packages  # add this
+```
 
 ---
 

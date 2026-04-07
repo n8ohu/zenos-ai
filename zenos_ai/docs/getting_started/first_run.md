@@ -38,7 +38,7 @@ That notification means setup completed successfully. The OOBE (onboarding) step
 
 OOBE stands for Out-of-Box Experience. It's a one-time conversation where your AI learns your home.
 
-**To start:** Open a conversation with your AI assistant and say something like:
+**To start:** Open the Assist panel in HA — the chat bubble icon in the top-right of the UI, or via the sidebar if you've added it — and say something like:
 
 > "Set up my profile"
 > "Let's do first-time setup"
