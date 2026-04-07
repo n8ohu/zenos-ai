@@ -1172,7 +1172,7 @@ script:
             notes:
             - Get entry_id via stock_entries_for_item
             - Reads current entry first then merges your changes (safe partial update)
-            example: "{'case':'stock_entry_update','item':'Nathan House Blend Coffee','entry_id':42,'best_before_date':'2026-12-31'}"
+            example: "{'case':'stock_entry_update','item':'House Blend Coffee','entry_id':42,'best_before_date':'2026-12-31'}"
           stock_undo_booking:
             intent: Undo a stock booking by booking ID.
             needs:

@@ -302,7 +302,7 @@ Integrates:
 * BLE or UWB presence data
 * noise or light transitions
 
-Used for Friday’s contextual awareness (“Nathan is probably in the den”).
+Used for Friday’s contextual awareness (“Alex is probably in the den”).
 
 ---
 

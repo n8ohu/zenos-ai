@@ -97,8 +97,8 @@ Your AI writes an `_oobe_complete` flag to its cabinet. On the next HA restart, 
 You don't need to re-run OOBE to change anything. Just ask your AI directly:
 
 > "Change your familiar's name to Pip"
-> "Update our household name to The Curtis House"
-> "Add Kim as my partner"
+> "Update our household name to The Garcia House"
+> "Add Alex as my partner"
 > "What's your current profile?"
 
 Your AI uses `zen_dojotools_profile_editor` under the hood. It reads before it writes, patches only what you specify, and never overwrites existing values unless you explicitly ask it to.

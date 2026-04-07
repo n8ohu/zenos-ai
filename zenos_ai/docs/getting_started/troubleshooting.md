@@ -174,7 +174,7 @@ Wipes all drawers from a single cabinet. Use when one specific cabinet has corru
 
 ⚠️ **Wipes all Ring-0 canonical cabinets + all zen_ labels. No undo.**
 
-Step 1 nukes labels. Step 2 wipes all 14 Ring-0 cabinets, reseeds schemas via `reset_template`, and fires Flynn bootstrap. User cabinets (`sensor.nathan_curtis_s_cabinet`, etc.) are never touched. Order matters — labels first, cabinets second.
+Step 1 nukes labels. Step 2 wipes all 14 Ring-0 cabinets, reseeds schemas via `reset_template`, and fires Flynn bootstrap. User cabinets (`sensor.primary_user_cabinet`, etc.) are never touched. Order matters — labels first, cabinets second.
 
 Flynn handles the full rebuild sequence automatically.
 

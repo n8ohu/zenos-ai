@@ -105,7 +105,7 @@ zen_dojotools_identity:
 # Specific target
 zen_dojotools_identity:
   mode: resolve
-  user_label: nathan
+  user_label: primary_user
 ```
 
 ---

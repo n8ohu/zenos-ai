@@ -3051,7 +3051,7 @@ script:
                 foregrounded.
 
               DATA SOURCES (domain todo lists — read based on conductor signal):
-                label: daily   — household_chores, nathan_health_tasks (recurring daily)
+                label: daily   — household_chores, primary_user_health_tasks (recurring daily)
                 label: weekly  — grocy_chores, grocy_tasks (weekly cadence)
                 label: tasks   — ninja_tickets, automation_todo_list (async backlog)
                 Item content: results[entity_id==<entity_id>].attributes.all_todos

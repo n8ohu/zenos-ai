@@ -136,9 +136,9 @@ target_type: household
   "target_type": "household",
   "target": "sensor.zenos_default_household_cabinet",
   "profile": {
-    "household_name": "The Curtis House",
-    "city": "San Antonio",
-    "state": "TX",
+    "household_name": "The Garcia House",
+    "city": "Springfield",
+    "state": "IL",
     "timezone": "CST"
   }
 }
@@ -239,7 +239,7 @@ target_type: ai_user
     "persona_name": "Friday",
     "core_id": "b7e3f091-1cd6-83f8-frid-ay0000000001",
     "jacket_id": "jacket-frid-0001",
-    "signed_by": "person.nathan",
+    "signed_by": "person.primary_user",
     "familiar_name": "Byte",
     "familiar_type": "digital English bulldog"
   }
@@ -266,9 +266,9 @@ essence_patch: >
 ```yaml
 mode: write
 target_type: household
-household_name: The Curtis House
-city: San Antonio
-state: TX
+household_name: The Garcia House
+city: Springfield
+state: IL
 country: US
 ```
 
@@ -277,8 +277,8 @@ country: US
 ```yaml
 mode: write
 target_type: user
-first_name: Nathan
-preferred_name: Nathan
+first_name: Alex
+preferred_name: Alex
 role: head_of_household
 pronouns: he/him
 ```

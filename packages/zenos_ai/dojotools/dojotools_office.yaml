@@ -472,7 +472,7 @@ script:
       ''help''. All responses are structured JSON with status, message, and data. Attachments
       are listed (info only, not retrievable).  Help action returns usage, fields, and
       caveats. See help for full details and examples. (locked send to local domain
-      @curtisplace.net and selected whitelist addresses.)'
+      @yourdomain.com and selected whitelist addresses.)'
     fields:
       action_type:
         description: '''list'', ''read'', ''create'', ''help'' (default: help)'

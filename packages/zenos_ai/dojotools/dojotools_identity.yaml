@@ -13,7 +13,7 @@
 # UAT Cases: 2/2 PASS
 #
 # zen_dojotools_identity:
-#   no-target call → full roster returned (Nathan + Kim), valid JSON ✓
+#   no-target call → full roster returned (all users), valid JSON ✓
 #   target=None normalization → null, zen_cabinets(None) → roster ✓
 #
 # v4.1.0 — mode: prompt added

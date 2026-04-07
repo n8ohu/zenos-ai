@@ -23,7 +23,7 @@
 #   zen_maint_4_5_6_roster_guid_repair
 #     Target: Installs where default cabs (household/family/user/ai_user) have
 #             empty id in VolumeInfo — causes empty guid in roster entries.
-#             Affects: pre-provisioner installs (Nathan, Phil, Zach).
+#             Affects: pre-provisioner installs only.
 #     Safe:   Reads current member lists dynamically — no hardcoded topology.
 #             Stamp is idempotent. Re-wire is a clean remove+re-add cycle.
 #     After:  Verify membership tree shows populated guids. Run once per install.
