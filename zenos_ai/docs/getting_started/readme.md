@@ -37,7 +37,21 @@ After installation. Covers:
 
 ---
 
-### 3. `entity_exposure.md` — What to Expose to Your Agent
+### 3. `first_alert.md` — Your First Alert
+
+After first boot. Covers:
+
+* Enabling `alert_manager` via your AI or prompt_loader
+* Creating a `notify.admin_devices` service
+* Tagging your first entity for monitoring
+* Firing a test summary and checking the kata
+* Getting your first notification
+
+**Do this next — it's the fastest way to see the pipeline working end to end.**
+
+---
+
+### 4. `entity_exposure.md` — What to Expose to Your Agent
 
 Before you hand Friday the keys. Covers:
 
@@ -51,7 +65,7 @@ Before you hand Friday the keys. Covers:
 
 ---
 
-### 4. `cabinet_placement.md` — Where Things Go and Why
+### 5. `cabinet_placement.md` — Where Things Go and Why
 
 After entity exposure. Covers:
 
@@ -62,7 +76,7 @@ After entity exposure. Covers:
 
 ---
 
-### 5. `oobe.md` — OOBE Walkthrough
+### 6. `oobe.md` — OOBE Walkthrough
 
 The six-step first-boot configuration protocol in detail. Covers:
 
@@ -74,7 +88,7 @@ The six-step first-boot configuration protocol in detail. Covers:
 
 ---
 
-### 6. `troubleshooting.md` — Troubleshooting
+### 7. `troubleshooting.md` — Troubleshooting
 
 When something isn't right. Covers:
 
@@ -91,7 +105,7 @@ When something isn't right. Covers:
 
 ---
 
-### 7. `user_management.md` — User and AI User Management
+### 8. `user_management.md` — User and AI User Management
 
 For adding, removing, and moving identities after initial setup. Covers:
 
@@ -107,7 +121,7 @@ For adding, removing, and moving identities after initial setup. Covers:
 ## Recommended Order
 
 ```
-install.md → first_run.md → entity_exposure.md → cabinet_placement.md → oobe.md
+install.md → first_run.md → first_alert.md → entity_exposure.md → cabinet_placement.md → oobe.md
 ```
 
 Keep `troubleshooting.md` and `user_management.md` open in a tab. You might need them.

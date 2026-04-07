@@ -24,8 +24,8 @@
 # TRIGGER IDs (set these in trigger_subscriptions in your KFC drawer):
 #   alarm_panel           — security/alarm state changes
 #   mb_wake               — master bedroom occupancy change (Asleep → *)
-#   nathan_bed_changes    — occupant 1 in-bed sensor
-#   kim_bed_changes       — occupant 2 in-bed sensor
+#   default_user_bed_changes   — occupant 1 in-bed sensor
+#   secondary_user_bed_changes — occupant 2 in-bed sensor
 #   water_flow_stop       — water flow drops to zero
 #   hot_tub_state         — spa/hot tub state change
 #   elec_panel_door_change — electrical panel door open/close
@@ -75,7 +75,7 @@ automation:
       not_from:
       - unknown
       - unavailable
-      id: nathan_bed_changes
+      id: default_user_bed_changes
 
     - trigger: state
       entity_id:
@@ -84,7 +84,7 @@ automation:
       not_from:
       - unknown
       - unavailable
-      id: kim_bed_changes
+      id: secondary_user_bed_changes
 
     # -- Water flow --------------------------------------------------------------
     - trigger: state

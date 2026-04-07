@@ -179,18 +179,40 @@ The Scheduler ships with a standard set of triggers (time patterns, home mode ch
 
 But what if you want your component to summarize when *your* specific hardware does something — a Withings sleep sensor, a specific flow sensor, a custom device?
 
-Create a Home Assistant automation that fires when your hardware changes, and has it fire a `zen_event`:
+The recommended pattern is a dedicated trigger file per KFC. Keep it in your installer's custom packages directory (outside `packages/zenos_ai/` — it's personal, never commit it to the shared repo):
 
 ```yaml
-action:
-  - event: zen_event
-    event_data:
-      event:
-        kind: summary_force
-        component: your_kata_key
+# packages/your_family/kfc_trigger_<component>.yaml
+# ⚠️ PERSONAL FILE — DO NOT COMMIT TO REPO
+
+automation:
+  - id: 'YOUR_UNIQUE_ID'
+    alias: KFC Trigger — [Component Name]
+    description: >-
+      Fires a targeted force_summary for [component] on meaningful state changes.
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.your_entity_here
+        to: 'on'                      # alert_when_on: only dispatch on bad state
+        not_from: [unknown, unavailable]
+        for:
+          seconds: 5                  # debounce — adjust per entity
+
+    actions:
+      - event: zen_event
+        event_data:
+          event:
+            kind: summary_force
+            component: your_kata_key  # matches kata_key in the Dojo drawer
+
+    mode: queued
+    max: 3
 ```
 
-The core Scheduler picks that up as a targeted `force_summary` for your component. Your hardware drives the dispatch. No Scheduler YAML needed.
+The core Scheduler picks up `zen_event` with `kind: summary_force` as a targeted `force_summary` for your component. Your hardware drives the dispatch. No Scheduler YAML needed.
+
+One file per KFC that needs instant dispatch. KFCs that are fine with scheduled sweeps need no trigger file at all.
 
 ---
 
@@ -214,5 +236,5 @@ zen_dojotools_index → key: kung_fu → Dojo Cabinet
 
 ---
 
-*ZenOS-AI KF4 1.2.0 — 2026-03-20*
+*ZenOS-AI KF4 1.3.0 — 2026-04-06*
 *Source: Nyx (live system observation), Cayt (dev)*

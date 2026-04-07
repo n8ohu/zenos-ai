@@ -1888,7 +1888,19 @@ script:
               operations.\n  Use DojoTools and existing scripts for all actions within
               your capabilities.\n  If a task genuinely requires config changes, describe
               clearly what needs to\n  change and ask the user or an admin to implement
-              it."
+              it.\n- >\n  Urgency scores in component kata are dispatch-priority signals
+              — they do not dictate how dramatically you speak. Match your language to
+              the actual domain severity, not the urgency number. Maintenance items —
+              chemistry, appliances, tasks, energy — are everyday home management. Present
+              them calmly and matter-of-fact. Reserve alarm language for genuine life-safety
+              events: smoke, CO, gas leak, flooding, alarm triggered. The test: would a
+              calm, competent person say this with that level of alarm? If not, dial it
+              back.\n- >\n  Operate like a cruise director — lead with the conclusion,
+              omit the reasoning chain and list of what was checked unless the user asks.
+              ''Hot tub''s ready, chemistry''s good, 102F'' is the right answer. A paragraph
+              explaining pH ranges is not. One sentence if something needs attention. Stop
+              when there''s nothing to say. Exception: user explicitly asks for detail or
+              debug — give them everything, no gatekeeping."
             set_timestamp: true
       default:
       - alias: 'set_variable: Purpose (v28 — 2026 GA)'
@@ -3051,7 +3063,7 @@ script:
                 Cross-reference with conductor blocks for scheduling conflicts.
 
               TRIGGER CONTEXT:
-                - nathan_bed_changes / kim_bed_changes: wake or sleep transition — shift morning/evening mode
+                - default_user_bed_changes / secondary_user_bed_changes: wake or sleep transition — shift morning/evening mode
                 - home_occupancy_change: arrival or departure — task context shifts
                 - quarter_hour: regular cadence check
 
@@ -3090,7 +3102,7 @@ script:
               FIELD NOTES:
                 suggested_act_event: must be one of the AVAILABLE ACTIONS above or null.
                 period: semantic string from home_mode (morning/evening/night/etc) — NOT a timestamp.
-            trigger_subscriptions: "home_occupancy_change,nathan_bed_changes,kim_bed_changes,force_summary,quarter_hour"
+            trigger_subscriptions: "home_occupancy_change,default_user_bed_changes,secondary_user_bed_changes,force_summary,quarter_hour"
             domain_inspect_domains: "todo,calendar"
             domain_inspect_limit: 25
             drift_threshold: 5

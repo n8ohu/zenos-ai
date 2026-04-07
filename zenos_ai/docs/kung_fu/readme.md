@@ -1,4 +1,4 @@
-# Kung Fu Components — KF4 1.2.0
+# Kung Fu Components — KF4 1.3.0
 
 ### Structured Subsystem Definitions for the Dojo Cabinet
 
@@ -72,6 +72,9 @@ Run with `mode=schema` to get the live `kfc_template` from the Dojo cabinet.
 | `kata_key` | yes | Dojo drawer key where the Ninja writes this component's Kata |
 | `command` | no | Library command that activates this component (e.g. `~WATER~`). Omit for HyperIndex-only components. |
 | `tool` | no | Specific DojoTools tool this component uses, if any |
+| `emission_cooldown_minutes` | no | Minimum minutes between emissions for this component. Prevents notification spam on rapid-fire triggers. |
+| `drift_threshold` | no | Minimum urgency delta required to consider a kata change "significant" for emission gating. |
+| `suggested_act_event` | no | Slug of the action the AI should suggest in kata output (e.g. `zen_dojotools_notification_router`). `null` = no action. |
 | `master_switch` | deprecated | Legacy `input_boolean` gate. Replaced by `meta.enabled`. Honored by the Scheduler if present but no longer written by the KFC writer. |
 
 ### Standard Trigger IDs
@@ -142,4 +145,4 @@ Six others (`security_manager`, `taskmaster`, `room_manager`, `media_manager`,
 
 ---
 
-*Last updated: 2026-03-20 — KF4 1.2.0*
+*Last updated: 2026-04-06 — KF4 1.3.0*

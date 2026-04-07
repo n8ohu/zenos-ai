@@ -677,7 +677,7 @@ script:
 
       This tool is the DEFAULT notification channel unless asked otherwise.
 
-      ''Text The Boss'', ''Text PERSON''
+      ''Text The Admin'', ''Text PERSON''
 
       '
     mode: single
@@ -831,8 +831,8 @@ script:
             - Admin Devices
             - Family Devices
             - Family Devices (Verbose)
-            - Nathan's Phone
-            - Kim's Phone
+            - Default User Phone
+            - Secondary User Phone
             multiple: true
         name: Notification Targets
         description: REQUIRED - Where to send the notification... (Default - Admin Devices)
@@ -974,9 +974,9 @@ script:
             - data: '{{ message_data }}'
               action: notify.family_devices_verbose
           - conditions:
-            - alias: Nathan Phone
+            - alias: Default User Phone
               condition: template
-              value_template: '{{ repeat.item == "Nathan''s Phone" }}
+              value_template: '{{ repeat.item == "Default User Phone" }}
 
                 '
             - alias: Breakthrough Check
@@ -987,9 +987,9 @@ script:
             - data: '{{ message_data }}'
               action: notify.mobile_app_mjolnir_mk_xi
           - conditions:
-            - alias: Kim Phone
+            - alias: Secondary User Phone
               condition: template
-              value_template: '{{ repeat.item == "Kim''s Phone" }}
+              value_template: '{{ repeat.item == "Secondary User Phone" }}
 
                 '
             - alias: Breakthrough Check
