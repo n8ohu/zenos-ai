@@ -132,6 +132,6 @@ Ask your AI: "Run OOBE again" or "Re-do first-time setup." It will walk through 
 
 ## What's Next
 
-Once your home is set up, your AI has full context to be useful. The fastest next step is **[Your First Alert](first_alert.md)** — it walks you through enabling `alert_manager` and getting a real notification, which is the quickest way to see the full summarizer pipeline working end to end.
+Once your home is set up, your AI has full context to be useful. The fastest next step is **[Your First Alert](first_alert.md)** — it walks you through enabling `alert_manager` and getting a real notification, which is the quickest way to see the full KF4 action pipeline working end to end.
 
 After that, work through entity exposure and cabinet placement to finish configuring what your AI can see and how it reasons.

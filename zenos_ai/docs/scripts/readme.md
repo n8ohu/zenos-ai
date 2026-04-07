@@ -191,7 +191,7 @@ How to wire an HA automation that fires a component summarizer run on a real-wor
 **Type:** Technical Documentation
 
 **Summary:**
-The cognition pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
+The KF4 action pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 
 * **Ninja Summarizer** (`zen_dojotools_ninja_summarizer`) — per-component kata writer. Reads one KFC component's Dojo drawer, runs HyperIndex + library command, sends to AI monk, writes kata drawer.
 * **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. Reads all active kata drawers (gated by `meta.enabled`), sends to AI monk, writes `zen_summary` — the canonical home state that loads Friday's prompt.

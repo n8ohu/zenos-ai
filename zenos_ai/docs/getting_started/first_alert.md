@@ -2,7 +2,7 @@
 
 > **Version:** 2026.4.1 | **Last Updated:** April 2026
 
-*The fastest way to see ZenOS-AI's summarizer pipeline working end to end.*
+*The fastest way to see ZenOS-AI's action pipeline working end to end.*
 
 ---
 
@@ -102,7 +102,7 @@ Check your phone. That's the pipeline — all the way through.
 
 ## What's Next
 
-You've just seen the full KF4 summarizer loop: entity → label → Ninja → kata → notification.
+You've just seen the full KF4 action pipeline: entity → label → Ninja → kata → notification.
 
 Every other Kung Fu Component works the same way. To add more:
 

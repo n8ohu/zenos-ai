@@ -1,4 +1,4 @@
-# Understanding the Dojo, Kung Fu, and the Summarizer
+# Understanding the Dojo, Kung Fu, and the Action Pipeline
 
 ### A plain-language guide to ZenOS-AI KF4
 
@@ -14,7 +14,7 @@ It does this with three things working together:
 
 - **The Dojo** — where your home's intelligence is defined
 - **Kung Fu Components** — the definitions themselves
-- **The Summarizer pipeline** — the engine that reads those definitions and produces something Friday can actually reason from
+- **The action pipeline** — the engine that reads those definitions, synthesizes them, and acts on what it finds
 
 You don't need to touch the Scheduler. You don't need to write any code. You define a component, tag some entities, and the system wires itself.
 
