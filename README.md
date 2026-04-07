@@ -10,13 +10,15 @@ Let's automate everything that isn't nailed down.
 
 And a few things that are.
 
-**Current version: 2026.4.0 'Ectoplasm'**
+**Current version: 2026.4.1 'Action Jackson'**
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention — if you're already running HA, you already know this clock. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
 
+2026.4.1 'Action Jackson' shipped 2026-04-06 — two starter KFC guides (`alert_manager`, `taskmaster`), first-notification walkthrough, per-KFC trigger file convention, KF4 1.3.0 schema fields, tone directives, notification router install-agnostic, NYX-001 emission cooldown fix.
+
 2026.4.0 'Ectoplasm' shipped 2026-04-04 — new `zen_dojotools_ectoplasm` (Spook/HA extended surface: repairs, areas, floors, entity/device lifecycle, labels, integrations), Index 4.6.3 topology seeds + pagination + registry modes, Inspect 4.6.2 registry enum modes, Ninja run governor, Scribe 1.2.0.
 
-Full notes: [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md) | [2026.3.1 Patch Notes](zenos_ai/docs/releases/patch_4_5_6.md)
+Full notes: [Action Jackson Release Notes](zenos_ai/docs/releases/action_jackson.md) | [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md)
 
 ---
 
@@ -128,7 +130,7 @@ This layer binds **behavior to the definitions** established by Ring-0.
 Components include:
 
 • Zen DojoTools scripts  
-• the summarizer pipeline  
+• the KF4 action pipeline  
 • prompt compilation  
 • persona capsules  
 • the conversation agent interface  
@@ -395,9 +397,9 @@ Adding a new component requires no code changes and no Scheduler edits. Write a 
 
 ---
 
-# Summarizer Pipeline
+# KF4 Action Pipeline
 
-ZenOS-AI compresses system activity through a Dojo-driven summarization pipeline.
+ZenOS-AI compresses system activity through a Dojo-driven action pipeline.
 
 ```
 Trigger → Scheduler reads Dojo → Ninja Summarizer per KFC → Kata → SuperSummary → Friday
