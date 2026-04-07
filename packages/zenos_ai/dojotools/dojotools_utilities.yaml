@@ -985,7 +985,7 @@ script:
                 ) ) or ( breakthrough_allowed == ''on'' ) }}'
             sequence:
             - data: '{{ message_data }}'
-              action: notify.mobile_app_mjolnir_mk_xi
+              action: notify.default_user
           - conditions:
             - alias: Secondary User Phone
               condition: template
@@ -998,7 +998,7 @@ script:
                 ) ) or ( breakthrough_allowed == ''on'' ) }}'
             sequence:
             - data: '{{ message_data }}'
-              action: notify.mobile_app_kim_s_phone
+              action: notify.secondary_user
         for_each: '{{ notification_devices }}'
     - variables:
         result: '{%- set ns = namespace(d={}) %} {%- set ns.d = ns.d | combine({''action'':
