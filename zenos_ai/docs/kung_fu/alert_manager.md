@@ -1,6 +1,6 @@
 # Alert Manager — KFC Guide
 
-> **KF4 1.3.0** | ZenOS-AI 2026.4.1
+> **KF4 1.4.0** | ZenOS-AI 2026.4.1
 
 Alert Manager is ZenOS-AI's built-in alert component. It monitors entities tagged with the **`Alert Manager`** label, interprets their states, and dispatches notifications when something needs attention.
 
@@ -75,14 +75,28 @@ This file fires `zen_event` with `kind: summary_force`, which the core Scheduler
 
 ## Trigger Direction — alert_when_* Labels
 
-The AI needs to know which direction is bad for each entity. Two conventions — you can use them as HA labels on individual entities, or document them in the `component_summary`:
+The AI needs to know which direction is bad for each entity. Apply one of the `alert_when_*` modifier labels alongside `alert_manager`. The label name encodes the alert condition — no additional configuration needed.
 
-| Entity label | Meaning |
-|-------------|---------|
-| `alert_when_on` | ON is the concerning state. Tag: leak sensors, smoke detectors, fault sensors. |
-| `alert_when_off` | OFF is the concerning state. Tag: pumps that should always be running, valves that should always be open. |
+| Label | Nominal | Alert when | Use for |
+|-------|---------|------------|---------|
+| `alert_when_on` | off | state is `on`, `problem`, or `detected` | Leak sensors, smoke detectors, fault flags |
+| `alert_when_off` | on | state is `off` or `unavailable` | Pumps, valves, line power, services that must stay running |
+| `alert_when_not_off` | off | any non-`off` state (`on`, `open`, `triggered`, etc.) | Multi-state sensors where any non-idle reading is a problem |
+| `alert_when_under_N` | ≥ N | numeric state drops below N (extract N from slug) | Salt level, battery %, filter life, days remaining |
 
-Without these, the AI guesses — and sometimes gets it wrong. A shutoff valve "on" (open) is healthy. Without the label, it might look alarming.
+Each label carries a description that the Ninja Summarizer reads as authoritative context — you don't need to re-explain the condition in `component_summary`. The label IS the rule.
+
+Without a modifier label, an entity with `alert_manager` is treated as informational context — the AI reads it but won't flag it as a deviation unless the state is obviously wrong.
+
+### ZQ query shortcut
+
+To find all entities with any `alert_when_*` modifier label across all domains:
+
+```python
+{"label": "alert_manager", "label_regex": "^alert_when_"}
+```
+
+This returns every alert_manager entity that carries at least one modifier label — useful for auditing coverage.
 
 ---
 
@@ -123,24 +137,23 @@ For more on notification targets and quiet hours: [HA Notify Docs](https://www.h
 
 ## The component_summary Field
 
-The `component_summary` in the Dojo drawer is what the Ninja Summarizer reads when interpreting your entities. Be specific:
+The `component_summary` in the Dojo drawer describes the overall scope of what this component monitors. Keep it high-level — you don't need to re-explain each entity's alert condition here. The `alert_when_*` labels carry that context directly in their descriptions, and the Ninja Summarizer reads them per-entity.
 
-- What does "normal" look like for this subsystem?
-- What does "concerning" look like?
-- Which specific entities need special interpretation?
+Focus `component_summary` on:
+- What subsystems are covered
+- Severity tier groupings
+- Any cross-entity rules or escalation context
 
 Good example:
 
 ```
-Monitors household safety sensors. Key entities:
-- smoke_detector_kitchen (alert_when_on = smoke detected)
-- co_detector_basement (alert_when_on = CO detected)
-- water_sensor_basement (alert_when_on = water present)
-- valve_main_shutoff (alert_when_off = valve closed when it shouldn't be)
-Flag any on-state for smoke/CO/water as urgent. Flag shutoff valve off-state as urgent.
+Monitors household safety and infrastructure sensors across all subsystems.
+Severity tiers: critical (smoke/CO/leak/alarm), urgent (water valve, line power),
+warning (filter, salt, maintenance), information (grid state, appliance status).
+Surfaces active deviations; escalates via notification_router at urgency >= 5.
 ```
 
-The more specific you are, the less the AI has to guess.
+Per-entity semantics live in the `alert_when_*` labels — not here.
 
 ---
 
@@ -150,5 +163,5 @@ Tag any entity with the **`Alert Manager`** HA label. It's automatically include
 
 ---
 
-*ZenOS-AI KF4 1.3.0 — 2026-04-06*
+*ZenOS-AI KF4 1.4.0 — 2026-04-07*
 *Source: Nyx (live system observation), Cayt (dev)*

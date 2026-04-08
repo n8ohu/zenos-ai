@@ -1124,6 +1124,13 @@ script:
                   component: "{{- cab -}}"
                   severity: info
                   summary: "CabinetAdmin repair_mount: '{{ cab }}' forced to mounted (verified: {{ states(cab) == 'online_mounted' }})."
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_admintools_cabinetadmin
+                  severity: info
+                  summary: Manifest rebuild triggered by repair_mount.
           # ── repair_dismount — force meta.mounted: false (bypass state guards) ─
           - conditions:
             - condition: template
@@ -1145,6 +1152,13 @@ script:
                   component: "{{- cab -}}"
                   severity: info
                   summary: "CabinetAdmin repair_dismount: '{{ cab }}' forced to dismounted (verified: {{ states(cab) in ['online_unmounted', 'dismounted'] }})."
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_admintools_cabinetadmin
+                  severity: info
+                  summary: Manifest rebuild triggered by repair_dismount.
     # ── inspect — emit accumulated result after loop ─────────────────────────
     - if:
       - condition: template
@@ -1900,7 +1914,13 @@ script:
               ''Hot tub''s ready, chemistry''s good, 102F'' is the right answer. A paragraph
               explaining pH ranges is not. One sentence if something needs attention. Stop
               when there''s nothing to say. Exception: user explicitly asks for detail or
-              debug — give them everything, no gatekeeping."
+              debug — give them everything, no gatekeeping.\n- >\n  When asked for a
+              briefing, status check, or casual ''what''s up'' — synthesize from primed
+              context into warm narrative. Filter to what''s actually signal: something
+              needs attention, something changed, something is ready. Never enumerate
+              your context sources, list what you''re tracking, or itemize what was
+              primed. Speak the conclusion, not the inventory. Bullets are not voice —
+              a sentence is."
             set_timestamp: true
       default:
       - alias: 'set_variable: Purpose (v28 — 2026 GA)'
@@ -2216,9 +2236,10 @@ script:
                 environment: ZenOS-AI
                 version: 7.1.0
                 codename: True Voice
-                about: 'Cortex 32.0.0 — True Voice. Signal Frame + conversational richness
+                about: 'Cortex 32.1.0 — True Voice. Signal Frame + conversational richness
                   + tool hierarchy. Index, FileCabinet, and Scribe surfaced as the primary
-                  data layer. Brevity softened to let conversation breathe.'
+                  data layer. Brevity softened to let conversation breathe. Trailing
+                  offers and format meta-commentary suppressed.'
               cabinet_rules:
                 authority:
                   system: {write: false, agent: false, tools: false}
@@ -2301,6 +2322,8 @@ script:
                 - repeated confirmation for same intent
                 - confirmation after sufficient context exists
                 - confirmation for read-only or informational queries
+                - trailing 'if you want' or 'would you like' closers
+                - meta-commentary on output readability or format
               time_policy:
                 prefer_relative: [just now, a few minutes ago, about 15 minutes ago,
                   earlier this evening]
@@ -2356,6 +2379,9 @@ script:
                   - ask one clarifying question if intent is ambiguous
                   - max_clarifications: 1 — after one ask, proceed with best interpretation
                   - "'What time is it?' not 'How does the watch work?'"
+                  - say the thing and stop — when the response is complete it is complete;
+                    never append trailing offers ('if you want I can...', 'would you like
+                    me to...') and never add meta-commentary on output format or readability
                 fusion_model:
                   enabled: true
                   layers: [perception, instruction, context, memory]
@@ -2903,6 +2929,15 @@ script:
 
               Nominal report format: "ZenOS nominal. [N] components active. Last summary [X] min ago."
               Alert format: "ZenOS [warn|critical]: [specific issue]. [switch name|sensor name|cabinet name]."
+
+              MASTER SWITCH RULE:
+              ZenOS pipeline kill switches (zen_summarizers_enabled,
+              zen_ninja_summarizer_enabled, zen_supersummary_enabled, etc.) being OFF
+              IS a monitored deviation — flag it at priority 2 above.
+              Integration/subsystem master switches (Airspace, Grocy, media zones,
+              or any non-ZenOS feature enable) being off is an intentional user choice
+              — treat as informational only, max urgency contribution 1.
+              Distinguish by name: zen_* kill switches → flag. All others → informational.
             label: zen_system
             trigger_subscriptions: ha_start,daily_midnight
             caller_id: zen_admintools_zenos_prompt_loader
@@ -2930,48 +2965,127 @@ script:
             mode: new_thought
             key: alert_manager
             friendly_name: Alert Manager
-            label: alerts
-            version_semantic: "1.3.0"
+            label: alert_manager
+            version_semantic: "1.4.0"
             component_summary: >-
-              Monitors active HA persistent notifications, alert-producing entities,
-              and alert_when_off system switches; surfaces unacknowledged warnings
-              and escalation-worthy conditions across all subsystems.
+              Monitors label:alert_manager entities across all subsystems:
+              alert_when_off infrastructure (valves, line power, appliances, master switches),
+              alert_when_on/not_off condition sensors (safety, security, maintenance), and
+              informational context (grid state, system health, salt level, backups).
+              Severity tiers: critical/urgent/warning/information. Surfaces active deviations,
+              escalates via notification_router at configurable urgency thresholds.
             component_instructions: >-
-              You are reading the home alert surface. This component aggregates alerts from all subsystems.
+              You are reading the home alert surface. This component aggregates alerts
+              from all subsystems and determines whether action is required.
 
-              DATA SOURCES:
-              - label:alerts entities — all entities tagged as alert producers or alert routing endpoints
-              - label:alert_when_off entities — entities where OFF state = problem (master switches, key sensors)
-              - HA persistent_notifications (if available via state)
+              DATA ACCESS:
+                review_data.results[] — all labeled entities. Each entry has:
+                  entity_id: the HA entity
+                  friendly_name: human-readable name
+                  state: current state string
+                  attributes: entity attribute dict
+                  labels: dict {slug: description} — keys are label slugs applied to this
+                    entity, values are description strings (empty if no description set).
+                    Iterate keys for label membership; read value for authoritative semantics.
+                  last_changed: when state last changed (parse as string)
+                  domain: entity domain (binary_sensor, input_boolean,
+                    persistent_notification, etc.)
+                Persistent notifications: domain: persistent_notification.
+                  state: 'notifying' = active. attributes.message = text.
+                review_data.domain_context.home_mode — current home mode string.
+                review_data.domain_context.alarm — alarm panel state if available.
+                  States: disarmed / armed_home / armed_away / triggered / pending.
+
+              LABEL SEMANTICS:
+                The alert_when_* label family is self-describing — the label name encodes
+                the alert condition. Read the label, apply the rule.
+                If a label's description value is non-empty, it is authoritative — prefer
+                it over the inline semantics below.
+
+                Binary state labels:
+                  alert_when_off — NOMINAL when ON. Flag if state is 'off' or 'unavailable'.
+                  alert_when_on — NOMINAL when OFF. Flag if state is 'on', 'problem', or 'detected'.
+                  alert_when_not_off — NOMINAL when OFF. Flag if state is anything other than 'off'.
+
+                Numeric threshold labels (pattern: alert_when_under_N):
+                  alert_when_under_N — NOMINAL when numeric state >= N. Flag when state
+                    (parsed as float) drops below N. Extract N from the label slug.
+                    If not numeric, treat as deviation.
+
+                alert_manager — scope label. No alert condition encoded. Entities without
+                  an alert_when_* label are informational context only.
+
+                Severity modifiers (may appear alongside alert_when_*):
+                  critical — safety class. Immediate escalation. Smoke, CO, leaks, alarms.
+                  urgent   — high priority. Fast response needed.
+                  warning  — moderate priority. Investigate.
+                  information — state awareness only. No action required.
 
               TRIAGE PRIORITY:
-              1. Safety alerts first: fire, CO, leak, security breach
-              2. System health: master switches that are off unexpectedly
-              3. Maintenance: overdue tasks, low supplies, scheduled items missed
-              4. Informational: low-priority FYIs
+                1. Safety: fire, CO, gas, water leak, security breach, alarm triggered
+                2. System health: alert_when_off infrastructure unexpectedly off
+                3. Condition alerts: alert_when_on or alert_when_not_off sensors active
+                4. Numeric threshold alerts: alert_when_under_N entities below threshold
+                5. Persistent notifications: unacknowledged HA notifications
+                6. Informational: low-priority FYIs, context-only entities
 
               URGENCY RULES:
-              - Any safety alert active -> urgency: 9
-              - 3+ alert_when_off entities in OFF state -> urgency: 6
-              - 1-2 alert_when_off entities off -> urgency: 4 (check if intentional)
-              - No active alerts -> urgency: 1
+                - Alarm triggered OR label:critical entity deviating -> urgency: 9
+                - label:critical alert_when_on/not_off active -> urgency: 8
+                - 3+ alert_when_off entities in OFF/unavailable state -> urgency: 6
+                - label:urgent entity deviating -> urgency: 5
+                - 1-2 alert_when_off entities off, label:warning -> urgency: 4
+                - alert_when_under_N entity below threshold, label:warning -> urgency: 4
+                - label:information deviating, OR persistent_notifications only -> urgency: 3
+                - alert_when_under_N entity below threshold, label:information -> urgency: 3
+                - All entities nominal, no notifications -> urgency: 1
+                Use highest individual score when multiple deviations exist.
 
-              FOR alert_when_off entities:
-              These entities are NOMINAL when ON and PROBLEMATIC when OFF.
-              An entity in OFF state should be flagged unless it's in a known maintenance window.
-              Cross-reference home_mode — 'away' or 'sleep' modes may justify some switches being off.
+              TRIGGER CONTEXT:
+                hourly_trigger — routine scan. Emit if urgency >= 3.
+                daily_midnight — full audit. Always emit. Flag chronic (> 24h) deviations.
+                home_mode_updates — re-evaluate. 'away'/'sleep': some off states legitimate.
+                  Safety-class alerts never suppressed by mode.
+                alarm_panel — always evaluate. triggered: urgency 9, action_required true.
+                force_summary — on-demand. Emit regardless of recency.
+                ha_start — full scan. Treat unavailable as cautionary, not definitive.
 
-              ATTENTION: List each active alert with entity friendly_name and current state.
-              Do not list entities that are ON/nominal — only deviations.
+              OUTPUT FORMAT:
+                List only active deviations. For each include: friendly_name, entity_id,
+                current state, duration (from last_changed), severity class.
+                If no deviations: state all monitored entities are nominal.
+
+              ESCALATION RULES:
+                IMMEDIATE (notify this cycle): alarm triggered, safety sensor active, urgency >= 8.
+                TRANSIENT (hold notification): last_changed < 10 min — mark 'newly triggered'.
+                  last_changed >= 10 min: confirmed deviation.
+                MODE-AWARE THRESHOLD:
+                  home: notify at urgency >= 5.
+                  away/sleep: notify at urgency >= 6 for non-safety.
+                  Safety-class: always urgency >= 8 regardless of mode.
+                DURATION SEVERITY:
+                  > 1 hour: persistent — state duration in output.
+                  > 24 hours: chronic — flag at daily_midnight.
 
               AVAILABLE ACTIONS (suggested_act_event):
-                Valid values — use ONLY these, no others:
-                  zen_dojotools_notification_router — deliver an urgent alert brief to household admin.
-                    Use when: action_required is true AND urgency >= 5 AND a safety or system alert
-                    requires immediate human awareness.
-                  null — no action. Use when action_required is false OR urgency < 5.
+                zen_dojotools_notification_router — deliver urgent alert brief to admin.
+                  Use when: action_required true AND urgency meets mode-aware threshold
+                  AND deviation confirmed (last_changed >= 10 min) OR IMMEDIATE criteria met.
+                null — urgency below threshold, deviation transient, or action_required false.
                 DO NOT invent or use any other slug. If unsure, use null.
-            trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel"
+
+              MASTER SWITCH RULE:
+                Subsystem master switches (input_boolean or switch entities that enable/
+                disable an integration or feature) being in state 'off' is an intentional
+                user choice, NOT a deviation requiring action.
+                - Max urgency contribution from any master switch in 'off' state: 1
+                - Never set action_required based solely on a master switch being off
+                - Never notify based on a master switch being off
+                - Treat as informational context only regardless of alert_when_* label
+                If a SAFETY-CLASS entity (smoke, CO, leak, alarm) happens to be
+                implemented as a master switch, the safety rule wins — this exception
+                applies to integration/subsystem enable switches only.
+            trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel,force_summary"
             drift_threshold: 5
             emission_cooldown_minutes: 30
             suggested_act_event: zen_dojotools_notification_router
@@ -3102,6 +3216,16 @@ script:
               FIELD NOTES:
                 suggested_act_event: must be one of the AVAILABLE ACTIONS above or null.
                 period: semantic string from home_mode (morning/evening/night/etc) — NOT a timestamp.
+
+              MASTER SWITCH RULE:
+                Subsystem master switches (input_boolean or switch entities that enable/
+                disable an integration or feature) being in state 'off' is an intentional
+                user choice, NOT a deviation requiring action.
+                - Max urgency contribution from any master switch in 'off' state: 1
+                - Never set action_required based solely on a master switch being off
+                - Never notify based on a master switch being off
+                - Treat as informational context only regardless of any alert_when_* label
+                Safety-class entities always override this rule.
             trigger_subscriptions: "home_occupancy_change,default_user_bed_changes,secondary_user_bed_changes,force_summary,quarter_hour"
             domain_inspect_domains: "todo,calendar"
             domain_inspect_limit: 25

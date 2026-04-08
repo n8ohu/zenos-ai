@@ -334,6 +334,156 @@ automation:
 
 
   #####################################################################
+  # zen_identity_manifest_router — Manifest rebuild on cabinet change
+  #
+  # v1.0.0 (ZenOS-AI 4.5.8)
+  #
+  # Listens for zen_event(kind: identity_manifest_rebuild) fired by:
+  #   - zen_dojotools_provisioner (provision + deprovision)
+  #   - zen_admintools_cabinetadmin (repair_mount + repair_dismount)
+  # Routes to zen_dojotools_manifest to rebuild zen_library_manifest in
+  # the household cabinet.
+  #
+  # Fire-and-forget. Queued — provision → deprovision flows serialize.
+  #####################################################################
+
+  - id: zen_identity_manifest_router
+    alias: Zen Identity Manifest Router
+    description: >-
+      Zen Identity Manifest Router 1.0.0. Listens for
+      zen_event(kind: identity_manifest_rebuild) and calls
+      zen_dojotools_manifest to rebuild zen_library_manifest.
+      Queued — provision/deprovision sequences serialize cleanly.
+    mode: queued
+    max: 20
+
+    triggers:
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: identity_manifest_rebuild
+
+    actions:
+      - action: script.zen_dojotools_manifest
+        data:
+          show_hidden: false
+          show_stacks: false
+          extended: false
+          caller_token: identity_manifest_router
+        response_variable: _result
+
+
+  #####################################################################
+  # zen_label_mutation_router — Compact index rebuild on label change
+  #
+  # v1.0.0 (ZenOS-AI 4.5.8)
+  #
+  # Listens for zen_event(kind: label_mutation) fired by zen_dojotools_labels
+  # on any successful write (create/delete/tag/untag/update/reset/install).
+  # Routes to zen_dojotools_index (mode: build_compact_index) to rebuild
+  # _compact_index in the household cabinet.
+  #
+  # Fire-and-forget — no correlation_id or return event.
+  # mode: queued so rapid multi-label ops serialize, not storm the cabinet.
+  #####################################################################
+
+  - id: zen_label_mutation_router
+    alias: Zen Label Mutation — Compact Index Router
+    description: >-
+      Zen Label Mutation Router 1.0.0. Listens for zen_event(kind: label_mutation)
+      and triggers zen_dojotools_index (mode: build_compact_index) to rebuild
+      _compact_index. Fire-and-forget. Queued so burst label ops don't race each other.
+    mode: queued
+    max: 20
+
+    triggers:
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: label_mutation
+
+    actions:
+      - action: script.zen_dojotools_index
+        data:
+          mode: build_compact_index
+          caller_token: label_mutation_router
+        response_variable: _result
+
+
+  #####################################################################
+  # zen_laundry_flag_resumm — Re-summarize laundry_manager on flag change
+  #
+  # v1.0.0 (ZenOS-AI 4.5.8)
+  #
+  # Triggers when any laundry boolean flag changes state. Waits 2 minutes
+  # for state to settle, then fires ninja_summarizer for laundry_manager
+  # so Friday has current context immediately after flag transitions.
+  #
+  # mode: restart — if flags toggle again during the wait, the timer
+  # resets. One resumm fires after the last change settles.
+  #####################################################################
+
+  - id: zen_laundry_flag_resumm
+    alias: Zen Laundry Flag — Resummarize
+    description: >-
+      Re-summarizes laundry_manager 2 minutes after any laundry boolean
+      flag changes. Ensures kata reflects current flag state without
+      waiting for the next scheduled ninja run.
+    mode: restart
+
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.washing_machine_loaded
+          - input_boolean.waiting_for_washing_machine
+          - input_boolean.dryer_loaded
+
+    actions:
+      - delay: "00:02:00"
+      - action: script.zen_dojotools_ninja_summarizer
+        data:
+          kung_fu_component_id: laundry_manager
+          post_to_kata_cabinet: true
+          caller_token: laundry_flag_resumm
+
+
+  #####################################################################
+  # zen_dishwasher_flag_resumm — Re-summarize dishwasher_manager on flag change
+  #
+  # v1.0.0 (ZenOS-AI 4.5.8)
+  #
+  # Triggers when any dishwasher boolean flag changes state. Waits 2 minutes
+  # then fires ninja_summarizer for dishwasher_manager.
+  #
+  # mode: restart — timer resets on each flag change, one resumm after settle.
+  #####################################################################
+
+  - id: zen_dishwasher_flag_resumm
+    alias: Zen Dishwasher Flag — Resummarize
+    description: >-
+      Re-summarizes dishwasher_manager 2 minutes after any dishwasher boolean
+      flag changes. Ensures kata reflects current flag state without waiting
+      for the next scheduled ninja run.
+    mode: restart
+
+    triggers:
+      - trigger: state
+        entity_id:
+          - input_boolean.dishwasher_loaded
+          - input_boolean.dishwasher_load_complete
+
+    actions:
+      - delay: "00:02:00"
+      - action: script.zen_dojotools_ninja_summarizer
+        data:
+          kung_fu_component_id: dishwasher_manager
+          post_to_kata_cabinet: true
+          caller_token: dishwasher_flag_resumm
+
+
+  #####################################################################
   # zen_dojotool_tool_router — Second-dimension generic dispatch
   #
   # v1.0.0 (ZenOS-AI 4.5.7)

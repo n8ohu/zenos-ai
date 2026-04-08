@@ -114,7 +114,7 @@ Expose this to your conversation agent — Friday can then help you configure yo
 
 ---
 
-## **4. Zen DojoTools Labels — 4.1.0**
+## **4. Zen DojoTools Labels — 4.6.0**
 
 **File:** `zen_dojotools_labels_readme.md`
 **Type:** Technical Documentation
@@ -127,6 +127,7 @@ Core primitive for label CRUD and entity tagging. Backbone of the label index th
 * `read` — full index or filtered by label/entity
 * `tag` / `untag` — assign or remove labels from entities
 * `reset` — soft reset: wipe all entity assignments from every `zen_` label (labels survive); fires `zen_resolver_refresh`
+* All 7 mutating actions emit `zen_event(kind: label_mutation)` on success — triggers `zen_label_mutation_router` to rebuild `_compact_index` in the household cabinet automatically
 
 `new_description`, `new_icon`, `new_color` params available on `create` and `update`. Label descriptions travel inline in every Inspect call as `{slug: description}` — annotate labels at creation time.
 
@@ -376,7 +377,7 @@ If any drawer changes anywhere in ZenOS-AI, it happened through FileCabinet.
 
 ---
 
-## **17. Zen DojoTools Manifest — 4.5.5 'Ready Player Two'**
+## **17. Zen DojoTools Manifest — 4.5.8**
 
 **File:** `zen_dojotools_manifest_readme.md`
 **Type:** Technical Documentation
@@ -384,6 +385,7 @@ If any drawer changes anywhere in ZenOS-AI, it happened through FileCabinet.
 **Summary:**
 The runtime-only Cabinet manifest scanner.
 Builds a complete, zero-persistence health and metadata model for every Cabinet Volume.
+`mode: queued, max: 20` — burst-safe for provision/deprovision sequences. Write path migrated to `script.zen_dojotools_filecabinet`.
 
 Provides:
 

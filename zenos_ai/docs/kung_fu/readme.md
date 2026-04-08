@@ -1,4 +1,4 @@
-# Kung Fu Components — KF4 1.3.0
+# Kung Fu Components — KF4 1.4.0
 
 ### Structured Subsystem Definitions for the Dojo Cabinet
 
@@ -6,10 +6,10 @@ Kung Fu Components (KFCs) define *how each major subsystem in your home works*.
 They live as drawers inside the **Dojo Cabinet** and drive the Scheduler,
 the Ninja Summarizer, and Friday's reasoning.
 
-**KF4 1.2.0 invariants:**
+**KF4 1.3.0 invariants:**
 
 - **Drawer IS the spec** — the Dojo drawer is the single source of truth for the component
-- **Label IS the scope** — the HA label defines which entities belong to the component
+- **Label IS the scope** — the HA label defines which entities belong to the component. Modifier labels (e.g. `alert_when_on`, `alert_when_off`, `alert_when_under_N`) extend this — the label name itself encodes per-entity semantics, readable by the Ninja without any component_summary explanation.
 - **HyperIndex IS the data layer** — no hardcoded entity lists; the index traverses the label graph
 
 ---
@@ -145,4 +145,4 @@ Six others (`security_manager`, `taskmaster`, `room_manager`, `media_manager`,
 
 ---
 
-*Last updated: 2026-04-06 — KF4 1.3.0*
+*Last updated: 2026-04-08 — KF4 1.4.0*

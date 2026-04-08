@@ -48,9 +48,18 @@ To find your phone's notify service name: **Developer Tools → Services**, filt
 
 Pick one entity you want `alert_manager` to watch. A good first choice: a smoke detector, door sensor, or any binary sensor where "on" means something's wrong.
 
-In HA's entity registry, add the label **`Alert Manager`** to that entity.
+In HA's entity registry, add two labels to that entity:
 
-That's it. No code. The HyperIndex resolves the label automatically — Step 4 fires the first run manually so you don't have to wait for a scheduled sweep.
+1. **`Alert Manager`** — puts the entity in scope
+2. An **`alert_when_*`** modifier — tells the AI which direction is the alert condition:
+   - `alert_when_on` — ON is bad (leak sensors, smoke detectors, fault flags)
+   - `alert_when_off` — OFF is bad (pumps, valves, services that must stay running)
+   - `alert_when_not_off` — any non-off state is bad (multi-state sensors)
+   - `alert_when_under_N` — numeric value below N is bad (e.g. `alert_when_under_24` for salt lbs)
+
+Without a modifier label, the entity is treated as informational context — the AI reads it but won't flag it as a deviation.
+
+No code needed. The HyperIndex resolves labels automatically — Step 4 fires the first run manually so you don't have to wait for a scheduled sweep.
 
 ---
 

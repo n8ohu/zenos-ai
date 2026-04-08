@@ -321,7 +321,7 @@ script:
         cab: >
           {%- set raw = cab_json | trim -%}
           
-          {-# 0. Empty/None → valid empty result -#}
+          {#- 0. Empty/None → valid empty result -#}
           {%- if raw in ['', None] -%}
             {{- {'result': [], 'error': 'empty_input'} | tojson -}}
           
@@ -514,6 +514,13 @@ script:
                       'caller_token':      caller_token | default('')
                     }
                   -}}
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_dojotools_identity
+                  severity: info
+                  summary: Manifest rebuild triggered by build_identity_manifest.
             - stop: Identity manifest written
               response_variable: response
 
@@ -1144,6 +1151,13 @@ script:
                 member_name: "{{- _mem_name -}}"
                 member_type: "{{- member_type -}}"
                 prompt_profile_update: true
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_dojotools_identity
+                  severity: info
+                  summary: Manifest rebuild triggered by set_principal.
             - stop: Principal set
               response_variable: response
 
@@ -1616,14 +1630,22 @@ script:
                   -}}
             - event: zen_event
               event_data:
-                kind: partner_linked
-                entity_a: "{{- member_entity -}}"
-                name_a: "{{- _a_name -}}"
-                type_a: "{{- _a_type -}}"
-                entity_b: "{{- ai_entity -}}"
-                name_b: "{{- _b_name -}}"
-                type_b: "{{- _b_type -}}"
-                prompt_profile_update: true
+                event:
+                  kind: partner_linked
+                  entity_a: "{{- member_entity -}}"
+                  name_a: "{{- _a_name -}}"
+                  type_a: "{{- _a_type -}}"
+                  entity_b: "{{- ai_entity -}}"
+                  name_b: "{{- _b_name -}}"
+                  type_b: "{{- _b_type -}}"
+                  prompt_profile_update: true
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_dojotools_identity
+                  severity: info
+                  summary: Manifest rebuild triggered by link_partners.
             - stop: User-AI link established
               response_variable: response
 
@@ -1698,12 +1720,13 @@ script:
                 set_timestamp: true
             - event: zen_event
               event_data:
-                kind: partner_unlinked
-                entity_a: "{{- member_entity -}}"
-                name_a: "{{- _a_name -}}"
-                entity_b: "{{- ai_entity -}}"
-                name_b: "{{- _b_name -}}"
-                prompt_profile_update: true
+                event:
+                  kind: partner_unlinked
+                  entity_a: "{{- member_entity -}}"
+                  name_a: "{{- _a_name -}}"
+                  entity_b: "{{- ai_entity -}}"
+                  name_b: "{{- _b_name -}}"
+                  prompt_profile_update: true
             - variables:
                 response: >
                   {{-
@@ -1718,6 +1741,13 @@ script:
                       'caller_token': caller_token | default('')
                     }
                   -}}
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_dojotools_identity
+                  severity: info
+                  summary: Manifest rebuild triggered by unlink_partners.
             - stop: Partners unlinked
               response_variable: response
 
@@ -1777,6 +1807,13 @@ script:
                       'caller_token':   caller_token | default('')
                     }
                   -}}
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_dojotools_identity
+                  severity: info
+                  summary: Manifest rebuild triggered by set_default_family.
             - stop: Default family set
               response_variable: response
 
