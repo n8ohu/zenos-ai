@@ -364,13 +364,10 @@ script:
                         {%- endfor -%}
                       {%- endif -%}
                       {{ ns.stale }}
-                    #_vol_info_raw: >-
-                    #  {%- set _vi = cab_drawers.get('AI_Cabinet_VolumeInfo', {}) -%}
-                    #  {%- set _v1 = _vi.get('value', _vi) if _vi is mapping else {} -%}
-                    #  {{ _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) }}
                     _vol_info_raw: >-
                       {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                       {%- set _val = CABS.cabinet_drawer_value(current_cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                      {{ _val }}
                     _cab_flags: >-
                       {{ _vol_info_raw.get('flags', {}) }}
                     gc_flag_present: >-
