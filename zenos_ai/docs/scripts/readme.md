@@ -53,6 +53,9 @@ Guided authoring and lifecycle management for KF4 artifacts. Fully MCP-exposed �
 * Non-destructive by default — `patch` preserves existing content; `replace`, `clear`, `delete`, and `publish_kfc` all require explicit confirmation
 * Component group model — one corpus, multiple component views, shared clock and labelset
 * Self-indexing and drawer feedback loop guards built in
+* `read` response includes `schedules_summary` — `{count, kata_keys}` for KFCs with sub-schedule entries; avoids raw JSON trawl to inspect schedule structure
+* `patch` merges `schedules[]` by `kata_key` (upsert) — add or update individual schedule entries without overwriting the full array
+* `publish_kfc` preserves the `schedules` array — was silently dropped before v1.3.0
 
 A capable LLM can run the full authoring loop — scope a domain, draft the component, refine iteratively, formalize, and publish to the Dojo — without operator intervention beyond initial label design. `zen_dojotools_kungfu_writer` is retired; Scribe is the replacement.
 
@@ -199,6 +202,8 @@ The KF4 action pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 * **Run governor** — dedup burnout window prevents duplicate runs within a configurable window (`zen_ninja_config.burnout_seconds`, default 300s). Bypass with `force: true`.
 * Three kill switches: master (`zen_summarizers_enabled`), ninja, supersummary — **all default off** (ship disabled; enable after verifying AI task entity points at a local model — cost risk if pointed at a paid API)
 * Auto-refire on re-enable via `zen_pipeline_autofire_on_enable`
+* `index_call_override` — optional JSON string; replaces the dojo drawer's `index_call` for one run. Used by the Scheduler for per-schedule sub-runs where each schedule entry defines its own HyperIndex query.
+* `parent_component_id` — optional; when running as a sub-schedule, load dojo drawer + component instructions from the parent KFC instead of the sub-schedule's own slug.
 
 > **Warning:** Do not point the AI task entity at a paid inference API — the pipeline fires multiple times per hour. Use a local model.
 

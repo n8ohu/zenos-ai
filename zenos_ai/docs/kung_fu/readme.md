@@ -71,6 +71,7 @@ Run with `mode=schema` to get the live `kfc_template` from the Dojo cabinet.
 | `delay_seconds` | yes | Seconds to delay after trigger (0 = immediate; used for ordering) |
 | `kata_key` | yes | Dojo drawer key where the Ninja writes this component's Kata |
 | `command` | no | Library command that activates this component (e.g. `~WATER~`). Omit for HyperIndex-only components. |
+| `schedules` | no | List of sub-schedule entries. Each entry has `kata_key` (string) and `index_call` (mapping). When present, the Scheduler expands the component into one Ninja run per schedule entry instead of a single run. A targeted `force_summary` with `schedule: <kata_key>` fires only the matching entry. |
 | `tool` | no | Specific DojoTools tool this component uses, if any |
 | `emission_cooldown_minutes` | no | Minimum minutes between emissions for this component. Prevents notification spam on rapid-fire triggers. |
 | `drift_threshold` | no | Minimum urgency delta required to consider a kata change "significant" for emission gating. |

@@ -1139,7 +1139,7 @@ script:
           data:
             action_type: read
             volume_entity_id: "{{- states('sensor.zen_dojo_cabinet_resolved') -}}"
-            label_targets: "{{- label_targets_input | join('','') -}}"
+            label_targets: "{{- label_targets_input | join(',') -}}"
             caller_token: "{{- caller_token -}}"
           response_variable: _fc_label_response
         - variables:
@@ -1484,8 +1484,9 @@ script:
         _ci_entry: >
           {%- set e = _ci_vars.get('_compact_index') if _ci_vars is mapping else none -%} 
           {{- e if e is mapping else {} -}}
-        _ci_val: >
-          {%- set v = _ci_entry.get('value') if _ci_entry is mapping else none -%} 
+        _ci_val: >-
+          {%- set v = _ci_entry.get('value') if _ci_entry is mapping else none -%}
+          {%- set v = v | from_json({}) if v is string else v -%}
           {{- v if v is mapping else {} -}}
         _ci_generated: "{{- _ci_val.get('generated', '') if _ci_val is mapping else '' -}}"
         compact_index_stale: >
@@ -1529,7 +1530,9 @@ script:
               status: "{{- _ci_write.get('status', 'error') if _ci_write is mapping else 'error' -}}"
               message: Compact label index built.
               generated: "{{- now().isoformat() -}}"
-              labels: "{{- (compact_index_value | from_json).get('labels', []) -}}"
+              label_count: >-
+                {%- set _v = compact_index_value if compact_index_value is mapping else (compact_index_value | from_json({})) -%}
+                {{- _v.get('labels', []) | length -}}
         - stop: Compact index built
           response_variable: final_response
     - alias: Compact Index Staleness Trap

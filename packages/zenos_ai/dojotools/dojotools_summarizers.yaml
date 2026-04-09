@@ -351,9 +351,7 @@ script:
         variables:
           zen_summary: >-
             {%- set ns = namespace(raw=monk_response.data | default('') | string | trim) -%}
-            {%- if ns.raw[:7] == '```json' -%}{%- set ns.raw = ns.raw[7:] | trim -%}{%- endif -%}
-            {%- if ns.raw[:3] == '```' -%}{%- set ns.raw = ns.raw[3:] | trim -%}{%- endif -%}
-            {%- if ns.raw[-3:] == '```' -%}{%- set ns.raw = ns.raw[:-3] | trim -%}{%- endif -%}
+            {%- set ns.raw = ns.raw | regex_replace('^```[a-zA-Z]*\n?', '') | regex_replace('\n?```$', '') | trim -%}
             {{ ns.raw }}
 
       # ── 8a. Compute run duration ──────────────────────────────────────────
@@ -514,6 +512,24 @@ script:
         required: false
         selector:
           boolean:
+      index_call_override:
+        name: Index Call Override
+        description: >-
+          Optional JSON string. When set, replaces the dojo drawer's index_call
+          for this run. Used by the scheduler for per-schedule sub-runs where
+          each schedule has its own HyperIndex query (e.g. room_manager schedules).
+        required: false
+        selector:
+          text:
+      parent_component_id:
+        name: Parent Component ID
+        description: >-
+          Optional. When running as a sub-schedule, the parent KFC slug whose
+          dojo drawer provides component_instructions and metadata. When set,
+          dojo drawer loads from parent_component_id instead of component_slug.
+        required: false
+        selector:
+          text:
 
     sequence:
       # --------------------------------------------------------------
@@ -568,12 +584,15 @@ script:
           monk_response: {}
           filecabinet_response: {}
           component_slug: "{{ kung_fu_component_id | slugify | default('kung_fu') }}"
+          _parent_slug: "{{ parent_component_id | default('', true) | slugify }}"
+          _index_override_raw: "{{ index_call_override | default('', true) }}"
 
       # ── 2. Read dojo + household drawers ──────────────────────────────────
       - alias: Read dojo drawer
         variables:
           dojo_drawer: >-
-            {{ (state_attr(dojo_cabinet, 'variables') or {}).get(component_slug, {}) }}
+            {%- set _key = _parent_slug if _parent_slug | trim != '' else component_slug -%}
+            {{ (state_attr(dojo_cabinet, 'variables') or {}).get(_key, {}) }}
           household_drawer: >-
             {{ (state_attr(household_cabinet, 'variables') or {}).get(component_slug, {}) }}
 
@@ -624,9 +643,15 @@ script:
             {%- set _ecm = _ecm if _ecm is not none else (dojo_drawer_value.emission_cooldown_minutes | default(none)) -%}
             {{ _ecm | int if _ecm is not none else 60 }}
           index_call: >-
-            {%- set _ic = (dojo_drawer.index_call | default(none)) -%}
-            {%- set _ic = _ic if _ic is not none else (dojo_drawer_value.index_call | default(none)) -%}
-            {{ _ic if _ic is mapping else {} }}
+            {%- set _ior = _index_override_raw | default('', true) | trim -%}
+            {%- if _ior != '' -%}
+              {%- set _parsed = (_ior | from_json) if _ior is string else _ior -%}
+              {{ _parsed if _parsed is mapping else {} }}
+            {%- else -%}
+              {%- set _ic = (dojo_drawer.index_call | default(none)) -%}
+              {%- set _ic = _ic if _ic is not none else (dojo_drawer_value.index_call | default(none)) -%}
+              {{ _ic if _ic is mapping else {} }}
+            {%- endif -%}
           meta_enabled: >-
             {%- set _meta = (dojo_drawer.meta | default(none)) -%}
             {%- set _meta = _meta if _meta is not none else (dojo_drawer_value.meta | default(none)) -%}
