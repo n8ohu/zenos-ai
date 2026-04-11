@@ -17,7 +17,7 @@
 # FACTORY KFCs (auto-deploy in factory mode, manual opt-in in deploy mode):
 #   zen_system      v1.1.0        — pipeline health watchdog
 #   alert_manager   v1.4.0        — alert surface aggregator
-#   taskmaster      v1.3.1        — task/calendar conductor
+#   taskmaster      v1.3.2        — task/calendar conductor
 #   trapper_keeper  v2.4.0        — ambient index aggregator
 #
 # OPTIONAL KFCs (deploy mode, manual opt-in only — never auto-shipped):
@@ -211,7 +211,7 @@ script:
                     "kfcs": {
                       "zen_system":     {"deployed": zs_dep, "version": zs_ver, "target": "1.1.0",       "version_match": zs_ver == "1.1.0",                   "factory": true},
                       "alert_manager":  {"deployed": am_dep, "version": am_ver, "target": "1.4.0",       "version_match": am_ver == "1.4.0",                   "factory": true},
-                      "taskmaster":     {"deployed": tm_dep, "version": tm_ver, "target": "1.3.1",       "version_match": tm_ver == "1.3.1",                   "factory": true},
+                      "taskmaster":     {"deployed": tm_dep, "version": tm_ver, "target": "1.3.2",       "version_match": tm_ver == "1.3.2",                   "factory": true},
                       "trapper_keeper": {"deployed": tk_dep, "version": tk_ver, "target": "2.4.0",       "version_match": tk_ver == "2.4.0",                   "factory": true},
                       "room_manager":   {"deployed": rm_dep, "version": rm_ver, "target": "1.3.1",       "version_match": rm_ver == "1.3.1",                   "factory": false}
                     }
@@ -445,12 +445,12 @@ script:
               key: taskmaster
               friendly_name: Taskmaster
               label: taskmaster
-              version_semantic: "1.3.1"
+              version_semantic: "1.3.2"
               component_summary: >-
                 Monitors household task load and personal context — calendar events,
                 bed state transitions, occupancy changes, and to-do items — surfacing
                 scheduling conflicts, morning briefing cues, and overdue tasks.
-                Friday's Personal Task List is the primary schedule conductor.
+                The entity labeled 'schedule' is the primary schedule conductor.
               component_instructions: >-
                 SCOPE: Task and calendar monitoring for household members.
                   Member identities from family cabinet.
@@ -479,12 +479,16 @@ script:
                     - due: today AND scheduled time in subject has already passed.
                   Do not flag same-day future-window tasks as incomplete or overdue.
 
-                PRIMARY CONDUCTOR: todo.friday_s_personal_task_list (label: schedule)
-                  NOT a data source — the meta-layer schedule driver. Each item represents
-                  a scheduled activity block (summary: time window name, description: RRULE +
-                  references to domain todo lists, due: scheduled time for this block).
+                PRIMARY CONDUCTOR: the entity in results[] whose labels include 'schedule'
+                  NOT a data source — the meta-layer schedule driver. Find it by scanning
+                  results[] for the entity whose labels dict contains key 'schedule'.
+                  Each item represents a scheduled activity block (summary: time window
+                  name, description: RRULE + references to domain todo lists, due:
+                  scheduled time for this block).
                   READ THIS FIRST. Match active items to the current period — they tell you
                   WHICH domain lists are relevant right now.
+                  If no conductor entity found: surface upcoming/overdue items from all
+                  labeled todo entities directly and note conductor not configured.
 
                 DATA SOURCES (domain todo lists — read based on conductor signal):
                   label: daily   — household_chores, primary_user_health_tasks (recurring daily)
@@ -525,6 +529,7 @@ script:
                   Max urgency contribution: 1. Never set action_required solely on a switch being off.
                   Safety-class entities always override this rule.
               trigger_subscriptions: "home_occupancy_change,default_user_bed_changes,secondary_user_bed_changes,force_summary,quarter_hour"
+              expand_entities: "true"
               domain_inspect_domains: "todo,calendar"
               domain_inspect_limit: 25
               drift_threshold: 5
