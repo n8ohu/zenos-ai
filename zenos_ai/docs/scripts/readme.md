@@ -74,7 +74,8 @@ Ring-2 administrative tools for component registration, cabinet repair, template
 * `zen_admintools_cabinetadmin` — Inspect, restore, reset, hammer, init, or `reset_all` Ring-0 cabinets
 * `zen_admintools_cabinetadmin_factory` — Factory-stamp or repair a cabinet's VolumeInfo header
 * `zen_admintools_kfc_migration_press` — One-time migration: seed KF4 scheduling fields into existing drawers
-* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose. Includes `ship_alert_manager` and `ship_taskmaster` KFC gates. (v32/latest = True Voice)
+* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose. Chains `zen_admintools_kungfu_loader` in factory mode. (v34/latest = Ambient Aware)
+* `zen_admintools_kungfu_loader` — Factory KFC deployer. Modes: `status` (report), `factory` (deploys zen_system v1.1.0, alert_manager v1.4.0, taskmaster v1.3.1, trapper_keeper v2.4.0), `deploy` (boolean-selected). Extracted from prompt_loader so KFC deployment can run independently.
 * `zen_admintools_run_repair` — Human-confirmed passthrough to versioned maint/ repair scripts (operator use only)
 
 All tools in this module are admin-only. For KFC component registration, use `zen_dojotools_scribe` (DojoTools namespace, fully MCP-exposed).
@@ -198,7 +199,7 @@ How to wire an HA automation that fires a component summarizer run on a real-wor
 The KF4 action pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 
 * **Ninja Summarizer** (`zen_dojotools_ninja_summarizer`) — per-component kata writer. Reads one KFC component's Dojo drawer, runs HyperIndex + library command, sends to AI monk, writes kata drawer.
-* **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. Reads all active kata drawers (gated by `meta.enabled`), sends to AI monk, writes `zen_summary` — the canonical home state that loads Friday's prompt.
+* **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. `direct`-tier components load into `component_data`; `ambient`-tier components are excluded and flow via Trapper Keeper pre-digest into `ambient_context`. Sends to AI monk, writes `zen_summary`.
 * **Run governor** — dedup burnout window prevents duplicate runs within a configurable window (`zen_ninja_config.burnout_seconds`, default 300s). Bypass with `force: true`.
 * Three kill switches: master (`zen_summarizers_enabled`), ninja, supersummary — **all default off** (ship disabled; enable after verifying AI task entity points at a local model — cost risk if pointed at a paid API)
 * Auto-refire on re-enable via `zen_pipeline_autofire_on_enable`

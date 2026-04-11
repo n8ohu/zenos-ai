@@ -73,6 +73,7 @@ Run with `mode=schema` to get the live `kfc_template` from the Dojo cabinet.
 | `command` | no | Library command that activates this component (e.g. `~WATER~`). Omit for HyperIndex-only components. |
 | `schedules` | no | List of sub-schedule entries. Each entry has `kata_key` (string) and `index_call` (mapping). When present, the Scheduler expands the component into one Ninja run per schedule entry instead of a single run. A targeted `force_summary` with `schedule: <kata_key>` fires only the matching entry. |
 | `tool` | no | Specific DojoTools tool this component uses, if any |
+| `pipeline_tier` | no | `direct` (default) or `ambient`. Ambient-tier components are excluded from SuperSummary's direct `component_data` and instead flow through the Trapper Keeper pre-digest into `ambient_context`. Omit for standard components. |
 | `emission_cooldown_minutes` | no | Minimum minutes between emissions for this component. Prevents notification spam on rapid-fire triggers. |
 | `drift_threshold` | no | Minimum urgency delta required to consider a kata change "significant" for emission gating. |
 | `suggested_act_event` | no | Slug of the action the AI should suggest in kata output (e.g. `zen_dojotools_notification_router`). `null` = no action. |

@@ -1663,10 +1663,10 @@ script:
         selector:
           select:
             options:
-              - label: latest (33 — DojoTools First)
+              - label: latest (34 — Ambient Aware)
                 value: latest
-              - label: 33 — DojoTools First
-                value: '33'
+              - label: 34 — Ambient Aware
+                value: '34'
               - label: 32 — True Voice
                 value: '32'
               - label: 30 — 2026 GA, Friday Delta
@@ -1674,28 +1674,12 @@ script:
               - label: 29 — 2026 GA
                 value: '29'
       ship_zen_system:
-        name: "Ship KFC: ZenOS System Health"
+        name: "Ship Factory KFCs (via KungFu Loader)"
         description: >-
-          Write the zen_system default KFC to the Dojo cabinet. Monitors pipeline
-          health, kill switches, and cabinet resolvers. Ships checked by default —
-          this is the proof-of-concept KFC and the guidepost for all others.
+          When ON (default), chains zen_admintools_kungfu_loader in factory mode —
+          deploys zen_system, alert_manager, taskmaster, and trapper_keeper.
+          Turn OFF to load the prompt only, skipping all KFC deployment.
         default: true
-        selector:
-          boolean:
-      ship_alert_manager:
-        name: "Ship KFC: Alert Manager"
-        description: >-
-          Write the alert_manager default KFC to the Dojo cabinet. Monitors active
-          alerts, alert_when_off entities, and persistent notifications. Default false.
-        default: false
-        selector:
-          boolean:
-      ship_taskmaster:
-        name: "Ship KFC: Taskmaster"
-        description: >-
-          Write the taskmaster default KFC to the Dojo cabinet. Monitors task load,
-          calendar, and bed/occupancy context via the conductor pattern. Default false.
-        default: false
         selector:
           boolean:
       caller_token:
@@ -1713,7 +1697,7 @@ script:
     - variables:
         _cv: >-
           {%- set raw = cortex_version | default('latest') | string | lower | trim
-          -%} {%- if raw in ['33', 'latest'] -%}33{%- elif raw == '32' -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
+          -%} {%- if raw in ['34', 'latest'] -%}34{%- elif raw == '33' -%}33{%- elif raw == '32' -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
     - choose:
       - conditions: "{{- _cv | string == '30' -}}"
         sequence:
@@ -1924,9 +1908,9 @@ script:
               primed. Speak the conclusion, not the inventory. Bullets are not voice —
               a sentence is."
             set_timestamp: true
-      - conditions: "{{- _cv | string == '33' -}}"
+      - conditions: "{{- _cv | string == '34' -}}"
         sequence:
-        - alias: 'set_variable: Purpose (v33 — DojoTools First)'
+        - alias: 'set_variable: Purpose (v34 — Ambient Aware)'
           event: set_variable_zenos_system_cabinet
           event_data:
             key: purpose
@@ -1940,7 +1924,7 @@ script:
               as **READY TO ADVENTURE** If you do not encounter the end of file, please
               report it as ''not ready to adventure'' in your own way."
             set_timestamp: true
-        - alias: 'set_variable: Directives (v33 — DojoTools First)'
+        - alias: 'set_variable: Directives (v34 — Ambient Aware)'
           event: set_variable_zenos_system_cabinet
           event_data:
             key: directives
@@ -2595,9 +2579,9 @@ script:
                 retention: {max_records: 50, rotation: by_date}
                 note: Many learned items — ask Boss to update cortex or toolset.
             set_timestamp: true
-      - conditions: "{{- _cv | string == '33' -}}"
+      - conditions: "{{- _cv | string == '34' -}}"
         sequence:
-        - alias: 'set_variable: Cortex (v33 — DojoTools First)'
+        - alias: 'set_variable: Cortex (v34 — Ambient Aware)'
           event: set_variable_zenos_system_cabinet
           event_data:
             key: cortex
@@ -2605,11 +2589,11 @@ script:
               meta:
                 priority: true
                 environment: ZenOS-AI
-                version: 8.0.0
-                codename: DojoTools First
-                about: 'Cortex 33.0.0 — DojoTools First. Adds mandatory tool selection
-                  policy: index before GetLiveContext, zen_dojotools_* over HA builtins.
-                  Domain coverage map added to advanced_intents. Successor to v32 True Voice.'
+                version: 8.1.0
+                codename: Ambient Aware
+                about: 'Cortex 34.0.0 — Ambient Aware. Adds pipeline architecture to cortex:
+                  ambient_nav structure, tier map, urgency promotion rule, kata_key pull
+                  pattern. Successor to v33 DojoTools First.'
               cabinet_rules:
                 authority:
                   system: {write: false, agent: false, tools: false}
@@ -2858,6 +2842,29 @@ script:
                 - script.zen_dojotools_ninja_summarizer
                 - script.zen_dojotools_supersummary
                 - script.zen_dojotools_help
+              pipeline:
+                knowledge_tree:
+                  root: 'prompt (Purpose + Directives + Cortex — what you are reading now)'
+                  index: 'trapper_keeper — ambient aggregator. Runs BEFORE supersummary. Compresses ambient katas to breadcrumb+pointer digest.'
+                  alert_root: 'supersummary — consolidates super tier + trapper_keeper output → zen_summary'
+                  branches: 'katas — per-component episodic snapshots in sensor.zenos_kata_cabinet'
+                  leaves: 'ninja runs — per-component LLM calls that produce the katas'
+                tiers:
+                  super: [alert_manager, security_manager, energy_manager, water_manager,
+                    zen_system, zen_fusion, hot_tub_manager, taskmaster]
+                  ambient: [weather_manager, room_manager, laundry_manager, dishwasher_manager,
+                    grocy_manager, media_manager, autovac, trash_trakker, water_heater_manager]
+                  aggregator: trapper_keeper
+                boot_context:
+                  zen_summary: primary attention surface — synthesized by supersummary each cycle
+                  active_components: super-tier KFCs that fired with urgency-worthy signals this cycle
+                  ambient_nav: trapper_keeper output — compressed digest of all ambient katas
+                  ambient_nav_entry: 'each entry: {breadcrumb, kata_key, urgency, detail_available}'
+                  kata_cabinet: sensor.zenos_kata_cabinet — cold-read any kata_key on demand for detail
+                  promotion_rule: 'urgency 0-3: ambient_nav only (do not foreground). 4-5: also in
+                    zen_summary.attention. 6-10: also in active_components (treat as direct-tier).'
+                  reading_order: 'active_components (action needed) → zen_summary.attention (watch
+                    list) → ambient_nav (world model — pull on demand via kata_key)'
               errors:
                 philosophy: Fail fast. Recover safely. Never overwrite truth without validation.
                 max_retries: 2
@@ -3289,13 +3296,21 @@ script:
           set_timestamp: true
 
     # ── Default KFC Components ────────────────────────────────────────────────
-    # Ship default KFCs via Scribe. Each KFC gets a checkbox field (default
-    # off) except zen_system which ships ON — it is the proof KFC and guidepost.
-    # Pattern for adding a new default KFC:
-    #   1. Add a boolean field: ship_<kata_key> with default: false
-    #   2. Add a 3-step if-gated block below: new_thought → formalize_scroll → publish_kfc
-    #   3. zen_system stays default: true — all others ship unchecked
+    # KFC deployment is now handled by zen_admintools_kungfu_loader.
+    # This block chains the factory run — all factory-flagged KFCs ship automatically.
+    # To add a new factory KFC, add it to zen_admintools_kungfu_loader, not here.
     - if: "{{- ship_zen_system | default(true) | bool -}}"
+      then:
+        - alias: 'Chain KungFu Loader — factory deploy (zen_system, alert_manager, taskmaster, trapper_keeper)'
+          action: script.zen_admintools_kungfu_loader
+          data:
+            mode: factory
+            caller_token: zen_admintools_zenos_prompt_loader
+          response_variable: _kungfu_loader_result
+
+    # ── Legacy KFC ship blocks (REMOVED — now in zen_admintools_kungfu_loader) ──
+    # Kept as dead reference only. The if-false gate ensures they never run.
+    - if: "{{ false }}"
       then:
         - alias: 'Ship default KFC: zen_system (Scribe — new_thought)'
           action: script.zen_dojotools_scribe

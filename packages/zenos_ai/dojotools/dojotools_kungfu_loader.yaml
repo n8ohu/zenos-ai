@@ -1,0 +1,778 @@
+###############################################################################
+# ZenOS-AI Admin Tools — KungFu Loader
+# zen_admintools_kungfu_loader
+# Version: 1.0.0
+#
+# Deploys KFC (Kung Fu Component) dojo drawers via Scribe.
+# Extracted from zen_admintools_zenos_prompt_loader — keeps KFC management
+# separate from prompt/cortex operations.
+#
+# MODES:
+#   status  (default, no-op) — returns deployment status for all managed KFCs.
+#   factory — deploys zen_system, alert_manager, taskmaster, trapper_keeper.
+#             Intended to be chained from prompt_loader on factory run.
+#   deploy  — deploys KFCs controlled by boolean fields (all default false).
+#             Use in HA Developer Tools for selective re-ship.
+#
+# FACTORY KFCs (auto-deploy in factory mode, manual opt-in in deploy mode):
+#   zen_system      v1.1.0        — pipeline health watchdog
+#   alert_manager   v1.4.0        — alert surface aggregator
+#   taskmaster      v1.3.1        — task/calendar conductor
+#   trapper_keeper  v2.4.0        — ambient index aggregator
+#
+# OPTIONAL KFCs (deploy mode, manual opt-in only — never auto-shipped):
+#   room_manager    v1.3.1        — person location + room cleaning state
+#                                   One example room schedule (room_kitchen) shipped.
+#                                   Sub-room schedules are area-label-driven:
+#                                   apply 'room_manager' HA label to any area to enable.
+#
+# FOLLOWS: admintools conventions (caller_token, mode selector, boolean fields)
+# CALLED BY: zen_admintools_zenos_prompt_loader (mode: factory chain)
+###############################################################################
+
+script:
+
+  zen_admintools_kungfu_loader:
+    alias: "KungFu Loader — Deploy KFC Dojo Drawers"
+    description: >-
+      Deploys KFC dojo drawers via Scribe. mode: status (default) = no-op + status report.
+      mode: factory = all factory-flagged KFCs (zen_system, alert_manager, taskmaster,
+      trapper_keeper). mode: deploy = boolean-selected KFCs. All booleans default false —
+      running with no data is always safe. room_manager never auto-ships (optional only).
+    fields:
+      mode:
+        name: Deployment Mode
+        description: >-
+          status (default): no-op — returns deployment status for all managed KFCs.
+          factory: deploys zen_system, alert_manager, taskmaster, trapper_keeper.
+          deploy: deploys KFCs selected by individual boolean fields below.
+        required: false
+        default: status
+        selector:
+          select:
+            options:
+              - label: status — deployment status report (no-op)
+                value: status
+              - label: factory — deploy all factory-flagged KFCs
+                value: factory
+              - label: deploy — selective deploy by boolean fields
+                value: deploy
+
+      ship_zen_system:
+        name: "Ship KFC: ZenOS System Health  [factory]"
+        description: >-
+          Deploy zen_system KFC. Pipeline health watchdog — cabinet resolvers, kill
+          switches, summarizer staleness. factory: true (auto-ships in factory mode).
+        default: false
+        selector:
+          boolean:
+
+      ship_alert_manager:
+        name: "Ship KFC: Alert Manager  [factory]"
+        description: >-
+          Deploy alert_manager KFC. Aggregates alert_when_* entities across all
+          subsystems. Severity tiers: critical / urgent / warning / information.
+          factory: true (auto-ships in factory mode).
+        default: false
+        selector:
+          boolean:
+
+      ship_taskmaster:
+        name: "Ship KFC: Taskmaster  [factory]"
+        description: >-
+          Deploy taskmaster KFC. Monitors task load, calendar, and occupancy via
+          Friday's Personal Task List conductor. factory: true (auto-ships in factory mode).
+        default: false
+        selector:
+          boolean:
+
+      ship_trapper_keeper:
+        name: "Ship KFC: Trapper Keeper — Ambient Index  [factory]"
+        description: >-
+          Deploy trapper_keeper KFC. Ambient index aggregator — runs before SuperSummary,
+          compresses ambient katas to breadcrumb+pointer format. factory: true.
+        default: false
+        selector:
+          boolean:
+
+      ship_room_manager:
+        name: "Ship KFC: Room Manager  [optional]"
+        description: >-
+          Deploy room_manager top-level KFC. Person locations, room cleaning state,
+          zone occupancy context. One example room schedule (room_kitchen) included as
+          template. factory: false — manual opt-in only. CAUTION: overwrites schedules
+          array. Existing per-room sub-schedules not preserved — area labels manage them.
+        default: false
+        selector:
+          boolean:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque token for caller correlation. Not interpreted by this script.
+        required: false
+        selector:
+          text:
+
+    sequence:
+
+      # ── Normalize inputs ──────────────────────────────────────────────────
+      - variables:
+          caller_token: "{{- caller_token | default('') -}}"
+      - variables:
+          _mode: >-
+            {%- set raw = mode | default('status') | string | lower | trim -%}
+            {%- if raw in ['factory', 'deploy'] -%}{{ raw }}{%- else -%}status{%- endif -%}
+          _factory_run: "{{- _mode == 'factory' -}}"
+      - variables:
+          _ship_zen_system:     "{{- _factory_run or (ship_zen_system | default(false) | bool) -}}"
+          _ship_alert_manager:  "{{- _factory_run or (ship_alert_manager | default(false) | bool) -}}"
+          _ship_taskmaster:     "{{- _factory_run or (ship_taskmaster | default(false) | bool) -}}"
+          _ship_trapper_keeper: "{{- _factory_run or (ship_trapper_keeper | default(false) | bool) -}}"
+          _ship_room_manager:   "{{- ship_room_manager | default(false) | bool -}}"
+
+      # ── Status mode: read drawers, build report, stop (no-op) ────────────
+      - if: "{{- _mode == 'status' -}}"
+        then:
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - sensor.zen_dojo_cabinet_resolved
+              key: zen_system
+            response_variable: _st_zen_system
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - sensor.zen_dojo_cabinet_resolved
+              key: alert_manager
+            response_variable: _st_alert_manager
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - sensor.zen_dojo_cabinet_resolved
+              key: taskmaster
+            response_variable: _st_taskmaster
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - sensor.zen_dojo_cabinet_resolved
+              key: trapper_keeper
+            response_variable: _st_trapper_keeper
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - sensor.zen_dojo_cabinet_resolved
+              key: room_manager
+            response_variable: _st_room_manager
+          - variables:
+              _kfc_status: >-
+                {%- macro drawer_ver(raw, key) -%}
+                  {%- set r = raw.result | default('{}') -%}
+                  {%- set d = (r | from_json) if r is string else r -%}
+                  {%- set outer = d.get(key, {}) if d is mapping else {} -%}
+                  {%- set inner = outer.get('value', outer) if outer is mapping else {} -%}
+                  {%- set val = inner.get('value', inner) if inner is mapping and 'value' in inner else inner -%}
+                  {%- if val is mapping and val | length > 0 -%}
+                    {{- val.get('version', val.get('version_semantic', 'unversioned')) -}}
+                  {%- else -%}not_deployed{%- endif -%}
+                {%- endmacro -%}
+                {%- macro drawer_dep(raw, key) -%}
+                  {%- set r = raw.result | default('{}') -%}
+                  {%- set d = (r | from_json) if r is string else r -%}
+                  {%- set outer = d.get(key, {}) if d is mapping else {} -%}
+                  {%- set inner = outer.get('value', outer) if outer is mapping else {} -%}
+                  {%- set val = inner.get('value', inner) if inner is mapping and 'value' in inner else inner -%}
+                  {{- (val is mapping and val | length > 0) | lower -}}
+                {%- endmacro -%}
+                {%- set zs_ver  = drawer_ver(_st_zen_system     | default({}), 'zen_system')     | trim -%}
+                {%- set am_ver  = drawer_ver(_st_alert_manager  | default({}), 'alert_manager')  | trim -%}
+                {%- set tm_ver  = drawer_ver(_st_taskmaster     | default({}), 'taskmaster')     | trim -%}
+                {%- set tk_ver  = drawer_ver(_st_trapper_keeper | default({}), 'trapper_keeper') | trim -%}
+                {%- set rm_ver  = drawer_ver(_st_room_manager   | default({}), 'room_manager')   | trim -%}
+                {%- set zs_dep  = drawer_dep(_st_zen_system     | default({}), 'zen_system')     | trim == 'true' -%}
+                {%- set am_dep  = drawer_dep(_st_alert_manager  | default({}), 'alert_manager')  | trim == 'true' -%}
+                {%- set tm_dep  = drawer_dep(_st_taskmaster     | default({}), 'taskmaster')     | trim == 'true' -%}
+                {%- set tk_dep  = drawer_dep(_st_trapper_keeper | default({}), 'trapper_keeper') | trim == 'true' -%}
+                {%- set rm_dep  = drawer_dep(_st_room_manager   | default({}), 'room_manager')   | trim == 'true' -%}
+                {{
+                  {
+                    "status": "success",
+                    "mode": "status",
+                    "caller_token": caller_token,
+                    "kfcs": {
+                      "zen_system":     {"deployed": zs_dep, "version": zs_ver, "target": "1.1.0",       "version_match": zs_ver == "1.1.0",                   "factory": true},
+                      "alert_manager":  {"deployed": am_dep, "version": am_ver, "target": "1.4.0",       "version_match": am_ver == "1.4.0",                   "factory": true},
+                      "taskmaster":     {"deployed": tm_dep, "version": tm_ver, "target": "1.3.1",       "version_match": tm_ver == "1.3.1",                   "factory": true},
+                      "trapper_keeper": {"deployed": tk_dep, "version": tk_ver, "target": "2.4.0",       "version_match": tk_ver == "2.4.0",                   "factory": true},
+                      "room_manager":   {"deployed": rm_dep, "version": rm_ver, "target": "1.3.1",       "version_match": rm_ver == "1.3.1",                   "factory": false}
+                    }
+                  } | tojson
+                }}
+          - stop: "KungFu Loader — status (no-op)"
+            response_variable: _kfc_status
+
+      # ── Deploy: zen_system ───────────────────────────────────────────────
+      - if: "{{- _ship_zen_system -}}"
+        then:
+          - alias: 'Ship KFC: zen_system (Scribe — new_thought)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: new_thought
+              key: zen_system
+              friendly_name: ZenOS System Health
+              version_semantic: "1.1.0"
+              component_summary: >-
+                Monitors ZenOS pipeline health: cabinet resolvers, kill switches,
+                summarizer staleness, and monk status. The meta-KFC that watches the watchers.
+              component_instructions: >-
+                Surface health state first. If any sensor is warn or critical, or any
+                pipeline kill switch is off — lead with that. If all ok — single line nominal.
+
+                Priority order for reporting:
+                1. Cabinets missing or unavailable — surface before anything else. No cabinets = no cognition.
+                2. Kill switches off — pipeline_master, supersummary_enabled, ninja_summarizer_enabled. Name the specific switch that is off.
+                3. Summarizer staleness — if zen_summary timestamp > 15 min, flag as stale. > 30 min = critical stale.
+                4. Monk errors — if supersummary_status is error/timeout/none, flag with status value.
+                5. Schema health — if schema_ok false, flag. No template = no monk output structure.
+
+                NAVIGATION — do NOT enumerate entity IDs. Express discovery paths instead:
+                - To find system health sensors: query label 'zen_system'
+                - To find all ZenOS entities: query label 'zen'
+                - To find KFC specs: query label 'dojo'
+                - To find kill switches: query label 'zen_system', filter input_boolean domain
+
+                In watchlist and attention fields, write "entities under label 'zen_system'" not a list of sensor.* IDs. Labels are stable; entity IDs are not. The label IS the scope.
+
+                Do NOT expand individual component kata here — this component owns the rollup signal only. If you see warn/critical on a specific component, name it and stop. The per-component monk will have detail.
+
+                Nominal report format: "ZenOS nominal. [N] components active. Last summary [X] min ago."
+                Alert format: "ZenOS [warn|critical]: [specific issue]. [switch name|sensor name|cabinet name]."
+
+                MASTER SWITCH RULE:
+                ZenOS pipeline kill switches (zen_summarizers_enabled,
+                zen_ninja_summarizer_enabled, zen_supersummary_enabled, etc.) being OFF
+                IS a monitored deviation — flag it at priority 2 above.
+                Integration/subsystem master switches (Airspace, Grocy, media zones,
+                or any non-ZenOS feature enable) being off is an intentional user choice
+                — treat as informational only, max urgency contribution 1.
+                Distinguish by name: zen_* kill switches → flag. All others → informational.
+
+                CONVERSATIONAL REFERENCE:
+                  When the user says "what's the summary", "give me the summary", "what's the zen summary",
+                  "what does the summary say", "summary status", or similar — he means the zen_summary
+                  kata from sensor.zenos_kata_cabinet. Read it and present the synthesized view:
+                    - active_components with signals → name them and what they're flagging
+                    - zen_summary.attention items → mention if anything notable
+                    - ambient_nav → sweep in one sentence if nothing urgent
+                  Speak the conclusion, not the structure. Don't recite keys — interpret the output.
+                  If zen_summary is stale (> 15 min old), note it before presenting.
+              label: zen_system
+              trigger_subscriptions: ha_start,daily_midnight
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: zen_system (Scribe — formalize_scroll)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: formalize_scroll
+              key: zen_system
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: zen_system (Scribe — publish_kfc)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: publish_kfc
+              key: zen_system
+              publish_confirm: true
+              caller_id: zen_admintools_kungfu_loader
+            response_variable: _zen_system_kfc_result
+
+      # ── Deploy: alert_manager ────────────────────────────────────────────
+      - if: "{{- _ship_alert_manager -}}"
+        then:
+          - alias: 'Ship KFC: alert_manager (Scribe — new_thought)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: new_thought
+              key: alert_manager
+              friendly_name: Alert Manager
+              label: alert_manager
+              version_semantic: "1.4.0"
+              component_summary: >-
+                Monitors label:alert_manager entities across all subsystems:
+                alert_when_off infrastructure (valves, line power, appliances, master switches),
+                alert_when_on/not_off condition sensors (safety, security, maintenance), and
+                informational context (grid state, system health, salt level, backups).
+                Severity tiers: critical/urgent/warning/information. Surfaces active deviations,
+                escalates via notification_router at configurable urgency thresholds.
+              component_instructions: >-
+                You are reading the home alert surface. This component aggregates alerts
+                from all subsystems and determines whether action is required.
+
+                DATA ACCESS:
+                  review_data.results[] — all labeled entities. Each entry has:
+                    entity_id, friendly_name, state, attributes, last_changed, domain.
+                    labels: dict {slug: description} — keys are label slugs applied to this
+                      entity, values are description strings (empty if no description set).
+                      Iterate keys for label membership; read value for authoritative semantics.
+                  Persistent notifications: domain: persistent_notification.
+                    state: 'notifying' = active. attributes.message = text.
+                  review_data.domain_context.home_mode — current home mode string.
+                  review_data.domain_context.alarm — alarm panel state if available.
+                    States: disarmed / armed_home / armed_away / triggered / pending.
+
+                LABEL SEMANTICS:
+                  The alert_when_* label family is self-describing — the label name encodes
+                  the alert condition. Read the label, apply the rule.
+                  If a label's description value is non-empty, it is authoritative — prefer
+                  it over the inline semantics below.
+
+                  Binary state labels:
+                    alert_when_off — NOMINAL when ON. Flag if state is 'off' or 'unavailable'.
+                    alert_when_on — NOMINAL when OFF. Flag if state is 'on', 'problem', or 'detected'.
+                    alert_when_not_off — NOMINAL when OFF. Flag if state is anything other than 'off'.
+
+                  Numeric threshold labels (pattern: alert_when_under_N):
+                    alert_when_under_N — NOMINAL when numeric state >= N. Flag when state
+                      (parsed as float) drops below N. Extract N from the label slug.
+                      If not numeric, treat as deviation.
+
+                  alert_manager — scope label. No alert condition encoded. Entities without
+                    an alert_when_* label are informational context only.
+
+                  Severity modifiers (may appear alongside alert_when_*):
+                    critical — safety class. Immediate escalation. Smoke, CO, leaks, alarms.
+                    urgent   — high priority. Fast response needed.
+                    warning  — moderate priority. Investigate.
+                    information — state awareness only. No action required.
+
+                TRIAGE PRIORITY:
+                  1. Safety: fire, CO, gas, water leak, security breach, alarm triggered
+                  2. System health: alert_when_off infrastructure unexpectedly off
+                  3. Condition alerts: alert_when_on or alert_when_not_off sensors active
+                  4. Numeric threshold alerts: alert_when_under_N entities below threshold
+                  5. Persistent notifications: unacknowledged HA notifications
+                  6. Informational: low-priority FYIs, context-only entities
+
+                URGENCY RULES:
+                  - Alarm triggered OR label:critical entity deviating -> urgency: 9
+                  - label:critical alert_when_on/not_off active -> urgency: 8
+                  - 3+ alert_when_off entities in OFF/unavailable state -> urgency: 6
+                  - label:urgent entity deviating -> urgency: 5
+                  - 1-2 alert_when_off entities off, label:warning -> urgency: 4
+                  - alert_when_under_N entity below threshold, label:warning -> urgency: 4
+                  - label:information deviating, OR persistent_notifications only -> urgency: 3
+                  - alert_when_under_N entity below threshold, label:information -> urgency: 3
+                  - All entities nominal, no notifications -> urgency: 1
+                  Use highest individual score when multiple deviations exist.
+
+                TRIGGER CONTEXT:
+                  hourly_trigger — routine scan. Emit if urgency >= 3.
+                  daily_midnight — full audit. Always emit. Flag chronic (> 24h) deviations.
+                  home_mode_updates — re-evaluate. 'away'/'sleep': some off states legitimate.
+                    Safety-class alerts never suppressed by mode.
+                  alarm_panel — always evaluate. triggered: urgency 9, action_required true.
+                  force_summary — on-demand. Emit regardless of recency.
+                  ha_start — full scan. Treat unavailable as cautionary, not definitive.
+
+                OUTPUT FORMAT:
+                  List only active deviations. For each include: friendly_name, entity_id,
+                  current state, duration (from last_changed), severity class.
+                  If no deviations: state all monitored entities are nominal.
+
+                ESCALATION RULES:
+                  IMMEDIATE (notify this cycle): alarm triggered, safety sensor active, urgency >= 8.
+                  TRANSIENT (hold notification): last_changed < 10 min — mark 'newly triggered'.
+                    last_changed >= 10 min: confirmed deviation.
+                  MODE-AWARE THRESHOLD:
+                    home: notify at urgency >= 5.
+                    away/sleep: notify at urgency >= 6 for non-safety.
+                    Safety-class: always urgency >= 8 regardless of mode.
+                  DURATION SEVERITY:
+                    > 1 hour: persistent — state duration in output.
+                    > 24 hours: chronic — flag at daily_midnight.
+
+                AVAILABLE ACTIONS (suggested_act_event):
+                  zen_dojotools_notification_router — deliver urgent alert brief to admin.
+                    Use when: action_required true AND urgency meets mode-aware threshold
+                    AND deviation confirmed (last_changed >= 10 min) OR IMMEDIATE criteria met.
+                  null — urgency below threshold, deviation transient, or action_required false.
+                  DO NOT invent or use any other slug. If unsure, use null.
+
+                MASTER SWITCH RULE:
+                  Subsystem master switches being in state 'off' is an intentional user choice,
+                  NOT a deviation requiring action.
+                  - Max urgency contribution from any master switch in 'off' state: 1
+                  - Never set action_required based solely on a master switch being off
+                  - Never notify based on a master switch being off
+                  - Treat as informational context only regardless of alert_when_* label
+                  If a SAFETY-CLASS entity (smoke, CO, leak, alarm) happens to be
+                  implemented as a master switch, the safety rule wins.
+              trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel,force_summary"
+              drift_threshold: 5
+              emission_cooldown_minutes: 30
+              suggested_act_event: zen_dojotools_notification_router
+              delay_seconds: 0
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: alert_manager (Scribe — formalize_scroll)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: formalize_scroll
+              key: alert_manager
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: alert_manager (Scribe — publish_kfc)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: publish_kfc
+              key: alert_manager
+              publish_confirm: true
+              caller_id: zen_admintools_kungfu_loader
+            response_variable: _alert_manager_kfc_result
+
+      # ── Deploy: taskmaster ───────────────────────────────────────────────
+      - if: "{{- _ship_taskmaster -}}"
+        then:
+          - alias: 'Ship KFC: taskmaster (Scribe — new_thought)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: new_thought
+              key: taskmaster
+              friendly_name: Taskmaster
+              label: taskmaster
+              version_semantic: "1.3.1"
+              component_summary: >-
+                Monitors household task load and personal context — calendar events,
+                bed state transitions, occupancy changes, and to-do items — surfacing
+                scheduling conflicts, morning briefing cues, and overdue tasks.
+                Friday's Personal Task List is the primary schedule conductor.
+              component_instructions: >-
+                SCOPE: Task and calendar monitoring for household members.
+                  Member identities from family cabinet.
+                  Calendar and todo entities via label: taskmaster.
+
+                STATUS VOCABULARY (Microsoft To-Do integration):
+                  notStarted = pending/incomplete (equivalent to needs_action)
+                  completed   = done
+                  inProgress  = in progress (rare)
+                  Do NOT treat 'notStarted' as an unknown or error state.
+
+                DATA ACCESS:
+                  Todo item content is in review_data.results[*].attributes.all_todos — a list
+                  of todo items per entity. Entity state is only an incomplete item count —
+                  do NOT use it as content.
+                  domain_context.todo.lists — system-wide list metadata. NOT item content.
+                  Calendar events are in review_data.domain_context.calendar.
+                  Attribute values use Python repr format: datetimes appear as
+                  datetime.datetime(2026, 4, 1, 8, 0) — parse as strings, not ISO.
+
+                OVERDUE SEMANTICS:
+                  overdue_todos is computed by HA at midnight — items due 'today' appear overdue
+                  immediately, even if their scheduled time window (in subject line) is still future.
+                  Only treat as missed/escalate if:
+                    - due: yesterday or earlier (truly past-day), OR
+                    - due: today AND scheduled time in subject has already passed.
+                  Do not flag same-day future-window tasks as incomplete or overdue.
+
+                PRIMARY CONDUCTOR: todo.friday_s_personal_task_list (label: schedule)
+                  NOT a data source — the meta-layer schedule driver. Each item represents
+                  a scheduled activity block (summary: time window name, description: RRULE +
+                  references to domain todo lists, due: scheduled time for this block).
+                  READ THIS FIRST. Match active items to the current period — they tell you
+                  WHICH domain lists are relevant right now.
+
+                DATA SOURCES (domain todo lists — read based on conductor signal):
+                  label: daily   — household_chores, primary_user_health_tasks (recurring daily)
+                  label: weekly  — grocy_chores, grocy_tasks (weekly cadence)
+                  label: tasks   — ninja_tickets, automation_todo_list (async backlog)
+
+                CALENDAR ENTITIES (label: calendar):
+                  Events in review_data.domain_context.calendar.
+                  Cross-reference with conductor blocks for scheduling conflicts.
+
+                TRIGGER CONTEXT:
+                  default_user_bed_changes / secondary_user_bed_changes: wake or sleep transition
+                  home_occupancy_change: arrival or departure — task context shifts
+                  quarter_hour: regular cadence check
+
+                MORNING (after wake trigger): read conductor → pull domain tasks → check calendar
+                  today + overdue from yesterday → surface as brief morning summary.
+                EVENING (bed → sleep): what conductor blocks ran → what wasn't completed →
+                  what's on tomorrow's conductor.
+
+                URGENCY RULES:
+                  - Calendar event starting within 30 min, person not moving -> urgency: 5
+                  - Active conductor block with past-due required tasks -> urgency: 4
+                  - Task with due: yesterday or earlier, still notStarted -> urgency: 3
+                  - Morning brief pending -> urgency: 2
+                  - Nothing pressing -> urgency: 1
+
+                ASYNC BACKLOG (label: tasks): ninja_tickets, automation_todo_list —
+                  surface count + top items only. Do not foreground over conductor-driven tasks.
+
+                AVAILABLE ACTIONS (suggested_act_event):
+                  zen_dojotools_notification_router — use when action_required AND urgency >= 5.
+                  null — use when action_required false OR urgency < 5.
+                  DO NOT invent or use any other slug.
+
+                MASTER SWITCH RULE:
+                  Subsystem master switches being off is an intentional user choice, NOT a deviation.
+                  Max urgency contribution: 1. Never set action_required solely on a switch being off.
+                  Safety-class entities always override this rule.
+              trigger_subscriptions: "home_occupancy_change,default_user_bed_changes,secondary_user_bed_changes,force_summary,quarter_hour"
+              domain_inspect_domains: "todo,calendar"
+              domain_inspect_limit: 25
+              drift_threshold: 5
+              emission_cooldown_minutes: 60
+              delay_seconds: 30
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: taskmaster (Scribe — formalize_scroll)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: formalize_scroll
+              key: taskmaster
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: taskmaster (Scribe — publish_kfc)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: publish_kfc
+              key: taskmaster
+              publish_confirm: true
+              caller_id: zen_admintools_kungfu_loader
+            response_variable: _taskmaster_kfc_result
+
+      # ── Deploy: trapper_keeper ───────────────────────────────────────────
+      - if: "{{- _ship_trapper_keeper -}}"
+        then:
+          - alias: 'Ship KFC: trapper_keeper (Scribe — new_thought)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: new_thought
+              key: trapper_keeper
+              friendly_name: Trapper Keeper (Ambient Index Aggregator)
+              label: trapper_keeper
+              version_semantic: "2.4.0"
+              component_summary: >-
+                Ambient Index Aggregator — reads non-urgent KFC katas, compresses to
+                breadcrumb+pointer format per component, outputs navigation index with
+                kata_cabinet pointer. Runs before supersummarizer so the prompt root gets
+                a tight oriented map instead of 9 raw kata dumps. Agent knows her world
+                and where to find her shit.
+              component_instructions: >-
+                SCOPE: Ambient pre-digest layer. Runs BEFORE supersummarizer. Reads ambient
+                KFC katas directly, compresses into compact breadcrumb digest + navigation
+                index. The supersummarizer reads this output instead of raw ambient katas
+                — keeping the prompt tight and oriented.
+
+                ROLE IN THE PIPELINE:
+                  ninja runs (leaves) → katas (branches) → Trapper Keeper (index) → SuperSummary (alert root)
+                  The Keeper is the navigation layer. The prompt is the root. The agent reads the root,
+                  knows her world, and traverses down on demand — she never needs the full tree at once.
+
+                AMBIENT KFC KATAS TO READ (label: trapper_keeper scope — read from kata cabinet):
+                  weather_manager      — conditions, forecast headline, AQI, pollen
+                  room_manager         — room state digest (per-room katas under room_* keys)
+                  laundry_manager      — cycle state, elapsed time, action needed
+                  dishwasher_manager   — cycle state, action needed
+                  grocy_manager        — low stock items, menu context
+                  media_manager        — active playback, idle devices
+                  autovac              — schedule state, last run, pending rooms
+                  trash_trakker        — next pickup, bins out status
+                  water_heater_manager — tank level, mode, health
+
+                OUTPUT FORMAT — breadcrumb digest per component:
+                  Each entry = one line max. Lead with most actionable signal. No entity IDs.
+                  If nothing notable: one word or short phrase (e.g. 'nominal', 'all clear', 'idle').
+                  Include kata_key pointer so agent knows exactly where to pull detail.
+
+                  Format each component as:
+                  {
+                    "breadcrumb": "<1-line ambient state — most actionable signal>",
+                    "kata_key":   "<drawer key in kata cabinet>",
+                    "urgency":    <0-10>,
+                    "detail_available": true
+                  }
+
+                  Room manager exception: include a sub-index of room_* kata keys with one-word state each.
+                  e.g. { "office": "occupied", "kitchen": "vacant", "garage": "active" }
+
+                NAVIGATION INDEX — output at top level:
+                  kata_cabinet: sensor.zenos_kata_cabinet
+                  All ambient katas live here. Agent can cold-read any key on demand.
+                  Room detail keys: room_<slug> (e.g. room_kitchen, room_garage, room_office)
+
+                AMBIENT URGENCY PROMOTION RULE (supersummarizer enforces this — set urgency accurately):
+                  urgency 0-3  → ambient_nav only. No mention in zen_summary.attention.
+                  urgency 4-5  → one line in zen_summary.attention. NOT in active_components.
+                  urgency 6-10 → zen_summary.attention + active_components entry (direct-tier treatment).
+                  Set urgency truthfully — the downstream promotion rule depends on it.
+
+                TONE:
+                  Terse. This is a pointer document, not a report. No elaboration.
+                  Flag urgency > 3 accurately — downstream promotion rule depends on it.
+
+                DO NOT summarize: alert_manager, security_manager, energy_manager, water_manager,
+                  zen_system, zen_fusion, hot_tub_manager, taskmaster — those are SuperSummary tier.
+                DO NOT generate person-scoped briefings here — that is downstream of the Keeper.
+
+                PIPELINE ORDERING:
+                  delay_seconds: 15 — runs early in scheduler dispatch queue.
+                  SuperSummary reads this kata as its ambient context input.
+                  This component must complete before supersummarizer runs.
+
+                CONVERSATIONAL REFERENCE:
+                  When the user says "what's in the trapper keeper", "what does the keeper say",
+                  "keeper status", "what's the keeper showing", or any variation — he is asking
+                  about THIS component's current output. Read the trapper_keeper kata from
+                  sensor.zenos_kata_cabinet and present the ambient digest conversationally:
+                  lead with anything urgency > 3, sweep remaining components in one breath.
+                  Don't enumerate the full structure — summarize like a colleague giving a quick rundown.
+                  If the kata is stale (> 20 min), note it and offer to trigger a refresh.
+              trigger_subscriptions: "ha_start,home_occupancy_change,home_mode_updates,start_home_wake,start_home_evening,force_summary,every_10_minutes"
+              drift_threshold: 1
+              emission_cooldown_minutes: 20
+              delay_seconds: 15
+              pipeline_tier: system
+              suggested_act_event: ""
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: trapper_keeper (Scribe — formalize_scroll)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: formalize_scroll
+              key: trapper_keeper
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: trapper_keeper (Scribe — publish_kfc)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: publish_kfc
+              key: trapper_keeper
+              publish_confirm: true
+              caller_id: zen_admintools_kungfu_loader
+            response_variable: _trapper_keeper_kfc_result
+
+      # ── Deploy: room_manager ─────────────────────────────────────────────
+      # Deploys top-level component only. One example sub-schedule (room_kitchen)
+      # ships as a template — all other room schedules are area-label-driven.
+      # CAUTION: overwrites the existing schedules array. If you have customized
+      # per-room schedules in the dojo drawer, back them up first.
+      - if: "{{- _ship_room_manager -}}"
+        then:
+          - alias: 'Ship KFC: room_manager (Scribe — new_thought)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: new_thought
+              key: room_manager
+              friendly_name: Room Manager
+              label: room_manager
+              version_semantic: "1.3.1"
+              component_summary: >-
+                Tracks room-level situational awareness — person locations via BLE room
+                trackers, per-room cleaning readiness and allow state, and zone-level
+                scheduling context. Uses room_topology adjacency and zones to reason about
+                occupied blast radius and sweep candidates. Location-first layer for the home.
+              component_instructions: >-
+                SCOPE: Room-level situational awareness — person locations, cleaning state,
+                  zone-based scheduling context. Topology from household cabinet → room_topology.
+
+                ENTITY GRAPH (label: room_manager):
+                  Entities arrive pre-resolved via HyperIndex. Each carries room sub-labels
+                  (kitchen, living_room, master_bedroom, etc.) alongside functional labels.
+                  Do NOT construct entity IDs. Read room context from results[].labels instead.
+                  Group entities by room sub-label to build per-room state.
+
+                  Functional label meanings:
+                    ready_to_clean — room flagged for cleaning (ON = needs cleaning)
+                    allow_cleaning — autovac permitted to clean this room (ON = allowed, OFF = blocked)
+                    room_tracker   — BLE area sensor tracking a person's current room
+                    asleep         — lighting scene for sleep/night mode (last_changed = activity signal)
+
+                PERSON LOCATION (label: room_tracker):
+                  State = room slug (e.g. 'office', 'kitchen') or 'unknown' / 'unavailable'.
+                  Cross-reference entity labels for person identity (nathan, kim, watch, phone).
+                  Multiple trackers per person — if any shows a known room, use it.
+                  'unknown' on all = location indeterminate. Do not over-interpret — BLE has dead zones.
+
+                SPATIAL REASONING (household cabinet → room_topology):
+                  zones:     COMMON_AREAS, MASTER_SUITE, OFFICE_ZONE, GUEST_SUITE, UTILITY
+                  adjacency: rooms sharing walls with each room
+                  Do NOT use compass bearing or square footage — that is security_manager's domain.
+
+                  OCCUPANCY BLAST RADIUS:
+                    For each person with a known room:
+                      1. Map room → zone (room_topology.zones)
+                      2. Read adjacency[room] → adjacent rooms
+                      3. That zone + adjacent rooms = occupied blast radius
+                      4. Cleaning in blast radius should be held — flag as occupied, not blocked
+
+                  ZONE-LEVEL CLEANING STATE:
+                    Sweep candidate: 2+ rooms in zone have ready_to_clean ON
+                                     AND no person in that zone or adjacent rooms
+                                     AND allow_cleaning ON for those rooms
+
+                CLEANING STATE SIGNALS:
+                  FLAG: ready_to_clean ON + allow_cleaning OFF
+                    → If person in room or adjacent: intentional, note only.
+                    → If no person nearby and persists > 1 day: surface as blocked queue item.
+                  FLAG: Zone is sweep candidate → surface to autovac layer.
+                  HOLD: MASTER_SUITE rooms → only safe when person trackers confirm zone clear.
+                  HOLD: GUEST_SUITE rooms → confirm no guests before dispatching.
+
+                URGENCY RULES:
+                  - Blocked rooms (ready + not allowed, no person nearby) persisting > 1 day → urgency: 3
+                  - MASTER_SUITE or GUEST_SUITE ready, occupancy unclear → urgency: 2
+                  - 2+ COMMON_AREAS rooms ready, zone unoccupied → urgency: 2 (sweep candidate, informational)
+                  - All room trackers unavailable → urgency: 2 (location blind)
+                  - All rooms nominal → urgency: 1
+
+                SCOPE BOUNDARY:
+                  Room manager owns: person location, room cleaning state, zone occupancy context.
+                  Autovac KFC owns: vacuum hardware, consumables, dispatch decisions, last-run analysis.
+                  Do NOT surface autovac system health here. Room manager feeds context to autovac.
+
+                OUTPUT FIELDS:
+                  person_locations: {person_slug: room_slug | 'unknown'}
+                  occupied_zones:   [zone names — person present or in adjacent room]
+                  room_states:      {room: {ready: bool, allowed: bool, zone: str}}
+                  sweep_candidates: [zone names — ready + unoccupied + allowed]
+                  blocked_rooms:    [rooms where ready=ON, allowed=OFF, no person context]
+                  attention:        zone-level patterns worth surfacing to autovac or owner
+              index_call:
+                expand_entities: true
+                label_1: room_manager
+                operator: AND
+                output_fields: ""
+              trigger_subscriptions: "daily_noon,home_occupancy_change,home_mode_updates,force_summary"
+              drift_threshold: 3
+              emission_cooldown_minutes: 5
+              delay_seconds: 0
+              pipeline_tier: ambient
+              # One example room schedule as template — copy this pattern for additional rooms.
+              # To enable a room: apply the 'room_manager' HA label to the area.
+              schedules:
+                - kata_key: room_kitchen
+                  index_call:
+                    area: kitchen
+                    expand_entities: true
+                    label_1: room_manager
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: room_manager (Scribe — formalize_scroll)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: formalize_scroll
+              key: room_manager
+              caller_id: zen_admintools_kungfu_loader
+          - alias: 'Ship KFC: room_manager (Scribe — publish_kfc)'
+            action: script.zen_dojotools_scribe
+            data:
+              mode: publish_kfc
+              key: room_manager
+              publish_confirm: true
+              caller_id: zen_admintools_kungfu_loader
+            response_variable: _room_manager_kfc_result
+
+    mode: single

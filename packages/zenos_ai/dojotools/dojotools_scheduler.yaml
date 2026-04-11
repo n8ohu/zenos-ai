@@ -235,32 +235,6 @@ automation:
           response_variable: response_identity_manifest
         alias: Run the Identity Manifest
 
-      - conditions:
-        - condition: trigger
-          id:
-          - daily_midnight
-          - daily_noon
-          - ha_start
-          - every_10_minutes
-          - force_summary
-          - force_supersummary
-        sequence:
-        - variables:
-            supplemental_prompt: >-
-              {{
-                {
-                  "source": {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
-                  "home_overview": home_overview | default({}),
-                  "notes": "Don't comment about the state of the component's master switch or script. Comment only on the items the component manages. Please ignore when you perform summarization."
-                } | tojson
-              }}
-        - action: script.zen_dojotools_supersummary
-          metadata: {}
-          data:
-            post_to_kata_cabinet: true
-            supplemental_prompt: '{{ supplemental_prompt }}'
-          response_variable: response_zen_summary
-        alias: Zen Summary
 
       - conditions:
         - condition: trigger
@@ -326,7 +300,7 @@ automation:
                           {%- set ns.subs = ns.subs + [val | combine({
                             '_drawer_key':       key,
                             'kata_key':          sched_key,
-                            '_index_call_override': sched.get('index_call', {}) | tojson,
+                            '_index_call_override': sched.get('index_call', {}),
                             '_parent_component': key
                           })] -%}
                         {%- endif -%}
@@ -338,7 +312,7 @@ automation:
                         {%- set ns.subs = ns.subs + [val | combine({
                           '_drawer_key':       key,
                           'kata_key':          sched_key,
-                          '_index_call_override': sched.get('index_call', {}) | tojson,
+                          '_index_call_override': sched.get('index_call', {}),
                           '_parent_component': key
                         })] -%}
                       {%- endfor -%}
@@ -393,9 +367,35 @@ automation:
                   kung_fu_component_id: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
                   post_to_kata_cabinet: true
                   supplemental_prompt: '{{ _iter_prompt }}'
-                  index_call_override: "{{ repeat.item._index_call_override | default('', true) }}"
+                  index_call_override: >-
+                    {%- set _ov = repeat.item._index_call_override | default({}) -%}
+                    {{ _ov | tojson if _ov else '' }}
                   parent_component_id: "{{ repeat.item._parent_component | default('', true) }}"
                 response_variable: _iter_ninja_response
+
+    # ── Conditional SuperSummary — fires after ninjas, not before ────────────
+    - variables:
+        _always_super: >-
+          {{ trigger.id in ['force_supersummary', 'daily_midnight', 'ha_start', 'daily_noon', 'hourly_trigger'] }}
+        _should_super: >-
+          {{ _always_super or (_subscribers | default([]) | length > 0) }}
+    - if: "{{ _should_super }}"
+      then:
+        - variables:
+            supplemental_prompt: >-
+              {{
+                {
+                  "source": {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
+                  "home_overview": home_overview | default({}),
+                  "notes": "Don't comment about the state of the component's master switch or script. Comment only on the items the component manages. Please ignore when you perform summarization."
+                } | tojson
+              }}
+        - action: script.zen_dojotools_supersummary
+          metadata: {}
+          data:
+            post_to_kata_cabinet: true
+            supplemental_prompt: '{{ supplemental_prompt }}'
+          response_variable: response_zen_summary
 
     # ── Write scheduler heartbeat to Kata ───────────────────────────────────
     - variables:
@@ -415,12 +415,36 @@ automation:
               "entity_id": trigger_entity_id
             }
           }}
+        _dispatched_keys: >-
+          {{ _subscribers | default([]) | map(attribute='kata_key') | list }}
+        _this_run: >-
+          {{
+            {
+              "ts":         now().isoformat(),
+              "trigger":    this_trigger | default({}),
+              "dispatched": _dispatched_keys,
+              "count":      _dispatched_keys | length,
+              "super":      _should_super | default(false) | bool
+            }
+          }}
+        _prev_runs: >-
+          {%- set raw = states(_kata_cab) -%}
+          {%- set cab = state_attr(_kata_cab, 'variables') | default({}) -%}
+          {%- set drawer = cab.get('zen_scheduler', {}) -%}
+          {%- set val = drawer.get('value', drawer) if drawer is mapping else {} -%}
+          {%- set parsed = (val | from_json) if val is string else val -%}
+          {%- set hist = parsed.get('recent_runs', []) if parsed is mapping else [] -%}
+          {{ hist | list }}
+        _recent_runs: >-
+          {%- set prev = _prev_runs if _prev_runs is iterable and _prev_runs is not string else [] -%}
+          {{ ([_this_run] + prev)[:5] }}
         final_response: >-
           {{
             {
-              "status":    "success",
-              "trigger":   this_trigger | default({}),
-              "dispatched": _subscribers | default([]) | map(attribute='kata_key') | list
+              "status":       "success",
+              "trigger":      this_trigger | default({}),
+              "dispatched":   _dispatched_keys,
+              "recent_runs":  _recent_runs | default([])
             } | tojson
           }}
     - action: script.zen_dojotools_filecabinet
@@ -439,4 +463,4 @@ automation:
     - event: zen_health_tick
 
     mode: queued
-    max: 5
+    max: 15

@@ -236,10 +236,14 @@ script:
             {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
             {{ _v2 | tojson }}
 
-      # ── 5. Collect active components ──────────────────────────────────────
+      # ── 5. Collect active components — direct tier only ──────────────────
       # FIX: was {% set active = {} %} inside for loop — Jinja2 scoping bug,
       #      always returned {}. Fixed with namespace().
-      - alias: Collect active components from Dojo meta.enabled
+      # v1.2.0: pipeline_tier split. ambient + system tier components excluded
+      #   from direct component_data. Ambient context flows via Trapper Keeper
+      #   kata (step 5b). Drawers with no pipeline_tier default to 'direct'
+      #   for backwards compatibility.
+      - alias: Collect active components — direct tier only
         variables:
           active_components: >-
             {%- set dojo = state_attr(dojo_cabinet, 'variables') | default({}, true) -%}
@@ -255,7 +259,8 @@ script:
                   {%- set _meta = val.get('meta', {}) -%}
                   {%- set _meta = _meta if _meta is mapping else {} -%}
                   {%- set resolved = _meta.get('enabled', true) | bool -%}
-                  {%- if resolved and comp_key in kata -%}
+                  {%- set tier = val.get('pipeline_tier', 'direct') | lower -%}
+                  {%- if resolved and comp_key in kata and tier not in ['ambient', 'system'] -%}
                     {%- set kd = kata[comp_key] -%}
                     {%- set kv = kd.get('value', {}) if kd is mapping else {} -%}
                     {%- set ns.active = ns.active | combine({comp_key: kv}) -%}
@@ -268,6 +273,20 @@ script:
       - alias: Extract active component IDs
         variables:
           active_component_ids: "{{ active_components.keys() | list }}"
+
+      # ── 5b. Load ambient context from Trapper Keeper kata ────────────────
+      # Trapper Keeper pre-digests all ambient-tier components into a compact
+      # breadcrumb + navigation index. SuperSummary reads the Keeper output
+      # instead of loading 9 raw ambient katas directly.
+      - alias: Load ambient context from Trapper Keeper
+        variables:
+          ambient_context: >-
+            {%- set kata = state_attr(kata_cabinet, 'variables') | default({}, true) -%}
+            {%- set _raw = kata.get('trapper_keeper', {}) -%}
+            {%- set _v1 = _raw if _raw is mapping else (_raw | from_json if _raw is string else {}) -%}
+            {%- set _v2 = _v1.get('value', _v1) if _v1 is mapping else {} -%}
+            {%- set _v3 = _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) -%}
+            {{ _v3 | tojson }}
 
       # ── 6. Collect component kata values ─────────────────────────────────
       - alias: Init component data
@@ -307,6 +326,24 @@ script:
             No extra prose. Normalize all fields. If missing, return null or {}.
             Include ONLY active components. Provide Cliff's Notes for important
             events, anomalies, and near-term focus.
+            review_data.ambient_context contains the Trapper Keeper pre-digest —
+            a compact breadcrumb + navigation index for all ambient-tier components
+            (weather, rooms, laundry, dishes, media, autovac, trash, water heater,
+            groceries). Use it for ambient awareness. Do NOT enumerate ambient
+            component details inline — the Keeper has already pre-chewed them.
+            AMBIENT URGENCY PROMOTION RULE (apply exactly — not vibes-based):
+              Use review_data.ambient_context.urgency (the number the Keeper set) as the
+              promotion score. Do NOT re-evaluate or re-score the ambient data yourself.
+              The Trapper Keeper is the authoritative source. Trust the number.
+              urgency 0-3  → ambient_nav only. No mention elsewhere.
+              urgency 4-5  → add one line to zen_summary.attention. Do NOT add to active_components.
+              urgency 6-10 → add to zen_summary.attention AND add an entry to active_components
+                             (treat as direct tier for this run only).
+            Populate ambient_nav by copying review_data.ambient_context directly.
+            Set ambient_nav.kata_cabinet to review_data.kata_cabinet.
+            ambient_nav is the agent's live-conversation navigation index — it lets the
+            agent cold-read any ambient component kata on demand with one FileCabinet call.
+            Do NOT summarize or compress ambient_nav — pass it through verbatim.
             Do NOT copy errors from last_summary into the errors[] field.
             The errors[] array is for errors encountered during THIS run only.
             Return errors: [] if no new errors occurred.
@@ -314,9 +351,10 @@ script:
           review_data: >-
             {{
               {
-                "kata_cabinet":   kata_cabinet,
-                "prompt_context": prompt_context | default({}),
-                "components":     component_data | default({})
+                "kata_cabinet":    kata_cabinet,
+                "prompt_context":  prompt_context | default({}),
+                "components":      component_data | default({}),
+                "ambient_context": ambient_context | default({})
               }
             }}
           example_data: >-

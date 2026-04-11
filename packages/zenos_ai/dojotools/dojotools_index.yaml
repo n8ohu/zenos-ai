@@ -264,7 +264,7 @@ script:
     - choose:
       - conditions:
         - condition: template
-          value_template: "{{- emit_event -}}"
+          value_template: "{{- emit_event if emit_event is defined else false -}}"
         sequence:
         - data:
             component: dojo_query
@@ -724,7 +724,7 @@ script:
         timeout_s: "{{- timeout | default(60) -}}"
         results: []
         label_targets_input: >
-          {%- set _lt = label_targets | default([]) -%}
+          {%- set _lt = label_targets if label_targets is defined else [] -%}
           {%- if _lt is iterable and _lt is not string -%}
             {{- _lt | map('trim') | map('lower') | reject('equalto', '') | list -}}
           {%- elif _lt is string and _lt | trim | length > 0 -%}
@@ -895,7 +895,8 @@ script:
                 {%- set idents = (device_attr(dev_id, 'identifiers') or []) | list -%}
                 {%- set first = idents | first | default([]) | list -%}
                 {%- set integ = first[0] if first | length > 0 else none -%}
-                {{- 
+                {%- set _dev_area = area_id(dev_id) -%}
+                {{-
                   {
                     'device_id': dev_id,
                     'name': device_attr(dev_id, 'name'),
@@ -1530,9 +1531,10 @@ script:
               status: "{{- _ci_write.get('status', 'error') if _ci_write is mapping else 'error' -}}"
               message: Compact label index built.
               generated: "{{- now().isoformat() -}}"
-              label_count: >-
-                {%- set _v = compact_index_value if compact_index_value is mapping else (compact_index_value | from_json({})) -%}
-                {{- _v.get('labels', []) | length -}}
+              labels: >-
+                {%- set _v = compact_index_value -%}
+                {%- set _v = (_v | from_json) if _v is string else _v -%}
+                {{- _v.get('labels', []) if _v is mapping else [] -}}
         - stop: Compact index built
           response_variable: final_response
     - alias: Compact Index Staleness Trap
@@ -2213,9 +2215,9 @@ automation:
               -}}
     - alias: Dispatch Zen Index Command
       data:
-        entities_1: "{{- entities_1 -}}"
+        entities_1: "{{- entities_1 if entities_1 is defined else [] -}}"
         label_1: "{{- parsed_cmd.label_1 -}}"
-        entities_2: "{{- entities_2 -}}"
+        entities_2: "{{- entities_2 if entities_2 is defined else [] -}}"
         label_2: "{{- parsed_cmd.label_2 -}}"
         operator: "{{- parsed_cmd.operator -}}"
         expand_entities: "{{- parsed_cmd.expand_entities -}}"
