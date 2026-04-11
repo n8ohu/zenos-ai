@@ -693,7 +693,7 @@ script:
 
                 PERSON LOCATION (label: room_tracker):
                   State = room slug (e.g. 'office', 'kitchen') or 'unknown' / 'unavailable'.
-                  Cross-reference entity labels for person identity (nathan, kim, watch, phone).
+                  Cross-reference entity labels for person identity (primary_user, secondary_user, watch, phone).
                   Multiple trackers per person — if any shows a known room, use it.
                   'unknown' on all = location indeterminate. Do not over-interpret — BLE has dead zones.
 
