@@ -141,10 +141,6 @@ automation:
       minutes: /10
       id: every_10_minutes
       enabled: true
-    - trigger: time_pattern
-      minutes: /5
-      id: every_5_minutes
-      enabled: true
     - trigger: event
       event_type: zen_event
       id: force_summary
