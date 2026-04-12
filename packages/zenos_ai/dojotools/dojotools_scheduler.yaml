@@ -286,7 +286,10 @@ automation:
                   {%- set sub_list  = val.get('trigger_subscriptions', []) -%}
                   {%- set subscribed = trig_id in sub_list -%}
                   {%- set targeted   = force_c == '' or force_c == key -%}
-                  {%- if subscribed and targeted -%}
+                  {%- set _tier      = val.get('pipeline_tier', 'keeper') | lower -%}
+                  {%- set _eff_delay = 0 if _tier == 'super' else val.get('delay_seconds', 0) | int(0) -%}
+                  {%- set _ambient_blocked = (_tier == 'ambient') and (trig_id in ['quarter_hour', 'every_10_minutes']) -%}
+                  {%- if subscribed and targeted and not _ambient_blocked -%}
                     {%- set schedules = val.get('schedules', []) -%}
                     {%- if schedules | length > 0 and force_s != '' -%}
                       {# targeted sub-schedule run — expand matching schedule only #}
@@ -294,10 +297,11 @@ automation:
                         {%- set sched_key = sched.get('kata_key', '') | slugify -%}
                         {%- if force_s == sched_key -%}
                           {%- set ns.subs = ns.subs + [val | combine({
-                            '_drawer_key':       key,
-                            'kata_key':          sched_key,
+                            '_drawer_key':          key,
+                            'kata_key':             sched_key,
                             '_index_call_override': sched.get('index_call', {}),
-                            '_parent_component': key
+                            '_parent_component':    key,
+                            'delay_seconds':        _eff_delay
                           })] -%}
                         {%- endif -%}
                       {%- endfor -%}
@@ -306,18 +310,19 @@ automation:
                       {%- for sched in schedules -%}
                         {%- set sched_key = sched.get('kata_key', '') | slugify -%}
                         {%- set ns.subs = ns.subs + [val | combine({
-                          '_drawer_key':       key,
-                          'kata_key':          sched_key,
+                          '_drawer_key':          key,
+                          'kata_key':             sched_key,
                           '_index_call_override': sched.get('index_call', {}),
-                          '_parent_component': key
+                          '_parent_component':    key,
+                          'delay_seconds':        _eff_delay
                         })] -%}
                       {%- endfor -%}
                     {%- elif schedules | length > 0 and force_c == key and force_s == '' -%}
                       {# force_summary on parent with no schedule — run top-level component #}
-                      {%- set ns.subs = ns.subs + [val | combine({'_drawer_key': key})] -%}
+                      {%- set ns.subs = ns.subs + [val | combine({'_drawer_key': key, 'delay_seconds': _eff_delay})] -%}
                     {%- else -%}
                       {# no schedules — normal single subscriber #}
-                      {%- set ns.subs = ns.subs + [val | combine({'_drawer_key': key})] -%}
+                      {%- set ns.subs = ns.subs + [val | combine({'_drawer_key': key, 'delay_seconds': _eff_delay})] -%}
                     {%- endif -%}
                   {%- endif -%}
                 {%- endif -%}
