@@ -413,6 +413,120 @@ automation:
 
 
   #####################################################################
+  # zen_scheduler_drain_router — Trickle recovery for shed components
+  #
+  # v1.0.0 (ZenOS-AI 4.5.x)
+  #
+  # When scheduler queue depth stays below drain_below for s_min_minutes,
+  # fires force_summary for the most stale shed-eligible component
+  # (keeper before ambient, oldest kata timestamp first).
+  #
+  # Starvation guard (time_pattern /10): if any component's kata is older
+  # than s_max_minutes, forces a recovery regardless of queue depth.
+  #
+  # mode: single — one drain recovery dispatch at a time; scheduler
+  # handles execution. Config lives in zen_scheduler_config drawer
+  # of the household root cabinet.
+  #####################################################################
+
+  - id: zen_scheduler_drain_router
+    alias: Zen Scheduler — Drain Router
+    description: >-
+      Zen Scheduler Drain Router 1.0.0. When queue depth is sustained
+      below drain_below for s_min_minutes, trickles shed components back
+      into the pipeline — keeper tier first, oldest kata first.
+      Starvation guard fires at s_max_minutes regardless of depth.
+      Config in zen_scheduler_config drawer of household root cabinet.
+    mode: single
+
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.zen_scheduler_queue_depth
+        below: 4
+        for:
+          minutes: 3
+        id: drain_quiet
+      - trigger: time_pattern
+        minutes: /10
+        id: drain_starvation_check
+
+    actions:
+      # ── Resolve cabinets + read scheduler config ─────────────────────
+      - variables:
+          _household_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+          _dojo_cab:      "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
+          _kata_cab:      "{{ states('sensor.zen_kata_cabinet_resolved') }}"
+          _queue_depth:   "{{ states('sensor.zen_scheduler_queue_depth') | int(0) }}"
+      - variables:
+          _drain_below: >-
+            {%- set _hv = state_attr(_household_cab, 'variables') | default({}, true) -%}
+            {%- set _r  = _hv.get('zen_scheduler_config', {}) if _hv is mapping else {} -%}
+            {%- set _v  = _r.get('value', _r) if _r is mapping else {} -%}
+            {%- set _v  = (_v | from_json) if _v is string else _v -%}
+            {{ (_v.get('drain_below', 3) if _v is mapping else 3) | int(3) }}
+          _s_max_minutes: >-
+            {%- set _hv = state_attr(_household_cab, 'variables') | default({}, true) -%}
+            {%- set _r  = _hv.get('zen_scheduler_config', {}) if _hv is mapping else {} -%}
+            {%- set _v  = _r.get('value', _r) if _r is mapping else {} -%}
+            {%- set _v  = (_v | from_json) if _v is string else _v -%}
+            {{ (_v.get('s_max_minutes', 60) if _v is mapping else 60) | int(60) }}
+
+      # ── Gate: quiet trigger re-validates depth; starvation bypasses ──
+      - if: >-
+          {{ trigger.id == 'drain_starvation_check' or _queue_depth | int(0) < _drain_below | int(3) }}
+        then:
+          # ── Build candidate list from dojo drawers + kata timestamps ──
+          - variables:
+              _now_ts: "{{ now().timestamp() | int(0) }}"
+              _candidates: >-
+                {%- set protected = ['AI_Cabinet_VolumeInfo', 'kfc_template', 'zen_library_manifest', 'zen_identity_manifest', '_context'] -%}
+                {%- set dojo_v = state_attr(_dojo_cab, 'variables') | default({}, true) -%}
+                {%- set kata_v = state_attr(_kata_cab, 'variables') | default({}, true) -%}
+                {%- set ns = namespace(cands=[]) -%}
+                {%- if _dojo_cab not in ['unknown', 'unavailable'] and _kata_cab not in ['unknown', 'unavailable'] -%}
+                  {%- for key, drawer in (dojo_v if dojo_v is mapping else {}).items() -%}
+                    {%- if not key.startswith('_') and key not in protected -%}
+                      {%- set val = drawer.get('value', drawer) if drawer is mapping else {} -%}
+                      {%- if val is mapping -%}
+                        {%- set tier = val.get('pipeline_tier', 'keeper') | lower -%}
+                        {%- if tier in ['keeper', 'ambient', 'direct'] -%}
+                          {%- set kata_raw = (kata_v if kata_v is mapping else {}).get(key, {}) -%}
+                          {%- set kata_val = kata_raw.get('value', kata_raw) if kata_raw is mapping else {} -%}
+                          {%- set kata_val = (kata_val | from_json) if kata_val is string else kata_val -%}
+                          {%- set gen_str  = (kata_val.get('generated', '') if kata_val is mapping else '') | default('', true) | string -%}
+                          {%- set gen_ts   = as_timestamp(gen_str) | default(0, true) | int(0) -%}
+                          {%- set age_min  = ((_now_ts - gen_ts) / 60) | int(9999) if gen_ts > 0 else 9999 -%}
+                          {%- set tier_sort = 0 if tier in ['keeper', 'direct'] else 1 -%}
+                          {%- set ns.cands = ns.cands + [{'key': key, 'tier': tier, 'tier_sort': tier_sort, 'age_min': age_min}] -%}
+                        {%- endif -%}
+                      {%- endif -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                {%- endif -%}
+                {{ ns.cands | sort(attribute='age_min', reverse=true) | sort(attribute='tier_sort') }}
+
+          # ── Select target: starvation = must exceed s_max; drain = most stale ──
+          - variables:
+              _target_component: >-
+                {%- set cands = _candidates if _candidates is iterable and _candidates is not string else [] -%}
+                {%- if trigger.id == 'drain_starvation_check' -%}
+                  {%- set stale = cands | selectattr('age_min', 'ge', _s_max_minutes | int(60)) | list -%}
+                  {{ stale[0].key if stale | length > 0 else '' }}
+                {%- else -%}
+                  {{ cands[0].key if cands | length > 0 else '' }}
+                {%- endif -%}
+
+          # ── Fire force_summary for target (if found) ────────────────
+          - if: "{{ _target_component | trim != '' }}"
+            then:
+              - event: zen_event
+                event_data:
+                  event:
+                    kind: summary_force
+                    component: "{{ _target_component }}"
+
+
+  #####################################################################
   # zen_laundry_flag_resumm — Re-summarize laundry_manager on flag change
   #
   # v1.0.0 (ZenOS-AI 4.5.8)

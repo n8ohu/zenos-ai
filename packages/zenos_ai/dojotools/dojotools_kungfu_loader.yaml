@@ -780,4 +780,30 @@ script:
               caller_id: zen_admintools_kungfu_loader
             response_variable: _room_manager_kfc_result
 
+      # ── Factory: seed zen_scheduler_config in household cabinet ─────────
+      # Writes default pressure thresholds so the drain router and scheduler
+      # have config from first boot. Safe to re-run — overwrites with defaults.
+      - if: "{{- _factory_run -}}"
+        then:
+          - alias: 'Seed: zen_scheduler_config (household cabinet)'
+            action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: create
+              show_hidden_volumes: false
+              volume_entity_id:
+                - sensor.zen_default_household_cabinet_resolved
+              key: zen_scheduler_config
+              value: >-
+                {{
+                  {
+                    "shed_ambient_at": 4,
+                    "shed_keeper_at":  8,
+                    "drain_below":     3,
+                    "s_min_minutes":   5,
+                    "s_max_minutes":   60
+                  } | tojson
+                }}
+            response_variable: _scheduler_config_result
+
     mode: single
