@@ -245,6 +245,105 @@ script:
         tts_entity: tts.openai_gpt_4o_mini_tts_2
 
     # --------------------------------------------------------------
+    # Normalize urgency — sentinel -1 means "not provided"
+    # urgency is required. Callers that omit it are blocked.
+    # --------------------------------------------------------------
+    - variables:
+        _urgency_raw: "{{ urgency | default(none) }}"
+        _urgency_int: "{{ _urgency_raw | int(-1) if _urgency_raw is not none else -1 }}"
+
+    # --------------------------------------------------------------
+    # URGENCY REQUIRED GATE
+    # urgency is a required field. Callers that omit it are blocked
+    # with a clear error. This forces all callers to declare intent.
+    # --------------------------------------------------------------
+    - if: "{{ _urgency_int == -1 }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "urgency_required",
+                  "message": "urgency field is required. Pass urgency (4–8) for voice. urgency <= 3 = push only (use notification_router). urgency >= 9 = life-safety only (smoke, CO, flood, alarm). Callers that cannot determine urgency should use notification_router instead.",
+                  "urgency": none} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: warn
+              summary: >-
+                Announce blocked (urgency_required) — caller '{{ caller_token | default('anon') }}'
+                did not pass urgency
+              metadata:
+                reason: urgency_required
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+        - stop: Urgency required — not provided
+          response_variable: final_response
+
+    # --------------------------------------------------------------
+    # URGENCY GATE
+    # urgency <= 3 = push only. Never audio.
+    # Error katas, no-data, informational = not household audio events.
+    # --------------------------------------------------------------
+    - if: "{{ _urgency_int <= 3 }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "blocked_urgency",
+                  "message": "Audio blocked — urgency " ~ _urgency_int ~ " is below voice threshold (minimum 4). Use zen_dojotools_notification_router for push.",
+                  "urgency": _urgency_int} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: info
+              summary: >-
+                Announce blocked (urgency gate) — caller '{{ caller_token | default('anon') }}'
+                urgency={{ _urgency_int }} below threshold 4
+              metadata:
+                reason: urgency_gate
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                urgency: "{{ _urgency_int }}"
+        - stop: Urgency gate — blocked
+          response_variable: final_response
+
+    # --------------------------------------------------------------
+    # SLEEP GATE
+    # Blocks audio when household is sleeping or in quiet hours (11pm–7am).
+    # Life-safety urgency >= 9 bypasses (smoke, CO, flooding, alarm).
+    # Returns structured response — use zen_dojotools_notification_router instead.
+    # --------------------------------------------------------------
+    - variables:
+        _zen_mode: "{{ states('input_select.zen_home_mode') | default('', true) }}"
+        _hour: "{{ now().hour | int }}"
+        _is_sleep_time: >-
+          {{ _zen_mode == 'sleep' or (_hour >= 23 or _hour < 7) }}
+        _sleep_exempt: "{{ _urgency_int >= 9 }}"
+    - if: "{{ _is_sleep_time and not _sleep_exempt }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "blocked_sleep",
+                  "message": "Audio blocked — household in sleep state or quiet hours (11pm–7am). Use zen_dojotools_notification_router for push. Only life-safety urgency >= 9 bypasses this gate (smoke, CO, flood, alarm).",
+                  "urgency": _urgency_int,
+                  "mode": _zen_mode} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: info
+              summary: >-
+                Announce blocked (sleep gate) — caller '{{ caller_token | default('anon') }}'
+                urgency={{ _urgency_int }} mode={{ _zen_mode }}
+              metadata:
+                reason: sleep_gate
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                urgency: "{{ _urgency_int }}"
+        - stop: Sleep gate — blocked
+          response_variable: final_response
+
+    # --------------------------------------------------------------
     # Announcement log + dedup gate
     # Reads zen_announcement_log from kata cabinet.
     # Blocks if identical message from same caller fired within
@@ -418,6 +517,19 @@ script:
         description: Message to be announced using your default TTS in your area(s)
           selected. (Short message, max 255 char, no encyclopedias)
         required: true
+      urgency:
+        name: Urgency
+        description: >-
+          Required. Urgency level (4–10 for voice; 1–3 = push only, blocked here).
+          urgency 4–8: normal voice announcement range.
+          urgency >= 9: life-safety bypass (smoke, CO, flood, alarm) — bypasses sleep gate.
+          urgency <= 3: blocked — use zen_dojotools_notification_router for push instead.
+          Omitting urgency is also blocked (status: urgency_required).
+        required: true
+        selector:
+          number:
+            min: 1
+            max: 10
       caller_token:
         name: Caller Token
         description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
@@ -425,12 +537,16 @@ script:
         selector:
           text:
     alias: Zen DojoTools Announce
-    description: "Zen DojoTools Announce (0.0.9)\n\nShort Message Audible Announcement
-      router.\nUses Media Manager Rules to identify the correct TTS endpoint, use index
-      key 'tts_output' to locate eligible endpoints. \nInput message to send and areas
-      to send to - let the tool figure out the rest...\nWill handle identifying the
-      correct endpoint, volume etc. for the time and report results.  Happy Notifying...
-      \ Don't overuse."
+    description: "Zen DojoTools Announce (0.1.0)\n\nShort Message Audible Announcement\
+      \ router.\nUses Media Manager Rules to identify the correct TTS endpoint.\n\n\
+      GATES (enforced by the tool — all responses are machine-readable status codes):\n\
+      \  1. URGENCY REQUIRED: urgency must be passed. Returns status: urgency_required.\n\
+      \  2. URGENCY GATE: urgency <= 3 = push only. Returns status: blocked_urgency.\n\
+      \     Use zen_dojotools_notification_router instead.\n\
+      \  3. SLEEP GATE: zen_home_mode=sleep or 11pm-7am. Returns status: blocked_sleep.\n\
+      \     urgency >= 9 bypasses (life-safety only: smoke, CO, flood, alarm).\n\
+      \  4. DEDUP GATE: same caller+message within dedup window. Returns status: dedup.\n\n\
+      Voice range: urgency 4–8. Don't overuse."
 
   zen_dojotools_music_search:
     sequence:

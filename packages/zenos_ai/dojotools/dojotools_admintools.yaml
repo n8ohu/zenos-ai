@@ -2039,7 +2039,15 @@ script:
               7am), do NOT use audio announcements autonomously. Use push notifications
               only. Exception: life-safety urgency >= 9 (smoke, CO, gas leak, alarm
               triggered, flooding). This applies to all autonomous MCP calls to
-              zen_dojotools_announce — do not override this gate."
+              zen_dojotools_announce — the tool enforces this gate and will return
+              status: blocked_sleep if you attempt to bypass it. Pass urgency >= 9
+              only for genuine life-safety events (smoke, CO, flood, alarm).\n- >\n
+              \ VOICE GATE — zen_dojotools_announce enforces urgency-based audio
+              gates at the tool level. urgency <= 3 returns status: blocked_urgency
+              — the tool will not fire TTS. Use zen_dojotools_notification_router
+              for push. Pass urgency when calling zen_dojotools_announce so the tool
+              can apply the correct gate. Do not attempt to call announce without
+              urgency for system or error conditions."
             set_timestamp: true
       default:
       - alias: 'set_variable: Purpose (v28 — 2026 GA)'
