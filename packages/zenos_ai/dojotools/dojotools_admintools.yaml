@@ -2033,7 +2033,13 @@ script:
               select/input_select → zen_dojotools_select_control. number/input_number
               → zen_dojotools_number. text/input_text → zen_dojotools_text. climate →
               zen_dojotools_climate. water_heater → zen_dojotools_water_heater.
-              input_datetime → zen_dojotools_datetime. zone → zen_dojotools_zones."
+              input_datetime → zen_dojotools_datetime. zone → zen_dojotools_zones.\n- >\n
+              \ SLEEP GATE — Autonomous audio announcements: When the household is in
+              sleep state (zen_home_mode is ''sleep'' or local time is between 11pm and
+              7am), do NOT use audio announcements autonomously. Use push notifications
+              only. Exception: life-safety urgency >= 9 (smoke, CO, gas leak, alarm
+              triggered, flooding). This applies to all autonomous MCP calls to
+              zen_dojotools_announce — do not override this gate."
             set_timestamp: true
       default:
       - alias: 'set_variable: Purpose (v28 — 2026 GA)'

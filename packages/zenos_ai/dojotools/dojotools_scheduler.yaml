@@ -178,6 +178,10 @@ automation:
       alias: 'Zen Event: Force Identity Manifest rebuild'
     actions:
 
+    # ── Capture run start time for duration tracking ─────────────────────────
+    - variables:
+        _run_start_ts: "{{ now().isoformat() }}"
+
     # ── Pre-fetch home overview ──────────────────────────────────────────────
     - action: script.zen_dojotools_inspect
       metadata: {}
@@ -306,7 +310,7 @@ automation:
                   {%- set targeted   = force_c == '' or force_c == key -%}
                   {%- set _tier      = val.get('pipeline_tier', 'keeper') | lower -%}
                   {%- set _eff_delay = 0 if _tier == 'super' else val.get('delay_seconds', 0) | int(0) -%}
-                  {%- set _forced    = trig_id == 'force_summary' -%}
+                  {%- set _forced    = trig_id == 'force_summary' and force_c != '' -%}
                   {%- set _shed = not _forced and (
                       (_tier == 'ambient' and (trig_id in ['quarter_hour', 'every_10_minutes'] or _queue_depth | int(0) >= _shed_ambient_at | int(4)))
                       or
@@ -354,7 +358,29 @@ automation:
             {{ ns.subs | sort(attribute='delay_seconds') }}
           {%- endif -%}
 
-    - if: "{{ trigger.id != 'force_supersummary' }}"
+    # ── Compute per-call timeout from recent run history ────────────────────
+    # Reads zen_scheduler kata recent_runs, derives avg seconds/component.
+    # Timeout = max(2 * avg, 120). Falls back to 240s until history exists.
+    - variables:
+        _sched_prev_runs: >-
+          {%- set cab = state_attr(_kata_cab, 'variables') | default({}, true) -%}
+          {%- set drawer = cab.get('zen_scheduler', {}) if cab is mapping else {} -%}
+          {%- set val = drawer.get('value', drawer) if drawer is mapping else {} -%}
+          {%- set parsed = (val | from_json) if val is string else val -%}
+          {{ (parsed.get('recent_runs', []) if parsed is mapping else []) | list }}
+        _ninja_timeout: >-
+          {%- set hist = _sched_prev_runs if _sched_prev_runs is iterable and _sched_prev_runs is not string else [] -%}
+          {%- set ns = namespace(total=0, n=0) -%}
+          {%- for r in hist -%}
+            {%- if r is mapping and (r.get('duration_seconds', 0) | int(0)) > 0 and (r.get('count', 0) | int(0)) > 0 -%}
+              {%- set ns.total = ns.total + (r.duration_seconds | int) / (r.count | int(1)) -%}
+              {%- set ns.n = ns.n + 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set _raw = [((ns.total / ns.n) if ns.n > 0 else 120) * 2, 60] | max -%}
+          {{ [_raw, 120] | min | int }}
+
+    - if: "{{ trigger.id != 'force_supersummary' and _queue_depth | int(0) < 5 }}"
       then:
         - repeat:
             for_each: "{{ _subscribers }}"
@@ -378,24 +404,22 @@ automation:
                 response_variable: _iter_last_kata
               - variables:
                   _iter_prompt: >-
-                    {{
-                      {
-                        "source":            {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
-                        "home_overview":     home_overview | default({}),
-                        "last_kata_summary": _iter_last_kata | default({})
-                      } | tojson
-                    }}
-              - action: script.zen_dojotools_ninja_summarizer
-                metadata: {}
+                    {%- set _p = {
+                      "source":            {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
+                      "last_kata_summary": _iter_last_kata | default({})
+                    } | tojson -%}
+                    {{ _p[:50000] }}
+              - action: script.turn_on
                 data:
-                  kung_fu_component_id: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
-                  post_to_kata_cabinet: true
-                  supplemental_prompt: '{{ _iter_prompt }}'
-                  index_call_override: >-
-                    {%- set _ov = repeat.item._index_call_override | default({}) -%}
-                    {{ _ov | tojson if _ov else '' }}
-                  parent_component_id: "{{ repeat.item._parent_component | default('', true) }}"
-                response_variable: _iter_ninja_response
+                  entity_id: script.zen_dojotools_ninja_summarizer
+                  variables:
+                    kung_fu_component_id: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
+                    post_to_kata_cabinet: true
+                    supplemental_prompt: '{{ _iter_prompt }}'
+                    index_call_override: >-
+                      {%- set _ov = repeat.item._index_call_override | default({}) -%}
+                      {{ _ov | tojson if _ov else '' }}
+                    parent_component_id: "{{ repeat.item._parent_component | default('', true) }}"
 
     # ── Conditional SuperSummary — fires after ninjas, not before ────────────
     - variables:
@@ -405,6 +429,10 @@ automation:
           {{ _always_super or (_subscribers | default([]) | length > 0) }}
     - if: "{{ _should_super }}"
       then:
+        - wait_template: "{{ state_attr('script.zen_dojotools_ninja_summarizer', 'current') | int(0) < 2 }}"
+          timeout:
+            seconds: 30
+          continue_on_timeout: true
         - variables:
             supplemental_prompt: >-
               {{
@@ -414,14 +442,20 @@ automation:
                   "notes": "Don't comment about the state of the component's master switch or script. Comment only on the items the component manages. Please ignore when you perform summarization."
                 } | tojson
               }}
-        - action: script.zen_dojotools_supersummary
-          metadata: {}
+        - action: script.turn_on
           data:
-            post_to_kata_cabinet: true
-            supplemental_prompt: '{{ supplemental_prompt }}'
-          response_variable: response_zen_summary
+            entity_id: script.zen_dojotools_supersummary
+            variables:
+              post_to_kata_cabinet: true
+              supplemental_prompt: '{{ supplemental_prompt }}'
 
     # ── Write scheduler heartbeat to Kata ───────────────────────────────────
+    # Wait for FC to be idle — parallel ninja kata writes (FC mode:single) can
+    # race the heartbeat and cause silent drops. 60s ceiling, always continues.
+    - wait_template: "{{ not is_state('script.zen_dojotools_filecabinet', 'on') }}"
+      timeout:
+        seconds: 60
+      continue_on_timeout: true
     - variables:
         trigger_entity_id: >-
           {%- if 'from_state' in trigger and trigger.from_state -%}
@@ -444,11 +478,12 @@ automation:
         _this_run: >-
           {{
             {
-              "ts":         now().isoformat(),
-              "trigger":    this_trigger | default({}),
-              "dispatched": _dispatched_keys,
-              "count":      _dispatched_keys | length,
-              "super":      _should_super | default(false) | bool
+              "ts":               now().isoformat(),
+              "trigger":          this_trigger | default({}),
+              "dispatched":       _dispatched_keys,
+              "count":            _dispatched_keys | length,
+              "super":            _should_super | default(false) | bool,
+              "duration_seconds": (now() - (_run_start_ts | as_datetime)).total_seconds() | int
             }
           }}
         _prev_runs: >-

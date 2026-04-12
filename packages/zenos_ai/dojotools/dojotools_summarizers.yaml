@@ -112,8 +112,7 @@ script:
       Respects zen_summarizers_enabled (master) and zen_supersummarizer_enabled
       kill switches — early-outs immediately if either is off.
     icon: mdi:home-circle
-    mode: queued
-    max: 3
+    mode: single
     fields:
       query:
         name: Override Query
@@ -136,6 +135,14 @@ script:
         required: false
         selector:
           text:
+      force:
+        name: Force Run
+        description: >-
+          Bypass the cooldown governor. Use for admin overrides or emergency
+          on-demand runs. Default false.
+        default: false
+        selector:
+          boolean:
 
     sequence:
 
@@ -168,7 +175,40 @@ script:
           - stop: "ai_task entity unset — aborting supersummary"
             error: true
 
-      # ── 0b. Start timer + emit summarizer_start ──────────────────────────
+      # ── 0b. Cooldown governor ─────────────────────────────────────────────
+      # Reads super_burnout_seconds from zen_ninja_config in household cabinet.
+      # Default 600s (10 min). Bypassed by force: true.
+      - alias: SuperSummary cooldown governor
+        variables:
+          _super_gov_cfg: >-
+            {%- set _household = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- set _cfg_raw = (state_attr(_household, 'variables') or {}).get('zen_ninja_config', {}) -%}
+            {%- set _v1 = _cfg_raw.get('value', _cfg_raw) if _cfg_raw is mapping else {} -%}
+            {{ (_v1 | from_json) if _v1 is string else _v1 }}
+          _super_burnout: "{{ (_super_gov_cfg.get('super_burnout_seconds', 600) | int(600)) if _super_gov_cfg is mapping else 600 }}"
+          _super_last_ts: >-
+            {%- set _kc = states('sensor.zen_kata_cabinet_resolved') -%}
+            {%- set _ts_str = (state_attr(_kc, 'variables') or {}).get('zen_summary', {}).get('timestamp', '') -%}
+            {{ (_ts_str | as_datetime).timestamp() | float(0) if _ts_str | trim != '' else 0 }}
+          _super_elapsed: "{{ (now().timestamp() - _super_last_ts) | round(0) | int }}"
+          _super_blocked: "{{ _super_elapsed < _super_burnout | int and not (force | default(false) | bool) }}"
+      - if:
+          - condition: template
+            value_template: "{{ _super_blocked }}"
+        then:
+          - event: zen_event
+            event_data:
+              event:
+                kind: supersummary_run_blocked
+                reason: cooldown_window
+                elapsed_secs: "{{ _super_elapsed }}"
+                burnout_secs: "{{ _super_burnout }}"
+                severity: info
+          - stop: >-
+              SuperSummary governor — last run {{ _super_elapsed }}s ago
+              (< {{ _super_burnout }}s cooldown). Skipping.
+
+      # ── 0c. Start timer + emit summarizer_start ──────────────────────────
       - alias: Capture start time and emit summarizer_start
         variables:
           started_at: "{{ now().isoformat() }}"
@@ -680,6 +720,10 @@ script:
             {%- set _ecm = (dojo_drawer.emission_cooldown_minutes | default(none)) -%}
             {%- set _ecm = _ecm if _ecm is not none else (dojo_drawer_value.emission_cooldown_minutes | default(none)) -%}
             {{ _ecm | int if _ecm is not none else 60 }}
+          staleness_minutes: >-
+            {%- set _sm = (dojo_drawer.staleness_minutes | default(none)) -%}
+            {%- set _sm = _sm if _sm is not none else (dojo_drawer_value.staleness_minutes | default(none)) -%}
+            {{ _sm | int if _sm is not none else 1440 }}
           index_call: >-
             {%- set _ior = _index_override_raw | default('', true) | trim -%}
             {%- if _ior != '' -%}
@@ -1227,7 +1271,8 @@ script:
               set_timestamp: true
               show_hidden_volumes: false
               force_action: true
-              expires_after: 24
+              expires_after: >-
+                {{ (now() + timedelta(minutes=(staleness_minutes | int(1440)) * 2)).isoformat() }}
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: "{{ component_slug }}"

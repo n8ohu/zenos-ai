@@ -797,13 +797,31 @@ script:
               value: >-
                 {{
                   {
-                    "shed_ambient_at": 4,
-                    "shed_keeper_at":  8,
-                    "drain_below":     3,
-                    "s_min_minutes":   5,
-                    "s_max_minutes":   60
+                    "shed_ambient_at":  4,
+                    "shed_keeper_at":   8,
+                    "drain_below":      3,
+                    "s_min_minutes":    5,
+                    "s_max_minutes":    60,
+                    "warmup_minutes":   5
                   } | tojson
                 }}
             response_variable: _scheduler_config_result
+          - alias: 'Seed: zen_ninja_config (household cabinet)'
+            action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: create
+              show_hidden_volumes: false
+              volume_entity_id:
+                - sensor.zen_default_household_cabinet_resolved
+              key: zen_ninja_config
+              value: >-
+                {{
+                  {
+                    "burnout_seconds":       300,
+                    "super_burnout_seconds": 600
+                  } | tojson
+                }}
+            response_variable: _ninja_config_result
 
     mode: single

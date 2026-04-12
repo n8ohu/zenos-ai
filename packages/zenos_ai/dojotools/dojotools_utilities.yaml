@@ -243,6 +243,73 @@ script:
     - variables:
         results: []
         tts_entity: tts.openai_gpt_4o_mini_tts_2
+
+    # --------------------------------------------------------------
+    # Announcement log + dedup gate
+    # Reads zen_announcement_log from kata cabinet.
+    # Blocks if identical message from same caller fired within
+    # dedup_seconds (default 300). Always writes log entry after fire.
+    # Prevents looping components from spamming audio.
+    # --------------------------------------------------------------
+    - variables:
+        _kata_cab: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
+        _kata_ok: >-
+          {{ _kata_cab not in ['unknown', 'unavailable', 'none', ''] }}
+    - variables:
+        _ann_log_raw: >-
+          {%- if _kata_ok -%}
+            {%- set _cab = state_attr(_kata_cab, 'variables') | default({}, true) -%}
+            {%- set _d = _cab.get('zen_announcement_log', {}) -%}
+            {%- set _v = _d.get('value', _d) if _d is mapping else {} -%}
+            {%- set _v = (_v | from_json) if _v is string else _v -%}
+            {{ _v if _v is mapping else {} }}
+          {%- else -%}
+            {{ {} }}
+          {%- endif -%}
+        _dedup_seconds: >-
+          {%- set _hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+          {%- set _cfg = (state_attr(_hh, 'variables') | default({}, true)).get('zen_scheduler_config', {}) -%}
+          {%- set _v = _cfg.get('value', _cfg) if _cfg is mapping else {} -%}
+          {%- set _v = (_v | from_json) if _v is string else _v -%}
+          {{ (_v.get('announce_dedup_seconds', 300) | int(300)) if _v is mapping else 300 }}
+    - variables:
+        _msg_key: "{{ message | default('') | truncate(80, true, '') | slugify }}"
+        _caller_key: "{{ caller_token | default('anon') | slugify | truncate(32, true, '') }}"
+        _dedup_key: "{{ _caller_key ~ '__' ~ _msg_key }}"
+        _recent: >-
+          {%- set _entries = _ann_log_raw.get('entries', []) if _ann_log_raw is mapping else [] -%}
+          {%- set _now_ts = now().timestamp() -%}
+          {%- set _win = _dedup_seconds | int(300) -%}
+          {%- set ns = namespace(found=false) -%}
+          {%- for e in _entries -%}
+            {%- if e is mapping and e.get('dedup_key') == _dedup_key -%}
+              {%- set _age = (_now_ts - (e.get('ts', 0) | float(0))) | int -%}
+              {%- if _age < _win -%}
+                {%- set ns.found = true -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ ns.found }}
+    - if: "{{ _recent | bool }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "dedup", "message": "Announcement suppressed — identical message from same caller within dedup window.", "dedup_key": _dedup_key, "caller_token": caller_token} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: warn
+              summary: >-
+                Announcement dedup triggered — suppressed repeat from caller
+                '{{ caller_token | default('anon') }}' (key: {{ _dedup_key }})
+              metadata:
+                dedup_key: "{{ _dedup_key }}"
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                areas: "{{ area | default([]) }}"
+        - stop: Announce dedup — suppressed
+          response_variable: final_response
     - repeat:
         sequence:
         - variables:
@@ -282,6 +349,57 @@ script:
         final_response: "{{\n  {\n    \"results\": results\n  } | tojson\n}}"
     - variables:
         final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token}) | tojson }}"
+
+    # --------------------------------------------------------------
+    # Write announcement log entry to kata cabinet
+    # Keeps last 50 entries. Cap prevents unbounded growth.
+    # --------------------------------------------------------------
+    - if: "{{ _kata_ok }}"
+      then:
+        - variables:
+            _new_entry: >-
+              {{
+                {
+                  "ts":         now().timestamp() | round(0) | int,
+                  "iso":        now().isoformat(),
+                  "dedup_key":  _dedup_key,
+                  "caller":     caller_token | default('anon'),
+                  "message":    message | default('') | truncate(255, true, '...'),
+                  "areas":      area | default([])
+                } | tojson
+              }}
+            _prev_entries: >-
+              {%- set _entries = _ann_log_raw.get('entries', []) if _ann_log_raw is mapping else [] -%}
+              {{ _entries | list }}
+            _log_value: >-
+              {{
+                {
+                  "entries": ([_new_entry | from_json] + _prev_entries)[:50]
+                } | tojson
+              }}
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: create
+            force_action: true
+            set_timestamp: true
+            volume_entity_id:
+              - "{{ _kata_cab }}"
+            key: zen_announcement_log
+            value: "{{ _log_value }}"
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_fired
+              severity: info
+              summary: >-
+                Audio announcement fired by '{{ caller_token | default('anon') }}'
+                to {{ area | default([]) | join(', ') }}
+              metadata:
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                areas: "{{ area | default([]) }}"
+                dedup_key: "{{ _dedup_key }}"
+
     - stop: Pass Variable
       response_variable: final_response
     fields:

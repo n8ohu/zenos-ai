@@ -173,12 +173,22 @@ automation:
         event: start
     conditions: []
     actions:
-      - delay: "00:05:00"
+      - delay: "00:00:05"
+      - variables:
+          _warmup_minutes: >-
+            {%- set _hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- set _cfg_raw = (state_attr(_hh, 'variables') or {}).get('zen_scheduler_config', {}) -%}
+            {%- set _v = _cfg_raw.get('value', _cfg_raw) if _cfg_raw is mapping else {} -%}
+            {%- set _v = (_v | from_json) if _v is string else _v -%}
+            {{ (_v.get('warmup_minutes', 5) | int(5)) if _v is mapping else 5 }}
+      - delay:
+          minutes: "{{ _warmup_minutes }}"
       - event: zen_event
         event_data:
           event:
             kind: warmup_expired
             source: zen_warmup_timer
+            warmup_minutes: "{{ _warmup_minutes }}"
             timestamp: "{{ now().isoformat() }}"
 
   - alias: "Flynn: Stepgate Sentinel"

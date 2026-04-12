@@ -254,6 +254,11 @@ template:
             {%- set _ss_status = _ss_val.get('status', 'unknown') %}
             {%- set monk_err = _ss_status in ['error','timeout','none','null','unknown'] %}
 
+            {%- set _sched_raw = kata.get('zen_scheduler', {}) %}
+            {%- set _sched = _sched_raw if _sched_raw is mapping else (_sched_raw | from_json if _sched_raw is string else {}) %}
+            {%- set _sched_ts = _sched.get('timestamp') if _sched is mapping else none %}
+            {%- set scheduler_stale = _sched_ts and (now() - as_datetime(_sched_ts) >= timedelta(minutes=20)) %}
+
             {#- ------------------------ CRITICAL ------------------------ #}
             {%- if not schema_ok %}
               critical
@@ -272,6 +277,8 @@ template:
             {%- elif not recent %}
               warn
             {%- elif active|count == 0 %}
+              warn
+            {%- elif scheduler_stale %}
               warn
 
             {#- --------------------------- OK --------------------------- #}
@@ -320,6 +327,11 @@ template:
               {%- set _ss_val = _ss_val if _ss_val is mapping else (_ss_val | from_json if _ss_val is string else {}) %}
               {%- set _ss_status = _ss_val.get('status', 'unknown') %}
               {%- set monk_err = _ss_status in ['error','timeout','none','null','unknown'] %}
+              {%- set _sched_raw = kata.get('zen_scheduler', {}) %}
+              {%- set _sched = _sched_raw if _sched_raw is mapping else (_sched_raw | from_json if _sched_raw is string else {}) %}
+              {%- set _sched_ts = _sched.get('timestamp') if _sched is mapping else none %}
+              {%- set scheduler_stale = _sched_ts and (now() - as_datetime(_sched_ts) >= timedelta(minutes=20)) %}
+              {%- set _sched_age = ((now() - as_datetime(_sched_ts)).total_seconds() / 60) | int if _sched_ts else 0 %}
               {%- set _age_min = ((now() - as_datetime(ts)).total_seconds() / 60) | int if ts else 0 %}
               {%- if not schema_ok %}
                 zen_template schema missing from kata cabinet — run zen_admintools_reset_template.
@@ -337,6 +349,8 @@ template:
                 No zen_summary in kata yet — Ninja Summarizer has not run since boot. Fire summary_force.
               {%- elif _ns.active | count == 0 %}
                 No active KFC components in dojo — components need kata_key and trigger_subscriptions to be eligible.
+              {%- elif scheduler_stale %}
+                Scheduler heartbeat is {{ _sched_age }} min stale (threshold: 20 min) — zen_scheduler kata drawer not updating. Check zen_summarizer_health.
               {%- else %}
                 All checks passed.
               {%- endif %}

@@ -494,10 +494,11 @@ automation:
                           {%- set kata_val = kata_raw.get('value', kata_raw) if kata_raw is mapping else {} -%}
                           {%- set kata_val = (kata_val | from_json) if kata_val is string else kata_val -%}
                           {%- set gen_str  = (kata_val.get('generated', '') if kata_val is mapping else '') | default('', true) | string -%}
-                          {%- set gen_ts   = as_timestamp(gen_str) | default(0, true) | int(0) -%}
+                          {%- set gen_ts   = as_timestamp(gen_str, 0) | int(0) -%}
                           {%- set age_min  = ((_now_ts - gen_ts) / 60) | int(9999) if gen_ts > 0 else 9999 -%}
                           {%- set tier_sort = 0 if tier in ['keeper', 'direct'] else 1 -%}
-                          {%- set ns.cands = ns.cands + [{'key': key, 'tier': tier, 'tier_sort': tier_sort, 'age_min': age_min}] -%}
+                          {%- set staleness = val.get('staleness_minutes', 1440) | int(1440) -%}
+                          {%- set ns.cands = ns.cands + [{'key': key, 'tier': tier, 'tier_sort': tier_sort, 'age_min': age_min, 'staleness_minutes': staleness}] -%}
                         {%- endif -%}
                       {%- endif -%}
                     {%- endif -%}
@@ -510,8 +511,13 @@ automation:
               _target_component: >-
                 {%- set cands = _candidates if _candidates is iterable and _candidates is not string else [] -%}
                 {%- if trigger.id == 'drain_starvation_check' -%}
-                  {%- set stale = cands | selectattr('age_min', 'ge', _s_max_minutes | int(60)) | list -%}
-                  {{ stale[0].key if stale | length > 0 else '' }}
+                  {%- set ns2 = namespace(target='') -%}
+                  {%- for cand in cands -%}
+                    {%- if ns2.target == '' and cand.age_min >= cand.staleness_minutes -%}
+                      {%- set ns2.target = cand.key -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                  {{ ns2.target }}
                 {%- else -%}
                   {{ cands[0].key if cands | length > 0 else '' }}
                 {%- endif -%}
