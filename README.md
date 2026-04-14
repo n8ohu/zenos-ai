@@ -14,7 +14,7 @@ And a few things that are.
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention — if you're already running HA, you already know this clock. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
 
-2026.4.1 'Action Jackson' shipped 2026-04-06 — two starter KFC guides (`alert_manager`, `taskmaster`), first-notification walkthrough, per-KFC trigger file convention, KF4 1.3.0 schema fields, tone directives, notification router install-agnostic, NYX-001 emission cooldown fix.
+2026.4.1 'Action Jackson' shipped 2026-04-14 — pipeline reliability overhaul (pressure-aware dispatch, queue drain router, fire-and-forget scheduler, burnout governors, kata TTL + GC self-heal), `zen_dojotools_announce` v0.1.0 (four enforced gates: urgency required, urgency threshold, sleep, dedup), emission push gate, cortex v35 TOOL AUTHORITY, `zen_dojotools_todo` v1.7.0 + `zen_dojotools_calendar` v1.11.0, taskmaster KFC v1.3.4, monastery health cascade, two complete KFC guides, first-notification walkthrough, KF4 1.5.0 schema (full tier table, `staleness_minutes`).
 
 2026.4.0 'Ectoplasm' shipped 2026-04-04 — new `zen_dojotools_ectoplasm` (Spook/HA extended surface: repairs, areas, floors, entity/device lifecycle, labels, integrations), Index 4.6.3 topology seeds + pagination + registry modes, Inspect 4.6.2 registry enum modes, Ninja run governor, Scribe 1.2.0.
 
@@ -412,7 +412,7 @@ Components:
 
 The Scheduler auto-discovers which components to run based on their `trigger_subscriptions` in the Dojo. No hardcoded dispatch. No choose branches.
 
-This allows the system to preserve context while maintaining token efficiency.
+Under load, lower-priority components are shed and recovered by the drain router — ensuring high-priority signal always gets through without starving the queue. Component tiers (`keeper`, `ambient`, `system`) control dispatch priority and SuperSummary routing.
 
 ---
 
