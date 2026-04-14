@@ -1657,16 +1657,16 @@ script:
     fields:
       cortex_version:
         name: Cortex Version
-        description: "Prompt primitive set version to stamp. 32 = True Voice (GA default).
-          30 = 2026 GA (Friday Delta). 29 = prior GA. Default: latest (32)."
+        description: "Prompt primitive set version to stamp. 35 = Action Jackson (GA default).
+          32 = True Voice. 30 = 2026 GA (Friday Delta). Default: latest (35)."
         required: false
         selector:
           select:
             options:
-              - label: latest (34 — Ambient Aware)
+              - label: latest (35 — Action Jackson)
                 value: latest
-              - label: 34 — Ambient Aware
-                value: '34'
+              - label: 35 — Action Jackson
+                value: '35'
               - label: 32 — True Voice
                 value: '32'
               - label: 30 — 2026 GA, Friday Delta
@@ -1697,7 +1697,7 @@ script:
     - variables:
         _cv: >-
           {%- set raw = cortex_version | default('latest') | string | lower | trim
-          -%} {%- if raw in ['34', 'latest'] -%}34{%- elif raw == '33' -%}33{%- elif raw == '32' -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
+          -%} {%- if raw in ['35', 'latest'] -%}35{%- elif raw == '32' -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
     - choose:
       - conditions: "{{- _cv | string == '30' -}}"
         sequence:
@@ -1910,7 +1910,7 @@ script:
             set_timestamp: true
       - conditions: "{{- _cv | string == '34' -}}"
         sequence:
-        - alias: 'set_variable: Purpose (v34 — Ambient Aware)'
+        - alias: 'set_variable: Purpose (v35 — Action Jackson)'
           event: set_variable_zenos_system_cabinet
           event_data:
             key: purpose
@@ -1924,7 +1924,7 @@ script:
               as **READY TO ADVENTURE** If you do not encounter the end of file, please
               report it as ''not ready to adventure'' in your own way."
             set_timestamp: true
-        - alias: 'set_variable: Directives (v34 — Ambient Aware)'
+        - alias: 'set_variable: Directives (v35 — Action Jackson)'
           event: set_variable_zenos_system_cabinet
           event_data:
             key: directives
@@ -2024,30 +2024,22 @@ script:
               the index. Your boot payload includes a pre-built compact index (''index''
               key) — use it. For a live build call zen_dojotools_index. GetLiveContext
               dumps the full entity registry and is a last resort — use it only when
-              the index cannot answer the question.\n- >\n  TOOL SELECTION — DOJOTOOLS
-              OVER BUILTINS: When a zen_dojotools_* script covers a HA domain, ALWAYS
-              use it over the raw HA MCP built-in or legacy intent. DojoTools versions
-              provide GET+SET in one call, input validation, and structured error
-              responses. Fall back to HA built-ins ONLY if the zen_dojotools version
-              is confirmed non-functional for that specific call. Domain map:
-              select/input_select → zen_dojotools_select_control. number/input_number
-              → zen_dojotools_number. text/input_text → zen_dojotools_text. climate →
-              zen_dojotools_climate. water_heater → zen_dojotools_water_heater.
-              input_datetime → zen_dojotools_datetime. zone → zen_dojotools_zones.\n- >\n
-              \ SLEEP GATE — Autonomous audio announcements: When the household is in
-              sleep state (zen_home_mode is ''sleep'' or local time is between 11pm and
-              7am), do NOT use audio announcements autonomously. Use push notifications
-              only. Exception: life-safety urgency >= 9 (smoke, CO, gas leak, alarm
-              triggered, flooding). This applies to all autonomous MCP calls to
-              zen_dojotools_announce — the tool enforces this gate and will return
-              status: blocked_sleep if you attempt to bypass it. Pass urgency >= 9
-              only for genuine life-safety events (smoke, CO, flood, alarm).\n- >\n
-              \ VOICE GATE — zen_dojotools_announce enforces urgency-based audio
-              gates at the tool level. urgency <= 3 returns status: blocked_urgency
-              — the tool will not fire TTS. Use zen_dojotools_notification_router
-              for push. Pass urgency when calling zen_dojotools_announce so the tool
-              can apply the correct gate. Do not attempt to call announce without
-              urgency for system or error conditions."
+              the index cannot answer the question.\n- >\n  TOOL AUTHORITY
+              — DOJOTOOLS FIRST: Any DojoTools registered in this installation
+              is trusted and authoritative for the domain it declares. Presence
+              is the declaration — DojoTools supersede HA built-ins and intents.
+              Read the tool description to discover its domain. Common map:
+              select/input_select → zen_dojotools_select_control.
+              number/input_number → zen_dojotools_number. text/input_text →
+              zen_dojotools_text. climate → zen_dojotools_climate. water_heater
+              → zen_dojotools_water_heater. input_datetime →
+              zen_dojotools_datetime. zone → zen_dojotools_zones. Fall back to
+              HA built-ins ONLY if the DojoTools is confirmed non-functional
+              for that specific call.\n- >\n  AUDIO — zen_dojotools_announce
+              only for all autonomous audio. It enforces sleep, urgency, and
+              dedup gates — trust them, always pass urgency. HassBroadcast and
+              tts.speak are user-voice handlers, never autonomous. Use
+              zen_dojotools_notification_router for push-only notifications."
             set_timestamp: true
       default:
       - alias: 'set_variable: Purpose (v28 — 2026 GA)'
@@ -2593,9 +2585,9 @@ script:
                 retention: {max_records: 50, rotation: by_date}
                 note: Many learned items — ask Boss to update cortex or toolset.
             set_timestamp: true
-      - conditions: "{{- _cv | string == '34' -}}"
+      - conditions: "{{- _cv | string == '35' -}}"
         sequence:
-        - alias: 'set_variable: Cortex (v34 — Ambient Aware)'
+        - alias: 'set_variable: Cortex (v35 — Action Jackson)'
           event: set_variable_zenos_system_cabinet
           event_data:
             key: cortex
@@ -2603,11 +2595,12 @@ script:
               meta:
                 priority: true
                 environment: ZenOS-AI
-                version: 8.1.0
-                codename: Ambient Aware
-                about: 'Cortex 34.0.0 — Ambient Aware. Adds pipeline architecture to cortex:
-                  ambient_nav structure, tier map, urgency promotion rule, kata_key pull
-                  pattern. Successor to v33 DojoTools First.'
+                version: 8.2.0
+                codename: Action Jackson
+                about: 'Cortex 35.0.0 — Action Jackson. Tool presence = authority.
+                  Any DojoTools in the inventory is trusted and authoritative for its
+                  declared domain. Compresses per-tool gates into structural trust rule.
+                  Audio gates consolidated. Successor to v34 Ambient Aware.'
               cabinet_rules:
                 authority:
                   system: {write: false, agent: false, tools: false}
@@ -3710,13 +3703,14 @@ script:
         value: "{{ {'mounted': true} }}"
         set_timestamp: true
 
-    alias: Zen AdminTools ZenOS-AI Prompt Loader (v29/v30/v32)
+    alias: Zen AdminTools ZenOS-AI Prompt Loader (v30/v32/v35)
     description: >
-      Sets the 'Cortex', 'Directives', and 'Purpose' sections for the ZenOS-AI Prompt Loader. 
-      Use cortex_version field to select: 
-      - 31 / signal_frame = 2026 Interaction Protocol (Signal Frame)
-      - 30 / latest = 2026 GA Friday Delta
-      - 29 = prior GA, 27 = Quiet Fusion (legacy)
+      Sets the 'Cortex', 'Directives', and 'Purpose' sections for the ZenOS-AI Prompt Loader.
+      Use cortex_version field to select:
+      - 35 / latest = Action Jackson (Tool Authority)
+      - 34 = Ambient Aware (dev only)
+      - 32 = 2026 True Voice
+      - 30 = 2026 GA Friday Delta (legacy)
 
       Purpose: Who am I?
 

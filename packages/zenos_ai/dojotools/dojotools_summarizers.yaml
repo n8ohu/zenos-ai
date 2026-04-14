@@ -1009,6 +1009,13 @@ script:
           _action_required: "{{ _kata_parsed.get('action_required', false) | bool if _kata_parsed is mapping else false }}"
           _suggested_act_event: "{{ _kata_parsed.get('suggested_act_event', '') | default('', true) if _kata_parsed is mapping else '' }}"
           _current_period: "{{ states('input_select.zen_home_mode') | default('', true) }}"
+          _ninja_cfg: >-
+            {%- set _hh = states('sensor.zenos_default_household_cabinet') -%}
+            {%- set _cfg_raw = (state_attr(_hh, 'variables') or {}).get('zen_ninja_config', {}) if _hh != '' else {} -%}
+            {%- set _cfg = _cfg_raw.get('value', _cfg_raw) if _cfg_raw is mapping else {} -%}
+            {{ _cfg if _cfg is mapping else {} }}
+          _push_floor: "{{ (_ninja_cfg.get('push_gate_urgency_floor', 4)) | int }}"
+          _push_life_safety: "{{ (_ninja_cfg.get('push_gate_life_safety_bypass', 8)) | int }}"
 
       - alias: Read last_emission_at from existing kata drawer for cooldown check
         variables:
@@ -1105,7 +1112,9 @@ script:
               {{ not _cooldown_active
                  and post_to_kata_cabinet | default(false) | bool
                  and _action_required
-                 and _suggested_act_event | trim != '' }}
+                 and _suggested_act_event | trim != ''
+                 and ((_urgency | int) >= (_push_floor | int)
+                      or (_urgency | int) >= (_push_life_safety | int)) }}
         then:
           - alias: Layer 1 — master kill switch
             if:

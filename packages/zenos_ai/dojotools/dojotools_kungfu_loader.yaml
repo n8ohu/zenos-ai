@@ -17,7 +17,7 @@
 # FACTORY KFCs (auto-deploy in factory mode, manual opt-in in deploy mode):
 #   zen_system      v1.1.0        — pipeline health watchdog
 #   alert_manager   v1.4.0        — alert surface aggregator
-#   taskmaster      v1.3.2        — task/calendar conductor
+#   taskmaster      v1.3.4        — task/calendar conductor
 #   trapper_keeper  v2.4.0        — ambient index aggregator
 #
 # OPTIONAL KFCs (deploy mode, manual opt-in only — never auto-shipped):
@@ -211,7 +211,7 @@ script:
                     "kfcs": {
                       "zen_system":     {"deployed": zs_dep, "version": zs_ver, "target": "1.1.0",       "version_match": zs_ver == "1.1.0",                   "factory": true},
                       "alert_manager":  {"deployed": am_dep, "version": am_ver, "target": "1.4.0",       "version_match": am_ver == "1.4.0",                   "factory": true},
-                      "taskmaster":     {"deployed": tm_dep, "version": tm_ver, "target": "1.3.2",       "version_match": tm_ver == "1.3.2",                   "factory": true},
+                      "taskmaster":     {"deployed": tm_dep, "version": tm_ver, "target": "1.3.4",       "version_match": tm_ver == "1.3.4",                   "factory": true},
                       "trapper_keeper": {"deployed": tk_dep, "version": tk_ver, "target": "2.4.0",       "version_match": tk_ver == "2.4.0",                   "factory": true},
                       "room_manager":   {"deployed": rm_dep, "version": rm_ver, "target": "1.3.1",       "version_match": rm_ver == "1.3.1",                   "factory": false}
                     }
@@ -445,7 +445,7 @@ script:
               key: taskmaster
               friendly_name: Taskmaster
               label: taskmaster
-              version_semantic: "1.3.2"
+              version_semantic: "1.3.4"
               component_summary: >-
                 Monitors household task load and personal context — calendar events,
                 bed state transitions, occupancy changes, and to-do items — surfacing
@@ -462,6 +462,16 @@ script:
                   inProgress  = in progress (rare)
                   Do NOT treat 'notStarted' as an unknown or error state.
 
+                MS365 DUE DATE FORMAT:
+                  MS365 due dates are always returned as midnight UTC regardless of the user's timezone
+                  (e.g., 2026-04-14T00:00:00+00:00 means due on April 14 — full stop).
+                  The time component is an artifact of the API, not the actual due time.
+                  ALWAYS strip the time and compare the UTC DATE portion only.
+                  Never treat a midnight UTC timestamp as 'past due' because the clock has passed midnight
+                  UTC in the user's local timezone — only compare calendar dates.
+                  Overdue = UTC date of due < today's UTC date.
+                  Due today = UTC date of due == today's UTC date.
+
                 DATA ACCESS:
                   Todo item content is in review_data.results[*].attributes.all_todos — a list
                   of todo items per entity. Entity state is only an incomplete item count —
@@ -472,12 +482,26 @@ script:
                   datetime.datetime(2026, 4, 1, 8, 0) — parse as strings, not ISO.
 
                 OVERDUE SEMANTICS:
-                  overdue_todos is computed by HA at midnight — items due 'today' appear overdue
-                  immediately, even if their scheduled time window (in subject line) is still future.
+                  All date comparisons use UTC date only (see MS365 DUE DATE FORMAT above).
                   Only treat as missed/escalate if:
-                    - due: yesterday or earlier (truly past-day), OR
-                    - due: today AND scheduled time in subject has already passed.
+                    - UTC due date < today's UTC date (truly past-day), OR
+                    - UTC due date == today's UTC date AND scheduled time in subject has already passed
+                      in the household's local timezone.
                   Do not flag same-day future-window tasks as incomplete or overdue.
+
+                PRN / OPTIONAL TASKS:
+                  Tasks with 'if needed', 'as needed', 'prn', 'optional', or '- if' anywhere in
+                  the summary (case-insensitive) are discretionary — not required doses or
+                  mandatory items.
+                  - Do NOT count toward action_required or urgency escalation.
+                  - Do NOT include in overdue counts used for urgency scoring.
+                  - Surface as ambient context only if directly relevant.
+                  - Max urgency contribution: 0.
+
+                STALE TASKS:
+                  Items with due dates more than 30 days in the past are stale backlog.
+                  - Do not escalate stale items. Surface count only if > 5 accumulate.
+                  - Max urgency contribution: 1.
 
                 PRIMARY CONDUCTOR: the entity in results[] whose labels include 'schedule'
                   NOT a data source — the meta-layer schedule driver. Find it by scanning
@@ -510,9 +534,10 @@ script:
                   what's on tomorrow's conductor.
 
                 URGENCY RULES:
+                  PRN/optional and stale items excluded from all urgency calculations (see above).
                   - Calendar event starting within 30 min, person not moving -> urgency: 5
                   - Active conductor block with past-due required tasks -> urgency: 4
-                  - Task with due: yesterday or earlier, still notStarted -> urgency: 3
+                  - Required task with UTC due date < today's UTC date, still notStarted -> urgency: 3
                   - Morning brief pending -> urgency: 2
                   - Nothing pressing -> urgency: 1
 

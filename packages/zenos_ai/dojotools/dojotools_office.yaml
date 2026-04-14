@@ -565,14 +565,13 @@ script:
 
   zen_dojotools_todo:
     alias: Zen DojoTools ToDo
-    description: Zen DojoTools ToDo 1.6.3 — unified CRUD controller for Home Assistant's
-      `todo.*` domain. Supports create, read, update, and delete actions for any to-do
-      list entity. Automatically detects wildcard (`*`) or blank list names to return
-      all lists with labels and friendly names. Allows single-item edits and safe bulk
-      status updates (e.g., mark multiple tasks completed). Returns structured JSON
-      responses suitable for automations or AI workflows, and integrates directly with
-      `todo.add_item`, `todo.update_item`, and `todo.remove_item` services. Default
-      action_type is `read`.
+    description: >-
+      zen_dojotools_todo 1.7.0 — canonical ZenOS-AI domain tool for the HA todo domain.
+      All AI-driven todo operations (read, create, update, delete) MUST use this tool —
+      never call HA todo services directly. Full CRUD: due_date, description, rename on
+      update and create; bulk status updates; wildcard list discovery; label-targeted
+      reads. Integrates with todo.add_item, todo.update_item, todo.remove_item. Default
+      action_type is read. Aliases: ['Zen DojoTools ToDo', 'Domain tool for ToDo lists']
     sequence:
     # --------------------------------------------------------------
     # Always normalize User/AI inputs so we don't have to react JIT
@@ -585,6 +584,7 @@ script:
           \ -%}\n  {{ items }}\n{%- else -%}\n  ['']\n{%- endif -%}"
         due_date: '{{ due_date | default('''') }}'
         description: '{{ description | default('''') }}'
+        rename: '{{ rename | default('''') }}'
         list_name: '{{ list_name | default('''') }}'
         status: '{{ status | default(''needs_action'') }}'
         todo_lists: '{{ states.todo | map(attribute=''entity_id'') | list }}'
@@ -669,15 +669,20 @@ script:
         - choose:
           - conditions:
             - condition: template
-              value_template: "{{\n  items | length > 1 and\n  (items | selectattr('status','defined')\
-                \ | list | count == items | count)\n}}"
+              value_template: >-
+                {{ items | length > 1 and (
+                  (items | selectattr('status','defined') | list | count == items | count)
+                  or (items | selectattr('status','defined') | list | count == 0
+                      and items[0] is string
+                      and status in ['needs_action','completed'])
+                ) }}
             sequence:
             - repeat:
                 for_each: '{{ items }}'
                 sequence:
                 - variables:
                     bulk_update_data: "{% set itm = repeat.item %} {{ {\n  'item': itm.get('item', itm) if itm\
-                      \ is mapping else itm,\n  'status': itm.get('status', 'completed')\n\
+                      \ is mapping else itm,\n  'status': (itm.get('status', status) if itm is mapping else status)\n\
                       } }}"
                 - data: '{{ bulk_update_data }}'
                   target:
@@ -709,18 +714,25 @@ script:
             - set_conversation_response: '{{ final_response }}'
           default:
           - variables:
-              update_data: "{% set ns = namespace(obj={}) %}\n{% set itm = items[0]\
-                \ if items|length > 0 else {} %}\n{% if itm is mapping %}\n  {% set\
-                \ ns.obj = dict(ns.obj, item=itm.get('item',''), list_id=list_name)\
-                \ %}\n  {% if itm.get('status') %}{% set ns.obj = dict(ns.obj, status=itm.status)\
-                \ %}{% elif status %}{% set ns.obj = dict(ns.obj, status=status) %}{%\
-                \ endif %}\n{% else %}\n  {% set ns.obj = dict(ns.obj, item=itm, list_id=list_name)\
-                \ %}\n  {% if status %}{% set ns.obj = dict(ns.obj, status=status)\
-                \ %}{% endif %}\n{% endif %}\n{{ ns.obj if ns.obj is mapping else\
-                \ dict() }}"
-          - data:
-              item: '{{ update_data.get(''item'','''') }}'
-              status: '{{ update_data.get(''status'', status) }}'
+              update_data: >-
+                {%- set itm = items[0] if items|length > 0 else {} -%}
+                {%- set _name   = itm.get('item','')                      if itm is mapping else itm -%}
+                {%- set _status = itm.get('status', status)               if itm is mapping else status -%}
+                {%- set _due    = itm.get('due_date', due_date)           if itm is mapping else due_date -%}
+                {%- set _desc   = itm.get('description', description)     if itm is mapping else description -%}
+                {%- set _rename = itm.get('rename', rename)               if itm is mapping else rename -%}
+                {%- set ns = namespace(obj={'item': _name, 'list_id': list_name}) -%}
+                {%- if _status -%}{%- set ns.obj = dict(ns.obj, status=_status)           -%}{%- endif -%}
+                {%- if _due    -%}{%- set ns.obj = dict(ns.obj, due_date=_due)            -%}{%- endif -%}
+                {%- if _desc   -%}{%- set ns.obj = dict(ns.obj, description=_desc)        -%}{%- endif -%}
+                {%- if _rename -%}{%- set ns.obj = dict(ns.obj, rename=_rename)           -%}{%- endif -%}
+                {{ ns.obj }}
+          - data: >-
+              {{ {'item': update_data.get('item','')}
+                 | combine({'status':      update_data.get('status')}      if update_data.get('status')      else {})
+                 | combine({'due_date':    update_data.get('due_date')}    if update_data.get('due_date')    else {})
+                 | combine({'description': update_data.get('description')} if update_data.get('description') else {})
+                 | combine({'rename':      update_data.get('rename')}      if update_data.get('rename')      else {}) }}
             target:
               entity_id: '{{ todo_list_entity }}'
             action: todo.update_item
@@ -850,8 +862,9 @@ script:
         selector:
           text:
       items:
-        description: Tasks as strings or objects (`item`, `status`, etc.). Supports
-          bulk mark-complete.
+        description: >-
+          Tasks as strings or objects with fields: item, status, due_date, description,
+          rename. Bulk status update: pass multiple strings + top-level status field.
         selector:
           text:
             multiple: true
@@ -862,6 +875,21 @@ script:
             - needs_action
             - completed
         default: needs_action
+      due_date:
+        description: 'ISO date (YYYY-MM-DD). Sets or changes the due date on create or single-item update.'
+        required: false
+        selector:
+          text:
+      description:
+        description: 'Item notes/description text. Supported on create and single-item update.'
+        required: false
+        selector:
+          text:
+      rename:
+        description: 'New summary/title for the item. Single-item update only.'
+        required: false
+        selector:
+          text:
       label_targets:
         selector:
           text:
@@ -881,24 +909,15 @@ script:
 
   zen_dojotools_calendar:
     alias: Zen Dojotools Calendar
-    description: 'Zen Dojotools Calendar (1.10.3) for Home Assistant. Provides create
-      and read support for all calendars. Update and delete are available for calendars
-      that return event_ids (see help for locating event_id on supported calendars)
-      for any calendar entity. Includes a structured Help function.
-
-      Use ''*'' or '''' as calendar_name to list all calendars. ''start'' and ''end''
-      default to today (midnight to midnight next day) if not set. Requires action_type
-      and calendar_name for most actions.
-
-      Updates and deletes operate by event_id match ONLY. If you cannot determine event_id,
-      offer alternate suggestions you can perform with available toolset.
-
-      Note: Some calendar providers (Google, HA Local, ICS sources) do NOT expose event_id
-      on create/read/inspect responses. Update/Delete will be safely blocked in those
-      cases. This is expected provider behavior, not a bug.
-
-      See help for tips on locating event_id. Supports targeting calendar entities by
-      label.'
+    description: >-
+      zen_dojotools_calendar 1.11.0 — canonical ZenOS-AI domain tool for the HA calendar
+      domain. All AI-driven calendar operations (read, create, update, delete) MUST use
+      this tool — never call HA calendar services directly. Full CRUD for any calendar
+      entity. MS365 calendars use native modify/remove APIs; other providers use
+      delete+re-create for update. Update and delete require event_id — providers that
+      do not expose event_id safely block these operations. Use inspect action to locate
+      event_id. Wildcard calendar discovery and label-targeted reads supported. Default
+      action_type is read. Aliases: ['Zen Dojotools Calendar', 'Domain tool for Calendar']
     sequence:
     # --------------------------------------------------------------
     # Always normalize User/AI inputs so we don't have to react JIT
@@ -936,6 +955,10 @@ script:
           {% else %}\n  {% set dt = raw %}\n{% endif %} {{ dt | as_local | as_timestamp\
           \ | timestamp_custom(\"%Y-%m-%dT%H:%M:%S%:z\", false) }}"
         event_id: '{{ event_id | default('''') }}'
+        start_provided: "{{ start is defined and start | string | trim not in ['', 'None', 'none'] }}"
+        end_provided: "{{ end is defined and end | string | trim not in ['', 'None', 'none'] }}"
+        start_is_all_day: "{{ start is defined and start | string | trim not in ['', 'None', 'none'] and 'T' not in (start | string) }}"
+        end_is_all_day: "{{ end is defined and end | string | trim not in ['', 'None', 'none'] and 'T' not in (end | string) }}"
         label_targets: "{{\n  (\n    label_targets|default('')\n    if label_targets\
           \ is iterable and label_targets is not string\n    else (label_targets|default('')).splitlines()\
           \ if '\\n' in (label_targets|default(''))\n    else (label_targets|default('')).split(',')\n\
@@ -1238,14 +1261,20 @@ script:
               value_template: '{{ is_ms365_cal and event_id }}'
             sequence:
             - variables:
-                ms365_modify_data: "{% set is_all_day = not 'T' in start and not 'T'\
-                  \ in end %}\n{% set d = {'event_id': event_id, 'subject': summary\
-                  \ | default('Untitled Event')} %}\n{% if is_all_day %}\n  {% set\
-                  \ d = dict(d, start=start.split('T')[0], end=end.split('T')[0])\
-                  \ %}\n{% else %}\n  {% set d = dict(d, start=start, end=end) %}\n\
-                  {% endif %}\n{% if description %}{% set d = dict(d, body=description)\
-                  \ %}{% endif %}\n{% if location %}{% set d = dict(d, location=location)\
-                  \ %}{% endif %}\n{{ d }}"
+                ms365_modify_data: >-
+                  {%- set d = {'event_id': event_id} -%}
+                  {%- if summary -%}{%- set d = dict(d, subject=summary) -%}{%- endif -%}
+                  {%- if start_provided -%}
+                    {%- if start_is_all_day -%}{%- set d = dict(d, start=start.split('T')[0]) -%}
+                    {%- else -%}{%- set d = dict(d, start=start) -%}{%- endif -%}
+                  {%- endif -%}
+                  {%- if end_provided -%}
+                    {%- if end_is_all_day -%}{%- set d = dict(d, end=end.split('T')[0]) -%}
+                    {%- else -%}{%- set d = dict(d, end=end) -%}{%- endif -%}
+                  {%- endif -%}
+                  {%- if description -%}{%- set d = dict(d, body=description) -%}{%- endif -%}
+                  {%- if location -%}{%- set d = dict(d, location=location) -%}{%- endif -%}
+                  {{ d }}
             - data: '{{ ms365_modify_data }}'
               target:
                 entity_id: '{{ calendar_entity_resolved }}'
