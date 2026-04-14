@@ -38,7 +38,7 @@ That notification means setup completed successfully. The OOBE (onboarding) step
 
 OOBE stands for Out-of-Box Experience. It's a one-time conversation where your AI learns your home.
 
-**To start:** Open a conversation with your AI assistant and say something like:
+**To start:** Open the Assist panel in HA — the chat bubble icon in the top-right of the UI, or via the sidebar if you've added it — and say something like:
 
 > "Set up my profile"
 > "Let's do first-time setup"
@@ -97,8 +97,8 @@ Your AI writes an `_oobe_complete` flag to its cabinet. On the next HA restart, 
 You don't need to re-run OOBE to change anything. Just ask your AI directly:
 
 > "Change your familiar's name to Pip"
-> "Update our household name to The Curtis House"
-> "Add Kim as my partner"
+> "Update our household name to The Garcia House"
+> "Add Alex as my partner"
 > "What's your current profile?"
 
 Your AI uses `zen_dojotools_profile_editor` under the hood. It reads before it writes, patches only what you specify, and never overwrites existing values unless you explicitly ask it to.
@@ -132,11 +132,6 @@ Ask your AI: "Run OOBE again" or "Re-do first-time setup." It will walk through 
 
 ## What's Next
 
-Once your home is set up, your AI has full context to be useful:
+Once your home is set up, your AI has full context to be useful. The fastest next step is **[Your First Alert](first_alert.md)** — it walks you through enabling `alert_manager` and getting a real notification, which is the quickest way to see the full KF4 action pipeline working end to end.
 
-- It knows your rooms and who's in them
-- It knows your devices and what they're for
-- It knows who lives in your home and how they're connected
-- The label index is rebuilt and ready for queries
-
-From here, explore what your AI can do. Start a conversation. Ask it about your home. It's ready.
+After that, work through entity exposure and cabinet placement to finish configuring what your AI can see and how it reasons.

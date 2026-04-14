@@ -222,8 +222,8 @@ mounts:
   families:
     - sensor.family_primary
   users:
-    - sensor.nathan
-    - sensor.kim
+    - sensor.primary_user
+    - sensor.secondary_user
   partner_ai: sensor.friday_cabinet
 
 Mounts let ZenOS understand:

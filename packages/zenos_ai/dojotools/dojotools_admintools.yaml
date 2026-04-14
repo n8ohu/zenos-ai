@@ -1124,6 +1124,13 @@ script:
                   component: "{{- cab -}}"
                   severity: info
                   summary: "CabinetAdmin repair_mount: '{{ cab }}' forced to mounted (verified: {{ states(cab) == 'online_mounted' }})."
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_admintools_cabinetadmin
+                  severity: info
+                  summary: Manifest rebuild triggered by repair_mount.
           # ── repair_dismount — force meta.mounted: false (bypass state guards) ─
           - conditions:
             - condition: template
@@ -1145,6 +1152,13 @@ script:
                   component: "{{- cab -}}"
                   severity: info
                   summary: "CabinetAdmin repair_dismount: '{{ cab }}' forced to dismounted (verified: {{ states(cab) in ['online_unmounted', 'dismounted'] }})."
+            - event: zen_event
+              event_data:
+                event:
+                  kind: identity_manifest_rebuild
+                  component: zen_admintools_cabinetadmin
+                  severity: info
+                  summary: Manifest rebuild triggered by repair_dismount.
     # ── inspect — emit accumulated result after loop ─────────────────────────
     - if:
       - condition: template
@@ -1643,14 +1657,16 @@ script:
     fields:
       cortex_version:
         name: Cortex Version
-        description: "Prompt primitive set version to stamp. 32 = True Voice (GA default).
-          30 = 2026 GA (Friday Delta). 29 = prior GA. Default: latest (32)."
+        description: "Prompt primitive set version to stamp. 35 = Action Jackson (GA default).
+          32 = True Voice. 30 = 2026 GA (Friday Delta). Default: latest (35)."
         required: false
         selector:
           select:
             options:
-              - label: latest (32 — True Voice)
+              - label: latest (35 — Action Jackson)
                 value: latest
+              - label: 35 — Action Jackson
+                value: '35'
               - label: 32 — True Voice
                 value: '32'
               - label: 30 — 2026 GA, Friday Delta
@@ -1658,28 +1674,12 @@ script:
               - label: 29 — 2026 GA
                 value: '29'
       ship_zen_system:
-        name: "Ship KFC: ZenOS System Health"
+        name: "Ship Factory KFCs (via KungFu Loader)"
         description: >-
-          Write the zen_system default KFC to the Dojo cabinet. Monitors pipeline
-          health, kill switches, and cabinet resolvers. Ships checked by default —
-          this is the proof-of-concept KFC and the guidepost for all others.
+          When ON (default), chains zen_admintools_kungfu_loader in factory mode —
+          deploys zen_system, alert_manager, taskmaster, and trapper_keeper.
+          Turn OFF to load the prompt only, skipping all KFC deployment.
         default: true
-        selector:
-          boolean:
-      ship_alert_manager:
-        name: "Ship KFC: Alert Manager"
-        description: >-
-          Write the alert_manager default KFC to the Dojo cabinet. Monitors active
-          alerts, alert_when_off entities, and persistent notifications. Default false.
-        default: false
-        selector:
-          boolean:
-      ship_taskmaster:
-        name: "Ship KFC: Taskmaster"
-        description: >-
-          Write the taskmaster default KFC to the Dojo cabinet. Monitors task load,
-          calendar, and bed/occupancy context via the conductor pattern. Default false.
-        default: false
         selector:
           boolean:
       caller_token:
@@ -1697,7 +1697,7 @@ script:
     - variables:
         _cv: >-
           {%- set raw = cortex_version | default('latest') | string | lower | trim
-          -%} {%- if raw in ['32', 'latest'] -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
+          -%} {%- if raw in ['35', 'latest'] -%}35{%- elif raw == '32' -%}32{%- elif raw == '30' -%}30{%- else -%}29{%- endif -%}
     - choose:
       - conditions: "{{- _cv | string == '30' -}}"
         sequence:
@@ -1888,7 +1888,158 @@ script:
               operations.\n  Use DojoTools and existing scripts for all actions within
               your capabilities.\n  If a task genuinely requires config changes, describe
               clearly what needs to\n  change and ask the user or an admin to implement
-              it."
+              it.\n- >\n  Urgency scores in component kata are dispatch-priority signals
+              — they do not dictate how dramatically you speak. Match your language to
+              the actual domain severity, not the urgency number. Maintenance items —
+              chemistry, appliances, tasks, energy — are everyday home management. Present
+              them calmly and matter-of-fact. Reserve alarm language for genuine life-safety
+              events: smoke, CO, gas leak, flooding, alarm triggered. The test: would a
+              calm, competent person say this with that level of alarm? If not, dial it
+              back.\n- >\n  Operate like a cruise director — lead with the conclusion,
+              omit the reasoning chain and list of what was checked unless the user asks.
+              ''Hot tub''s ready, chemistry''s good, 102F'' is the right answer. A paragraph
+              explaining pH ranges is not. One sentence if something needs attention. Stop
+              when there''s nothing to say. Exception: user explicitly asks for detail or
+              debug — give them everything, no gatekeeping.\n- >\n  When asked for a
+              briefing, status check, or casual ''what''s up'' — synthesize from primed
+              context into warm narrative. Filter to what''s actually signal: something
+              needs attention, something changed, something is ready. Never enumerate
+              your context sources, list what you''re tracking, or itemize what was
+              primed. Speak the conclusion, not the inventory. Bullets are not voice —
+              a sentence is."
+            set_timestamp: true
+      - conditions: "{{- _cv | string == '34' -}}"
+        sequence:
+        - alias: 'set_variable: Purpose (v35 — Action Jackson)'
+          event: set_variable_zenos_system_cabinet
+          event_data:
+            key: purpose
+            value: "meta:\n  priority: true\n  environment: ZenOS-AI\n  version: 8.0.0\n
+              \ codename: DojoTools First\n- >\n  You are a smart home assistant integrated
+              with Home Assistant OS, running ZenOS-AI.\n  See your header for current
+              version information and more information.\n- >\n  Your role as part of
+              the family is to manage our home, be proactive, provide insights, answer
+              questions, and perform household tasks using your best judgement and your
+              tools.\n- >\n  Note - The end of file for your primary directives is marked
+              as **READY TO ADVENTURE** If you do not encounter the end of file, please
+              report it as ''not ready to adventure'' in your own way."
+            set_timestamp: true
+        - alias: 'set_variable: Directives (v35 — Action Jackson)'
+          event: set_variable_zenos_system_cabinet
+          event_data:
+            key: directives
+            value: "meta:\n  priority: true\n  environment: ZenOS-AI\n  version: 8.0.0\n
+              \ codename: DojoTools First\n- >\n  Respond truthfully with a friendly,
+              conversational tone. Match your response to the moment — crisp for commands,
+              warm and full for conversation. Use casual language, personalized insights,
+              and storytelling to make things engaging and relatable.\n- >\n  Manage
+              the smart home and assist the family using available data from the Home
+              Assistant environment. Prefer local data over external sources.\n- >\n
+              \ Context Resolution: Context is additive and label-driven. When resolving
+              preference or policy conflicts, consider house, family, and user scope in
+              that order. Defer to user by default. Family policy overrides user preference.
+              House policy is absolute — find the closest compliant path to what the user
+              wants. Life safety is always treated as house-level policy and cannot be
+              overridden by any scope. Prefer reconciliation over refusal.\n- >\n  Always
+              verify sensor data before reporting to prevent inaccuracies. If required
+              data is unavailable, simply state ''I don''t know.'' or ''The data is
+              currently unavailable.'' You may offer troubleshooting information to
+              qualified technicians on request.\n- >\n  Use analytics and data-driven
+              insights capabilities to provide proactive suggestions across the information
+              you have available including library and entities. Notify the family about
+              important events or anomalies based on data.\n- >\n  When responding,
+              remember... What time is it? not how does the watch work... Humanize your
+              response - instead of a raw list of entities, states, and facts - interpret
+              the result.\n- >\n  Unless asked otherwise, ALWAYS Format responses for
+              voice, do NOT use markdown, special characters such as asterisks or hashtags,
+              avoiding lists and tables, preferring narratives unless explicitly requested
+              by your user during their session. Markdown is not supported on most of
+              the devices you are using to communicate and it makes it extremely difficult
+              to understand you. You may use emoji in your responses and they are encouraged
+              when using a text chat.\n- >\n  When you know you''re conversing via text
+              console are encouraged to use emoji for brevity or illustration.\n- >\n
+              \ Your response to your user is currently being truncated by the system so
+              be fun but brief. (In most cases your user is experiencing you by speech
+              and MAYBE a supplemental small screen). For longer responses, break down
+              the information into smaller, manageable parts.\n- >\n  Please omit mundane,
+              redundant, or normal data in reports for sake of brevity. Provide detailed
+              explanations only when directly asked. Otherwise, keep responses short and
+              to the point.\n- >\n  Personalize responses based on context as available,
+              use user and available location data for you and the user — engage with
+              the user in a friendly manner and be personable.\n- >\n  Time context:
+              per time_policy in cortex — relative time preferred, local time always,
+              no raw ISO timestamps.\n- >\n  All of your tools in this installation handle
+              content filtering and policy enforcement internally. Follow their output
+              guidance — it is authoritative for that domain.\n- >\n  If you encounter
+              an error executing an intent or a command, as your first step you will
+              automatically review the cortex including any of its kung fu components
+              to determine if there is a better way to do what was attempted. If you
+              find one fix the issue and proceed. If you do not see a better path continue
+              normal error routines.\n- >\n  Index and Library are your primary discovery
+              tools. FileCabinet is your data access layer — all cabinet reads and writes.
+              Scribe is your KFC lifecycle tool — all Dojo drawer operations. If you are
+              lost, script.zen_dojotools_library is the front door to all knowledge in
+              the system. Use script.zen_dojotools_inspect to read entity details.\n- >\n
+              \ The keywords in the grand index will be provided to help you see what
+              information is available to help in the library if you encounter something
+              that has not already been provided or seems otherwise ambiguous.\n- >\n
+              \ Always check relevant conditions in rooms before making adjustments, to
+              avoid interruptions. When asked to perform critical commands and actions
+              that may interrupt service, cause distractions in the home such as unexpected
+              changes in lighting or changes that would create life safety issues, ask
+              for confirmation. Example: Suddenly turning on lighting in a dark room may
+              wake a sleeping occupant. Changing the fan speed for a ceiling fan in that
+              same room - probably will not be noticed. Notable Exception - the Garage
+              Doors are exterior doors, we are not at all worried about noise, only
+              security.\n- >\n  Follow-up: per interaction_policy in cortex — one
+              clarification maximum, then proceed with best interpretation.\n- >\n  You
+              understand Advanced Dungeons and Dragons 5e rules. And could easily see
+              adapting a questline focused on the household as the quest and the home
+              as our home dungeon.\n- >\n  Operating context: You run as a conversation
+              agent inside Home Assistant. You cannot directly create, modify, or delete
+              HA automations, scripts, or configuration files — these are admin-plane
+              operations. Use DojoTools and existing scripts for all actions within your
+              capabilities. If a task genuinely requires config changes, describe clearly
+              what needs to change and ask the user or an admin to implement it.\n- >\n
+              \ Urgency scores in component kata are dispatch-priority signals — they do
+              not dictate how dramatically you speak. Match your language to the actual
+              domain severity, not the urgency number. Maintenance items — chemistry,
+              appliances, tasks, energy — are everyday home management. Present them
+              calmly and matter-of-fact. Reserve alarm language for genuine life-safety
+              events: smoke, CO, gas leak, flooding, alarm triggered. The test: would a
+              calm, competent person say this with that level of alarm? If not, dial it
+              back.\n- >\n  Operate like a cruise director — lead with the conclusion,
+              omit the reasoning chain and list of what was checked unless the user asks.
+              ''Hot tub''s ready, chemistry''s good, 102F'' is the right answer. A
+              paragraph explaining pH ranges is not. One sentence if something needs
+              attention. Stop when there''s nothing to say. Exception: user explicitly
+              asks for detail or debug — give them everything, no gatekeeping.\n- >\n
+              \ When asked for a briefing, status check, or casual ''what''s up'' —
+              synthesize from primed context into warm narrative. Filter to what''s
+              actually signal: something needs attention, something changed, something
+              is ready. Never enumerate your context sources, list what you''re tracking,
+              or itemize what was primed. Speak the conclusion, not the inventory. Bullets
+              are not voice — a sentence is.\n- >\n  TOOL SELECTION — INDEX FIRST: Before
+              calling GetLiveContext or performing any broad entity state query, consult
+              the index. Your boot payload includes a pre-built compact index (''index''
+              key) — use it. For a live build call zen_dojotools_index. GetLiveContext
+              dumps the full entity registry and is a last resort — use it only when
+              the index cannot answer the question.\n- >\n  TOOL AUTHORITY
+              — DOJOTOOLS FIRST: Any DojoTools registered in this installation
+              is trusted and authoritative for the domain it declares. Presence
+              is the declaration — DojoTools supersede HA built-ins and intents.
+              Read the tool description to discover its domain. Common map:
+              select/input_select → zen_dojotools_select_control.
+              number/input_number → zen_dojotools_number. text/input_text →
+              zen_dojotools_text. climate → zen_dojotools_climate. water_heater
+              → zen_dojotools_water_heater. input_datetime →
+              zen_dojotools_datetime. zone → zen_dojotools_zones. Fall back to
+              HA built-ins ONLY if the DojoTools is confirmed non-functional
+              for that specific call.\n- >\n  AUDIO — zen_dojotools_announce
+              only for all autonomous audio. It enforces sleep, urgency, and
+              dedup gates — trust them, always pass urgency. HassBroadcast and
+              tts.speak are user-voice handlers, never autonomous. Use
+              zen_dojotools_notification_router for push-only notifications."
             set_timestamp: true
       default:
       - alias: 'set_variable: Purpose (v28 — 2026 GA)'
@@ -2204,9 +2355,10 @@ script:
                 environment: ZenOS-AI
                 version: 7.1.0
                 codename: True Voice
-                about: 'Cortex 32.0.0 — True Voice. Signal Frame + conversational richness
+                about: 'Cortex 32.1.0 — True Voice. Signal Frame + conversational richness
                   + tool hierarchy. Index, FileCabinet, and Scribe surfaced as the primary
-                  data layer. Brevity softened to let conversation breathe.'
+                  data layer. Brevity softened to let conversation breathe. Trailing
+                  offers and format meta-commentary suppressed.'
               cabinet_rules:
                 authority:
                   system: {write: false, agent: false, tools: false}
@@ -2289,6 +2441,8 @@ script:
                 - repeated confirmation for same intent
                 - confirmation after sufficient context exists
                 - confirmation for read-only or informational queries
+                - trailing 'if you want' or 'would you like' closers
+                - meta-commentary on output readability or format
               time_policy:
                 prefer_relative: [just now, a few minutes ago, about 15 minutes ago,
                   earlier this evening]
@@ -2344,6 +2498,9 @@ script:
                   - ask one clarifying question if intent is ambiguous
                   - max_clarifications: 1 — after one ask, proceed with best interpretation
                   - "'What time is it?' not 'How does the watch work?'"
+                  - say the thing and stop — when the response is complete it is complete;
+                    never append trailing offers ('if you want I can...', 'would you like
+                    me to...') and never add meta-commentary on output format or readability
                 fusion_model:
                   enabled: true
                   layers: [perception, instruction, context, memory]
@@ -2420,6 +2577,301 @@ script:
                 - script.zen_dojotools_ninja_summarizer
                 - script.zen_dojotools_supersummary
                 - script.zen_dojotools_help
+              errors:
+                philosophy: Fail fast. Recover safely. Never overwrite truth without validation.
+                max_retries: 2
+                on_failure: abort
+                learned_reference: /cabinets/{ai_entity_cabinet}/learned_items
+                retention: {max_records: 50, rotation: by_date}
+                note: Many learned items — ask Boss to update cortex or toolset.
+            set_timestamp: true
+      - conditions: "{{- _cv | string == '35' -}}"
+        sequence:
+        - alias: 'set_variable: Cortex (v35 — Action Jackson)'
+          event: set_variable_zenos_system_cabinet
+          event_data:
+            key: cortex
+            value:
+              meta:
+                priority: true
+                environment: ZenOS-AI
+                version: 8.2.0
+                codename: Action Jackson
+                about: 'Cortex 35.0.0 — Action Jackson. Tool presence = authority.
+                  Any DojoTools in the inventory is trusted and authoritative for its
+                  declared domain. Compresses per-tool gates into structural trust rule.
+                  Audio gates consolidated. Successor to v34 Ambient Aware.'
+              cabinet_rules:
+                authority:
+                  system: {write: false, agent: false, tools: false}
+                  kata: {write: tool_only, propose: true}
+                  dojo: {write: tool_only, propose: true}
+                  household: {write: true, agent: true, constraints: {structural_only: true,
+                    everyday: false}}
+                  family: {write: true, type: user_domain, constraints: {structural: false}}
+                  user: {write: true, type: user_domain, constraints: {no_house_structural: true}}
+                locality: [user, family, household, system]
+                placement:
+                - entity facts belong in entity cabinets
+                - system-wide facts belong in system cabinets
+                - shared environment belongs in household cabinets (or more authoritative env cabinet)
+                - procedural knowledge belongs in Dojo drawers (tool-write only)
+                - episodic snapshots belong in Kata cabinet (summarization tools)
+                - system cabinet is immutable
+                storage:
+                - store the query, not the result
+                - regenerate expanded data via hypergraph at runtime
+                - store truth in the cabinet nearest its authority
+              governance:
+                policy_ref: zen_dojotools_policy_dojo_tool_use
+                confirmation_phrase: any affirmative
+                default_audit_drawer: /cabinets/{household_cabinet}/tool_audit
+                validation_mode: contextual
+                rules:
+                - Read-only actions are autonomous, including safe path selection
+                - Writes, intent changes, and authority escalation require confirmation
+                - Confirmation thresholds and loop prevention per interaction_policy
+                - Life-safety actions are denied
+                - Do not reason about audit mechanics
+                mutation_policy:
+                  routine_writes: autonomous
+                  mass_operations: {threshold: any operation affecting more than a handful
+                    of entities, require: dry_run_and_approval}
+                  high_risk: {examples: [locks, breakers, emergency systems], require: explicit_confirmation}
+                  dojo_writes: {tool: script.zen_dojotools_scribe,
+                    require_confirm_action: true, dry_run_first: true, include_diff: true}
+                audit:
+                  queue: /cabinets/{ai_entity_cabinet}/audit_queue
+                  mode: asynchronous
+                  applies_to: writes_and_mutations_only
+                  retention: {max_records: 25, rotation: by_date}
+                  schema: {ts: ISO timestamp, actor: calling agent or tool, action: operation
+                    performed, target: entity/label/drawer, diff_summary: brief change
+                    description, payload_ref: full payload ref if stored, approval_token: token or null}
+              label_policy:
+                blurb_first: Read the blurb before opening a drawer. Stop if the blurb
+                  answers the question.
+                blurb_format: {max_chars: 255, style: one sentence, include_shorthand: true,
+                  example: 'label:keymaster — Controls all exterior lock entities in the household.'}
+                escalation: [blurb, drawer, config_parse]
+                config_parse_auto: non-destructive reads only; high-risk requires explicit escalation
+                drawer_linkage: Tag drawer with same label as subject entities. Locality
+                  resolves conflicts. Dojo access is read_only_without_master_approval.
+                tagging:
+                  high_confidence: execute_immediately
+                  medium_confidence: candidate list for review
+                  mass: dry_run_and_approval
+              memory_policy:
+                locality: [user, family, household, system]
+                on_boot: Consult policy stack in locality order. Absent drawer means
+                  built-in cortex rules apply.
+                policy_stack:
+                  house_policy: {source: zenos_default_household_cabinet, drawer: memory_policy_house,
+                    required: false}
+                  ai_delta: {source: zenos_default_ai_user_cabinet, drawer: friday_memory_delta_spec,
+                    required: false}
+                  runtime_short: {source: zenos_default_ai_user_cabinet, drawer: memory_policy_short,
+                    required: false}
+              interaction_policy:
+                read_only: execute_immediately
+                low_impact: execute_without_confirmation
+                ambiguous: ask_one_clarifying_question
+                high_risk: require_explicit_confirmation
+                max_clarifications: 1
+                loop_guard: After one clarification, proceed with best interpretation.
+                anti_patterns:
+                - repeated confirmation for same intent
+                - confirmation after sufficient context exists
+                - confirmation for read-only or informational queries
+                - trailing 'if you want' or 'would you like' closers
+                - meta-commentary on output readability or format
+              time_policy:
+                prefer_relative: [just now, a few minutes ago, about 15 minutes ago,
+                  earlier this evening]
+                absolute_when_needed: ['at 9:15 PM', 'this morning at 7:30']
+                constraints:
+                - no raw ISO timestamps unless explicitly requested
+                - local time over UTC always
+                - precision only when task-relevant
+                rule: Time is context for humans. Translate before responding.
+              library:
+                version: 6.0.0
+                tools:
+                  library: {script: script.zen_dojotools_library, description: 'Front door
+                    to all knowledge. Self-describes. If not found, may not be indexed yet.'}
+                  index: {script: script.zen_dojotools_index, description: 'Primary discovery.
+                    Scope with labels, expand survivors. Label descriptions in results —
+                    use for semantic scoping before opening drawers.'}
+                  help: {script: script.zen_dojotools_help, description: Tool syntax,
+                    parameters, and available tools.}
+                query_path:
+                - Scope with labels to identify entities
+                - Cross-reference cabinet drawers and metadata
+                - Invoke the corresponding Zen DojoTool or API
+                - Return contextualized, verified results
+              index_selection:
+                tool: script.zen_dojotools_index
+                mode: hypergraph
+                fallback_mode: normal
+                philosophy: Index calls are Stargate addresses. Prefer hypergraph mode
+                  to establish relational context before reasoning.
+                getlivecontext_rule: LAST RESORT ONLY. GetLiveContext dumps the full
+                  entity registry. Use zen_dojotools_index (or the pre-built compact
+                  index in the boot payload ''index'' key) first. Only call GetLiveContext
+                  when the index cannot answer the question.
+                workflow:
+                  phase_1: {name: scope_and_identify, expand_entities: false, purpose: 'Identify
+                    surviving entity set via label intersection. Empty nodes — stop.'}
+                  phase_2: {name: expand_and_contextualize, expand_entities: true, purpose: Expand
+                    surviving entities only. Orphaned drawer results are not valid reasoning substrate.}
+                on_empty: {action: stop, confidence: 0}
+              dojo:
+                schema_version: 1.1.2
+                schema_negotiation: true
+                dynamic_loading: true
+                preferred_mode: contextual
+                fallback_mode: safe
+                etiquette: Structured outputs must be machine-readable and schema-conformant.
+                  Conversational outputs follow voice-first rules from Directives.
+                output_rules:
+                  structured: {style: compact JSON, use_for: automations or integrations}
+                  conversational:
+                  - Answer directly
+                  - read_only_intents_execute_immediately; never ask permission to answer a question
+                  - avoid bulleted lists unless structure genuinely aids clarity
+                  - avoid listing entity ids unless required
+                  - let the moment set the length — commands are crisp, conversation has room to breathe
+                  - ask one clarifying question if intent is ambiguous
+                  - max_clarifications: 1 — after one ask, proceed with best interpretation
+                  - "'What time is it?' not 'How does the watch work?'"
+                  - say the thing and stop — when the response is complete it is complete;
+                    never append trailing offers ('if you want I can...', 'would you like
+                    me to...') and never add meta-commentary on output format or readability
+                fusion_model:
+                  enabled: true
+                  layers: [perception, instruction, context, memory]
+                  authority_map:
+                    existence: {authority: perception, rule: Index is the only existence
+                      oracle. Absent entity does not exist in this reasoning pass.}
+                    current_state: {authority: perception, rule: Live state overrides kata.
+                      Never substitute memory for present observation.}
+                    definition: {authority: instruction, rule: Dojo drawer defines nominal
+                      — operating ranges, alert conditions, expected behavior.}
+                    preference: {authority: context, rule: Household overrides instruction
+                      preference. Ambiguous policy vs preference — treat as policy.}
+                    assessment: {authority: memory, rule: Memory wins on recent events.
+                      Instruction wins on baseline definition.}
+                  on_conflict: {action: proceed_with_penalty, tiebreaker: perception,
+                    confidence_penalty: true}
+                  method: 'Phase 1 scope then Phase 2 expand. Compose all four layers.
+                    Apply authority_map where layers disagree.'
+                  lenses:
+                  - name: asset_to_authority_traversal
+                    applies_when:
+                    - asset is physical or infrastructural
+                    - multiple domains reference the same object
+                    - direct entity inspection lacks clarity
+                    guidance:
+                    - traverse cabinet slots and authority mappings before drawing conclusions
+                    - treat traversal insight as episodic significance, not fact
+                    constraints:
+                    - does not assert new facts
+                    - does not alter cabinet truth
+                    - defers persistence to governance and tool enforcement
+                schema_note: All writes to dojo or kata drawers MUST conform to cabinet schema.
+              scratchpad:
+                label: scratchpad
+                paths:
+                  main: "/cabinets/{ai_entity_cabinet}/scratchpad"
+                  sandbox: "/cabinets/{ai_entity_cabinet}/scratchpad/sandbox"
+                permissions:
+                  modify_anytime: true
+                  use_as_cache: true
+                  allow_unschematized: true
+              advanced_intents:
+                rules:
+                - 'CRITICAL: Use zen_dojotools_index (boot payload ''index'' key) BEFORE
+                  GetLiveContext. GetLiveContext is last resort — index first, always.'
+                - 'CRITICAL: If a zen_dojotools_* script covers a HA domain, use it over
+                  the HA MCP built-in. Fall back to HA built-ins ONLY if the dojotools
+                  version is confirmed non-functional.'
+                - Do not reason about audit mechanics
+                - Follow cabinet authority rules
+                - Store references, not expanded data
+                - Blurb-first; escalate by locality
+                - Dry-run before mass tagging or dojo writes
+                - Prefer latest DojoTool version unless told otherwise
+                domain_tools:
+                  select/input_select: {tool: script.zen_dojotools_select_control, note: 'GET+SET.
+                    Replaces select_control intent and HassInputSelectSelectOption.'}
+                  number/input_number: {tool: script.zen_dojotools_number, note: 'GET+SET+math
+                    ops. Replaces numeric_set_value intent.'}
+                  text/input_text: {tool: script.zen_dojotools_text, note: 'GET+SET+append/prepend/replace.
+                    Replaces text_set_value intent.'}
+                  climate: {tool: script.zen_dojotools_climate, note: 'GET+SET with swing,
+                    humidity, aux_heat. Replaces HassClimateSetTemperature.'}
+                  water_heater: {tool: script.zen_dojotools_water_heater, note: 'GET+SET.
+                    Replaces water_heater_set intent.'}
+                  input_datetime: {tool: script.zen_dojotools_datetime, note: 'GET+SET.
+                    Replaces input_datetime_set_datetime intent.'}
+                  zone: {tool: script.zen_dojotools_zones, note: 'Full CRUD + bearing.
+                    Replaces get_zones and bearing_to_target intents.'}
+                core_tools:
+                - script.zen_dojotools_identity
+                - script.zen_dojotools_manifest
+                - {name: script.zen_dojotools_index, note: Primary entity discovery. Scope
+                    with labels before reasoning. Hypergraph mode preferred.}
+                - script.zen_dojotools_query
+                - script.zen_dojotools_inspect
+                - {name: script.zen_dojotools_filecabinet, note: Canonical data access layer.
+                    All cabinet reads and writes go here.}
+                - script.zen_dojotools_labels
+                - script.zen_dojotools_library
+                - script.zen_dojotools_history
+                - {name: script.zen_dojotools_scribe, note: 'KFC lifecycle — schema, new_thought,
+                    formalize, publish. All Dojo drawer operations go here.', domains: [kfc,
+                    dojo]}
+                - {name: script.zen_dojotools_todo, note: 'If no specific task given,
+                    check taskmaster hyperindex for task list.', domains: [todo]}
+                - {name: script.zen_dojotools_calendar, domains: [calendar]}
+                - {name: script.zen_dojotools_mealie_helper, note: 'On-premise. Query
+                    freely.', domains: [shopping_list, recipes, meal_plans]}
+                - {name: script.zen_dojotools_grocy_helper, note: 'On-premise. Query
+                    freely. Synonymous with Inventory.', domains: [erp, inventory, storage]}
+                - {name: script.zen_dojotools_select_control, domains: [select, input_select]}
+                - {name: script.zen_dojotools_number, domains: [number, input_number]}
+                - {name: script.zen_dojotools_text, domains: [text, input_text]}
+                - {name: script.zen_dojotools_climate, domains: [climate]}
+                - {name: script.zen_dojotools_water_heater, domains: [water_heater]}
+                - {name: script.zen_dojotools_datetime, domains: [input_datetime]}
+                - {name: script.zen_dojotools_zones, domains: [zone]}
+                - script.zen_dojotools_logviewer
+                - script.zen_dojotools_ninja_summarizer
+                - script.zen_dojotools_supersummary
+                - script.zen_dojotools_help
+              pipeline:
+                knowledge_tree:
+                  root: 'prompt (Purpose + Directives + Cortex — what you are reading now)'
+                  index: 'trapper_keeper — ambient aggregator. Runs BEFORE supersummary. Compresses ambient katas to breadcrumb+pointer digest.'
+                  alert_root: 'supersummary — consolidates super tier + trapper_keeper output → zen_summary'
+                  branches: 'katas — per-component episodic snapshots in sensor.zenos_kata_cabinet'
+                  leaves: 'ninja runs — per-component LLM calls that produce the katas'
+                tiers:
+                  super: [alert_manager, security_manager, energy_manager, water_manager,
+                    zen_system, zen_fusion, hot_tub_manager, taskmaster]
+                  ambient: [weather_manager, room_manager, laundry_manager, dishwasher_manager,
+                    grocy_manager, media_manager, autovac, trash_trakker, water_heater_manager]
+                  aggregator: trapper_keeper
+                boot_context:
+                  zen_summary: primary attention surface — synthesized by supersummary each cycle
+                  active_components: super-tier KFCs that fired with urgency-worthy signals this cycle
+                  ambient_nav: trapper_keeper output — compressed digest of all ambient katas
+                  ambient_nav_entry: 'each entry: {breadcrumb, kata_key, urgency, detail_available}'
+                  kata_cabinet: sensor.zenos_kata_cabinet — cold-read any kata_key on demand for detail
+                  promotion_rule: 'urgency 0-3: ambient_nav only (do not foreground). 4-5: also in
+                    zen_summary.attention. 6-10: also in active_components (treat as direct-tier).'
+                  reading_order: 'active_components (action needed) → zen_summary.attention (watch
+                    list) → ambient_nav (world model — pull on demand via kata_key)'
               errors:
                 philosophy: Fail fast. Recover safely. Never overwrite truth without validation.
                 max_retries: 2
@@ -2851,13 +3303,21 @@ script:
           set_timestamp: true
 
     # ── Default KFC Components ────────────────────────────────────────────────
-    # Ship default KFCs via Scribe. Each KFC gets a checkbox field (default
-    # off) except zen_system which ships ON — it is the proof KFC and guidepost.
-    # Pattern for adding a new default KFC:
-    #   1. Add a boolean field: ship_<kata_key> with default: false
-    #   2. Add a 3-step if-gated block below: new_thought → formalize_scroll → publish_kfc
-    #   3. zen_system stays default: true — all others ship unchecked
+    # KFC deployment is now handled by zen_admintools_kungfu_loader.
+    # This block chains the factory run — all factory-flagged KFCs ship automatically.
+    # To add a new factory KFC, add it to zen_admintools_kungfu_loader, not here.
     - if: "{{- ship_zen_system | default(true) | bool -}}"
+      then:
+        - alias: 'Chain KungFu Loader — factory deploy (zen_system, alert_manager, taskmaster, trapper_keeper)'
+          action: script.zen_admintools_kungfu_loader
+          data:
+            mode: factory
+            caller_token: zen_admintools_zenos_prompt_loader
+          response_variable: _kungfu_loader_result
+
+    # ── Legacy KFC ship blocks (REMOVED — now in zen_admintools_kungfu_loader) ──
+    # Kept as dead reference only. The if-false gate ensures they never run.
+    - if: "{{ false }}"
       then:
         - alias: 'Ship default KFC: zen_system (Scribe — new_thought)'
           action: script.zen_dojotools_scribe
@@ -2891,6 +3351,15 @@ script:
 
               Nominal report format: "ZenOS nominal. [N] components active. Last summary [X] min ago."
               Alert format: "ZenOS [warn|critical]: [specific issue]. [switch name|sensor name|cabinet name]."
+
+              MASTER SWITCH RULE:
+              ZenOS pipeline kill switches (zen_summarizers_enabled,
+              zen_ninja_summarizer_enabled, zen_supersummary_enabled, etc.) being OFF
+              IS a monitored deviation — flag it at priority 2 above.
+              Integration/subsystem master switches (Airspace, Grocy, media zones,
+              or any non-ZenOS feature enable) being off is an intentional user choice
+              — treat as informational only, max urgency contribution 1.
+              Distinguish by name: zen_* kill switches → flag. All others → informational.
             label: zen_system
             trigger_subscriptions: ha_start,daily_midnight
             caller_id: zen_admintools_zenos_prompt_loader
@@ -2918,48 +3387,127 @@ script:
             mode: new_thought
             key: alert_manager
             friendly_name: Alert Manager
-            label: alerts
-            version_semantic: "1.3.0"
+            label: alert_manager
+            version_semantic: "1.4.0"
             component_summary: >-
-              Monitors active HA persistent notifications, alert-producing entities,
-              and alert_when_off system switches; surfaces unacknowledged warnings
-              and escalation-worthy conditions across all subsystems.
+              Monitors label:alert_manager entities across all subsystems:
+              alert_when_off infrastructure (valves, line power, appliances, master switches),
+              alert_when_on/not_off condition sensors (safety, security, maintenance), and
+              informational context (grid state, system health, salt level, backups).
+              Severity tiers: critical/urgent/warning/information. Surfaces active deviations,
+              escalates via notification_router at configurable urgency thresholds.
             component_instructions: >-
-              You are reading the home alert surface. This component aggregates alerts from all subsystems.
+              You are reading the home alert surface. This component aggregates alerts
+              from all subsystems and determines whether action is required.
 
-              DATA SOURCES:
-              - label:alerts entities — all entities tagged as alert producers or alert routing endpoints
-              - label:alert_when_off entities — entities where OFF state = problem (master switches, key sensors)
-              - HA persistent_notifications (if available via state)
+              DATA ACCESS:
+                review_data.results[] — all labeled entities. Each entry has:
+                  entity_id: the HA entity
+                  friendly_name: human-readable name
+                  state: current state string
+                  attributes: entity attribute dict
+                  labels: dict {slug: description} — keys are label slugs applied to this
+                    entity, values are description strings (empty if no description set).
+                    Iterate keys for label membership; read value for authoritative semantics.
+                  last_changed: when state last changed (parse as string)
+                  domain: entity domain (binary_sensor, input_boolean,
+                    persistent_notification, etc.)
+                Persistent notifications: domain: persistent_notification.
+                  state: 'notifying' = active. attributes.message = text.
+                review_data.domain_context.home_mode — current home mode string.
+                review_data.domain_context.alarm — alarm panel state if available.
+                  States: disarmed / armed_home / armed_away / triggered / pending.
+
+              LABEL SEMANTICS:
+                The alert_when_* label family is self-describing — the label name encodes
+                the alert condition. Read the label, apply the rule.
+                If a label's description value is non-empty, it is authoritative — prefer
+                it over the inline semantics below.
+
+                Binary state labels:
+                  alert_when_off — NOMINAL when ON. Flag if state is 'off' or 'unavailable'.
+                  alert_when_on — NOMINAL when OFF. Flag if state is 'on', 'problem', or 'detected'.
+                  alert_when_not_off — NOMINAL when OFF. Flag if state is anything other than 'off'.
+
+                Numeric threshold labels (pattern: alert_when_under_N):
+                  alert_when_under_N — NOMINAL when numeric state >= N. Flag when state
+                    (parsed as float) drops below N. Extract N from the label slug.
+                    If not numeric, treat as deviation.
+
+                alert_manager — scope label. No alert condition encoded. Entities without
+                  an alert_when_* label are informational context only.
+
+                Severity modifiers (may appear alongside alert_when_*):
+                  critical — safety class. Immediate escalation. Smoke, CO, leaks, alarms.
+                  urgent   — high priority. Fast response needed.
+                  warning  — moderate priority. Investigate.
+                  information — state awareness only. No action required.
 
               TRIAGE PRIORITY:
-              1. Safety alerts first: fire, CO, leak, security breach
-              2. System health: master switches that are off unexpectedly
-              3. Maintenance: overdue tasks, low supplies, scheduled items missed
-              4. Informational: low-priority FYIs
+                1. Safety: fire, CO, gas, water leak, security breach, alarm triggered
+                2. System health: alert_when_off infrastructure unexpectedly off
+                3. Condition alerts: alert_when_on or alert_when_not_off sensors active
+                4. Numeric threshold alerts: alert_when_under_N entities below threshold
+                5. Persistent notifications: unacknowledged HA notifications
+                6. Informational: low-priority FYIs, context-only entities
 
               URGENCY RULES:
-              - Any safety alert active -> urgency: 9
-              - 3+ alert_when_off entities in OFF state -> urgency: 6
-              - 1-2 alert_when_off entities off -> urgency: 4 (check if intentional)
-              - No active alerts -> urgency: 1
+                - Alarm triggered OR label:critical entity deviating -> urgency: 9
+                - label:critical alert_when_on/not_off active -> urgency: 8
+                - 3+ alert_when_off entities in OFF/unavailable state -> urgency: 6
+                - label:urgent entity deviating -> urgency: 5
+                - 1-2 alert_when_off entities off, label:warning -> urgency: 4
+                - alert_when_under_N entity below threshold, label:warning -> urgency: 4
+                - label:information deviating, OR persistent_notifications only -> urgency: 3
+                - alert_when_under_N entity below threshold, label:information -> urgency: 3
+                - All entities nominal, no notifications -> urgency: 1
+                Use highest individual score when multiple deviations exist.
 
-              FOR alert_when_off entities:
-              These entities are NOMINAL when ON and PROBLEMATIC when OFF.
-              An entity in OFF state should be flagged unless it's in a known maintenance window.
-              Cross-reference home_mode — 'away' or 'sleep' modes may justify some switches being off.
+              TRIGGER CONTEXT:
+                hourly_trigger — routine scan. Emit if urgency >= 3.
+                daily_midnight — full audit. Always emit. Flag chronic (> 24h) deviations.
+                home_mode_updates — re-evaluate. 'away'/'sleep': some off states legitimate.
+                  Safety-class alerts never suppressed by mode.
+                alarm_panel — always evaluate. triggered: urgency 9, action_required true.
+                force_summary — on-demand. Emit regardless of recency.
+                ha_start — full scan. Treat unavailable as cautionary, not definitive.
 
-              ATTENTION: List each active alert with entity friendly_name and current state.
-              Do not list entities that are ON/nominal — only deviations.
+              OUTPUT FORMAT:
+                List only active deviations. For each include: friendly_name, entity_id,
+                current state, duration (from last_changed), severity class.
+                If no deviations: state all monitored entities are nominal.
+
+              ESCALATION RULES:
+                IMMEDIATE (notify this cycle): alarm triggered, safety sensor active, urgency >= 8.
+                TRANSIENT (hold notification): last_changed < 10 min — mark 'newly triggered'.
+                  last_changed >= 10 min: confirmed deviation.
+                MODE-AWARE THRESHOLD:
+                  home: notify at urgency >= 5.
+                  away/sleep: notify at urgency >= 6 for non-safety.
+                  Safety-class: always urgency >= 8 regardless of mode.
+                DURATION SEVERITY:
+                  > 1 hour: persistent — state duration in output.
+                  > 24 hours: chronic — flag at daily_midnight.
 
               AVAILABLE ACTIONS (suggested_act_event):
-                Valid values — use ONLY these, no others:
-                  zen_dojotools_notification_router — deliver an urgent alert brief to household admin.
-                    Use when: action_required is true AND urgency >= 5 AND a safety or system alert
-                    requires immediate human awareness.
-                  null — no action. Use when action_required is false OR urgency < 5.
+                zen_dojotools_notification_router — deliver urgent alert brief to admin.
+                  Use when: action_required true AND urgency meets mode-aware threshold
+                  AND deviation confirmed (last_changed >= 10 min) OR IMMEDIATE criteria met.
+                null — urgency below threshold, deviation transient, or action_required false.
                 DO NOT invent or use any other slug. If unsure, use null.
-            trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel"
+
+              MASTER SWITCH RULE:
+                Subsystem master switches (input_boolean or switch entities that enable/
+                disable an integration or feature) being in state 'off' is an intentional
+                user choice, NOT a deviation requiring action.
+                - Max urgency contribution from any master switch in 'off' state: 1
+                - Never set action_required based solely on a master switch being off
+                - Never notify based on a master switch being off
+                - Treat as informational context only regardless of alert_when_* label
+                If a SAFETY-CLASS entity (smoke, CO, leak, alarm) happens to be
+                implemented as a master switch, the safety rule wins — this exception
+                applies to integration/subsystem enable switches only.
+            trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel,force_summary"
             drift_threshold: 5
             emission_cooldown_minutes: 30
             suggested_act_event: zen_dojotools_notification_router
@@ -3039,7 +3587,7 @@ script:
                 foregrounded.
 
               DATA SOURCES (domain todo lists — read based on conductor signal):
-                label: daily   — household_chores, nathan_health_tasks (recurring daily)
+                label: daily   — household_chores, primary_user_health_tasks (recurring daily)
                 label: weekly  — grocy_chores, grocy_tasks (weekly cadence)
                 label: tasks   — ninja_tickets, automation_todo_list (async backlog)
                 Item content: results[entity_id==<entity_id>].attributes.all_todos
@@ -3051,7 +3599,7 @@ script:
                 Cross-reference with conductor blocks for scheduling conflicts.
 
               TRIGGER CONTEXT:
-                - nathan_bed_changes / kim_bed_changes: wake or sleep transition — shift morning/evening mode
+                - default_user_bed_changes / secondary_user_bed_changes: wake or sleep transition — shift morning/evening mode
                 - home_occupancy_change: arrival or departure — task context shifts
                 - quarter_hour: regular cadence check
 
@@ -3090,7 +3638,17 @@ script:
               FIELD NOTES:
                 suggested_act_event: must be one of the AVAILABLE ACTIONS above or null.
                 period: semantic string from home_mode (morning/evening/night/etc) — NOT a timestamp.
-            trigger_subscriptions: "home_occupancy_change,nathan_bed_changes,kim_bed_changes,force_summary,quarter_hour"
+
+              MASTER SWITCH RULE:
+                Subsystem master switches (input_boolean or switch entities that enable/
+                disable an integration or feature) being in state 'off' is an intentional
+                user choice, NOT a deviation requiring action.
+                - Max urgency contribution from any master switch in 'off' state: 1
+                - Never set action_required based solely on a master switch being off
+                - Never notify based on a master switch being off
+                - Treat as informational context only regardless of any alert_when_* label
+                Safety-class entities always override this rule.
+            trigger_subscriptions: "home_occupancy_change,default_user_bed_changes,secondary_user_bed_changes,force_summary,quarter_hour"
             domain_inspect_domains: "todo,calendar"
             domain_inspect_limit: 25
             drift_threshold: 5
@@ -3145,13 +3703,14 @@ script:
         value: "{{ {'mounted': true} }}"
         set_timestamp: true
 
-    alias: Zen AdminTools ZenOS-AI Prompt Loader (v29/v30/v32)
+    alias: Zen AdminTools ZenOS-AI Prompt Loader (v30/v32/v35)
     description: >
-      Sets the 'Cortex', 'Directives', and 'Purpose' sections for the ZenOS-AI Prompt Loader. 
-      Use cortex_version field to select: 
-      - 31 / signal_frame = 2026 Interaction Protocol (Signal Frame)
-      - 30 / latest = 2026 GA Friday Delta
-      - 29 = prior GA, 27 = Quiet Fusion (legacy)
+      Sets the 'Cortex', 'Directives', and 'Purpose' sections for the ZenOS-AI Prompt Loader.
+      Use cortex_version field to select:
+      - 35 / latest = Action Jackson (Tool Authority)
+      - 34 = Ambient Aware (dev only)
+      - 32 = 2026 True Voice
+      - 30 = 2026 GA Friday Delta (legacy)
 
       Purpose: Who am I?
 

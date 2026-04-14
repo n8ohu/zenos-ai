@@ -1310,7 +1310,12 @@ script:
           monk: '{{ monk | default({}) }}'
     - event: zen_event
       event_data:
-        event: '{{ evt }}'
+        event:
+          timestamp: '{{ ts }}'
+          component: '{{ component }}'
+          severity: '{{ severity }}'
+          kind: '{{ kind }}'
+          summary: '{{ summary }}'
     - data:
         message: 'zen_event {{ evt.component }} | {{ evt.kind }} | {{ evt.severity }}
           | summary="{{ evt.summary }}" | meta={{ evt.metadata | tojson }}

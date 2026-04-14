@@ -39,3 +39,11 @@ template:
             {% endfor -%}
             {{ ns.result | tojson }}
         icon: mdi:account
+
+# Scheduler Queue Depth — exposes automation current attribute as recordable state
+  - sensor:
+      - unique_id: zen_scheduler_queue_depth
+        name: zen_scheduler_queue_depth
+        state: "{{ state_attr('automation.zen_dojotools_scheduler', 'current') | int(0) }}"
+        unit_of_measurement: runs
+        icon: mdi:karate

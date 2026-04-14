@@ -1,4 +1,4 @@
-# Understanding the Dojo, Kung Fu, and the Summarizer
+# Understanding the Dojo, Kung Fu, and the Action Pipeline
 
 ### A plain-language guide to ZenOS-AI KF4
 
@@ -14,7 +14,7 @@ It does this with three things working together:
 
 - **The Dojo** — where your home's intelligence is defined
 - **Kung Fu Components** — the definitions themselves
-- **The Summarizer pipeline** — the engine that reads those definitions and produces something Friday can actually reason from
+- **The action pipeline** — the engine that reads those definitions, synthesizes them, and acts on what it finds
 
 You don't need to touch the Scheduler. You don't need to write any code. You define a component, tag some entities, and the system wires itself.
 
@@ -65,6 +65,8 @@ That's it. That drawer is the entire spec for how ZenOS-AI understands your wate
 | `meta.enabled` | Whether this component is active (`true` / `false`). Replaces the deprecated `master_switch` field. |
 | `trigger_subscriptions` | Which Scheduler events cause this component to summarize |
 | `delay_seconds` | How long to wait after trigger before dispatching (lower = higher priority) |
+| `pipeline_tier` | Dispatch priority: `keeper` (default), `ambient` (low-priority), `super` (reserved), `system` (infrastructure). See below. |
+| `staleness_minutes` | How old the kata can get before the drain router forces a re-run. Default: 1440 min (24 h). |
 | `kata_key` | Where to write the summary output |
 | `component_summary` | Instructions the AI reads when summarizing this component |
 
@@ -129,6 +131,27 @@ Katas are not raw sensor data. They're **curated signal** — what a knowledgeab
 
 ---
 
+## Pressure-aware dispatch
+
+The Scheduler doesn't run all components on every trigger. Under load, it defers lower-priority work and recovers it later. This is controlled by two thresholds in the `zen_scheduler_config` drawer of your household cabinet:
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| `shed_ambient_at` | 4 | Queue depth at which `ambient`-tier components are deferred |
+| `shed_keeper_at` | 8 | Queue depth at which `keeper`-tier components are deferred |
+| `drain_below` | 3 | Depth the queue must fall below before shed work trickles back |
+| `warmup_minutes` | 5 | Boot delay before the first Scheduler dispatch |
+
+**`keeper` (the default)** — dispatched on all standard triggers; deferred when queue ≥ 8.
+
+**`ambient`** — dispatched only on slower triggers (hourly, occupancy change, etc.). Shed on fast triggers (`quarter_hour`, `every_10_minutes`) and when queue ≥ 4. These are pre-digested by Trapper Keeper rather than read directly by SuperSummary — Friday gets their signal through the ambient index.
+
+**Shed work doesn't disappear.** The drain router runs on a low-water timer and a starvation guard. When the queue quiets down, the most-stale shed-eligible component gets a recovery dispatch. If a component's kata exceeds its `staleness_minutes` ceiling, it fires regardless of queue depth.
+
+A targeted `force_summary` for a specific component bypasses shedding entirely.
+
+---
+
 ## The SuperSummary
 
 Once all the per-component Katas are written, the **SuperSummary** runs on its own schedule and does one more pass:
@@ -179,18 +202,40 @@ The Scheduler ships with a standard set of triggers (time patterns, home mode ch
 
 But what if you want your component to summarize when *your* specific hardware does something — a Withings sleep sensor, a specific flow sensor, a custom device?
 
-Create a Home Assistant automation that fires when your hardware changes, and has it fire a `zen_event`:
+The recommended pattern is a dedicated trigger file per KFC. Keep it in your installer's custom packages directory (outside `packages/zenos_ai/` — it's personal, never commit it to the shared repo):
 
 ```yaml
-action:
-  - event: zen_event
-    event_data:
-      event:
-        kind: summary_force
-        component: your_kata_key
+# packages/your_family/kfc_trigger_<component>.yaml
+# ⚠️ PERSONAL FILE — DO NOT COMMIT TO REPO
+
+automation:
+  - id: 'YOUR_UNIQUE_ID'
+    alias: KFC Trigger — [Component Name]
+    description: >-
+      Fires a targeted force_summary for [component] on meaningful state changes.
+    triggers:
+      - trigger: state
+        entity_id:
+          - binary_sensor.your_entity_here
+        to: 'on'                      # alert_when_on: only dispatch on bad state
+        not_from: [unknown, unavailable]
+        for:
+          seconds: 5                  # debounce — adjust per entity
+
+    actions:
+      - event: zen_event
+        event_data:
+          event:
+            kind: summary_force
+            component: your_kata_key  # matches kata_key in the Dojo drawer
+
+    mode: queued
+    max: 3
 ```
 
-The core Scheduler picks that up as a targeted `force_summary` for your component. Your hardware drives the dispatch. No Scheduler YAML needed.
+The core Scheduler picks up `zen_event` with `kind: summary_force` as a targeted `force_summary` for your component. Your hardware drives the dispatch. No Scheduler YAML needed.
+
+One file per KFC that needs instant dispatch. KFCs that are fine with scheduled sweeps need no trigger file at all.
 
 ---
 
@@ -214,5 +259,5 @@ zen_dojotools_index → key: kung_fu → Dojo Cabinet
 
 ---
 
-*ZenOS-AI KF4 1.2.0 — 2026-03-20*
+*ZenOS-AI KF4 1.4.0 — 2026-04-14*
 *Source: Nyx (live system observation), Cayt (dev)*

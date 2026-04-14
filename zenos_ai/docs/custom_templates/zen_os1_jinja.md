@@ -116,7 +116,7 @@ Wraps `zen_cabinets(None)` and returns all valid cabinet-backed identities in th
   "count": 2,
   "roster": [
     { "label": "friday", "cabinet": "sensor.zen_friday_cabinet", "name": "Friday", ... },
-    { "label": "nathan", "cabinet": "sensor.zen_nathan_cabinet", "name": "Nathan", ... }
+    { "label": "primary_user", "cabinet": "sensor.zen_primary_user_cabinet", "name": "Alex", ... }
   ]
 }
 ```
@@ -175,7 +175,7 @@ It is part of the minimum viable mind.
 zenai_essence:
   core:
     id: "b7e3f091-1cd6-83f8-frid-ay0000000001"
-    minted_for: "person.nathan"
+    minted_for: "person.primary_user"
   jacket:
     name: "Friday"
     presentation: "quiet brilliance"

@@ -149,8 +149,8 @@ Multi-target notification router with quiet hours enforcement, HTML support, and
 |---|---|
 | Admin Devices | Never blocked |
 | Family Devices | Blocked unless breakthrough |
-| Nathan's Phone | Blocked unless breakthrough |
-| Kim's Phone | Blocked unless breakthrough |
+| Default User Phone | Blocked unless breakthrough |
+| Secondary User Phone | Blocked unless breakthrough |
 
 ### Breakthrough Logic
 

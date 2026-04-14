@@ -108,8 +108,10 @@ script:
             max: 168
             mode: box
       post_supersummary:
-        name: Post Supersummary
-        description: Trigger supersummary after gc eviction. Default true.
+        name: Post Supersummary (deprecated)
+        description: >-
+          Deprecated — GC now always emits a summary_force event after eviction.
+          Scheduler + drain router handle re-dispatch. Field ignored.
         required: false
         default: true
         selector:
@@ -364,13 +366,10 @@ script:
                         {%- endfor -%}
                       {%- endif -%}
                       {{ ns.stale }}
-                    #_vol_info_raw: >-
-                    #  {%- set _vi = cab_drawers.get('AI_Cabinet_VolumeInfo', {}) -%}
-                    #  {%- set _v1 = _vi.get('value', _vi) if _vi is mapping else {} -%}
-                    #  {{ _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) }}
                     _vol_info_raw: >-
                       {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
                       {%- set _val = CABS.cabinet_drawer_value(current_cab, 'AI_Cabinet_VolumeInfo', {}) | from_json() -%}
+                      {{ _val }}
                     _cab_flags: >-
                       {{ _vol_info_raw.get('flags', {}) }}
                     gc_flag_present: >-
@@ -438,23 +437,31 @@ script:
                         set_timestamp: false
                         volume_entity: "{{ current_cab }}"
 
-      # ── 5. Post-prune supersummary ─────────────────────────────────────────
-      - alias: Trigger supersummary after gc
+      # ── 5. Post-prune scheduler nudge ────────────────────────────────────────
+      # GC doesn't decide what to re-summarize — it just announces what it collected.
+      # Drain router sees evicted drawers as maximally stale (age_min: 9999) and
+      # bubbles them to the top of the priority queue on the next scheduler run.
+      - alias: Broadcast kata_gc_complete + nudge scheduler
         if:
           - condition: template
-            value_template: "{{ gc_action == 'gc' and post_supersummary and not dry_run }}"
+            value_template: "{{ gc_action == 'gc' and not dry_run }}"
         then:
-          - action: script.zen_dojotools_supersummary
-            data:
-              post_to_kata_cabinet: true
-              caller_token: '{{ caller_token }}'
-              supplemental_prompt: >-
-                {{
-                  {
-                    'source': 'filecabinet_gc',
-                    'cabinets_scanned': gc_cabinet_entities
-                  }
-                }}
+          - event: zen_event
+            event_data:
+              event:
+                kind: kata_gc_complete
+                severity: info
+                summary: >-
+                  FileCabinet GC complete — evicted kata drawers are now stale
+                  and will be prioritized on next scheduler run.
+                metadata:
+                  cabinets_scanned: "{{ gc_cabinet_entities | default([]) }}"
+                  caller_token: '{{ caller_token }}'
+          - event: zen_event
+            event_data:
+              event:
+                kind: summary_force
+                component: ''
 
       # ── 6. Report ──────────────────────────────────────────────────────────
       - alias: Build GC report
@@ -465,7 +472,7 @@ script:
             cabinets_scanned: "{{ gc_cabinet_entities | default([]) }}"
             max_age_hours: "{{ max_age_hours }}"
             dry_run: "{{ dry_run }}"
-            supersummary_triggered: "{{ gc_action == 'gc' and post_supersummary and not dry_run }}"
+            scheduler_nudged: "{{ gc_action == 'gc' and not dry_run }}"
             caller_token: '{{ caller_token }}'
 
       - stop: filecabinet_gc_complete

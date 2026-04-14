@@ -1,4 +1,4 @@
-# Kung Fu Components — KF4 1.2.0
+# Kung Fu Components — KF4 1.4.0
 
 ### Structured Subsystem Definitions for the Dojo Cabinet
 
@@ -6,10 +6,10 @@ Kung Fu Components (KFCs) define *how each major subsystem in your home works*.
 They live as drawers inside the **Dojo Cabinet** and drive the Scheduler,
 the Ninja Summarizer, and Friday's reasoning.
 
-**KF4 1.2.0 invariants:**
+**KF4 1.3.0 invariants:**
 
 - **Drawer IS the spec** — the Dojo drawer is the single source of truth for the component
-- **Label IS the scope** — the HA label defines which entities belong to the component
+- **Label IS the scope** — the HA label defines which entities belong to the component. Modifier labels (e.g. `alert_when_on`, `alert_when_off`, `alert_when_under_N`) extend this — the label name itself encodes per-entity semantics, readable by the Ninja without any component_summary explanation.
 - **HyperIndex IS the data layer** — no hardcoded entity lists; the index traverses the label graph
 
 ---
@@ -71,8 +71,26 @@ Run with `mode=schema` to get the live `kfc_template` from the Dojo cabinet.
 | `delay_seconds` | yes | Seconds to delay after trigger (0 = immediate; used for ordering) |
 | `kata_key` | yes | Dojo drawer key where the Ninja writes this component's Kata |
 | `command` | no | Library command that activates this component (e.g. `~WATER~`). Omit for HyperIndex-only components. |
+| `schedules` | no | List of sub-schedule entries. Each entry has `kata_key` (string) and `index_call` (mapping). When present, the Scheduler expands the component into one Ninja run per schedule entry instead of a single run. A targeted `force_summary` with `schedule: <kata_key>` fires only the matching entry. |
 | `tool` | no | Specific DojoTools tool this component uses, if any |
+| `pipeline_tier` | no | Dispatch priority and SuperSummary routing. See tier table below. Default: `keeper`. |
+| `staleness_minutes` | no | Age threshold (minutes) at which the drain router will force a re-run regardless of queue depth. Default: `1440` (24 h). Set lower for components that must stay fresh. |
+| `emission_cooldown_minutes` | no | Minimum minutes between emissions for this component. Prevents notification spam on rapid-fire triggers. |
+| `drift_threshold` | no | Minimum urgency delta required to consider a kata change "significant" for emission gating. |
+| `suggested_act_event` | no | Slug of the action the AI should suggest in kata output (e.g. `zen_dojotools_notification_router`). `null` = no action. |
 | `master_switch` | deprecated | Legacy `input_boolean` gate. Replaced by `meta.enabled`. Honored by the Scheduler if present but no longer written by the KFC writer. |
+
+### Pipeline Tier Values
+
+| Tier | Shedding behavior | SuperSummary routing |
+|------|-------------------|----------------------|
+| `keeper` | Shed when queue depth ≥ `shed_keeper_at` (default 8). Standard components use this. | Kata read directly by SuperSummary |
+| `system` | Same shedding as `keeper`. Conventional for core infrastructure components (e.g. trapper_keeper). | Kata read directly by SuperSummary |
+| `ambient` | Shed on fast triggers (`quarter_hour`, `every_10_minutes`) AND when depth ≥ `shed_ambient_at` (default 4). More aggressively deferred under load. | Kata pre-digested by Trapper Keeper into `ambient_context`; SuperSummary receives the index, not the raw kata |
+| `super` | Never shed. Reserved for `zen_dojotools_supersummary` internal dispatch. Do not use on regular components. | N/A |
+| `direct` | Deprecated alias for `keeper`. Honored but not written by new tooling. | Kata read directly by SuperSummary |
+
+Omit `pipeline_tier` for standard components — `keeper` is the default.
 
 ### Standard Trigger IDs
 
@@ -142,4 +160,4 @@ Six others (`security_manager`, `taskmaster`, `room_manager`, `media_manager`,
 
 ---
 
-*Last updated: 2026-03-20 — KF4 1.2.0*
+*Last updated: 2026-04-14 — KF4 1.5.0*

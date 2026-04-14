@@ -10,13 +10,15 @@ Let's automate everything that isn't nailed down.
 
 And a few things that are.
 
-**Current version: 2026.4.0 'Ectoplasm'**
+**Current version: 2026.4.1 'Action Jackson'**
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention — if you're already running HA, you already know this clock. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
 
+2026.4.1 'Action Jackson' shipped 2026-04-14 — pipeline reliability overhaul (pressure-aware dispatch, queue drain router, fire-and-forget scheduler, burnout governors, kata TTL + GC self-heal), `zen_dojotools_announce` v0.1.0 (four enforced gates: urgency required, urgency threshold, sleep, dedup), emission push gate, cortex v35 TOOL AUTHORITY, `zen_dojotools_todo` v1.7.0 + `zen_dojotools_calendar` v1.11.0, taskmaster KFC v1.3.4, monastery health cascade, two complete KFC guides, first-notification walkthrough, KF4 1.5.0 schema (full tier table, `staleness_minutes`).
+
 2026.4.0 'Ectoplasm' shipped 2026-04-04 — new `zen_dojotools_ectoplasm` (Spook/HA extended surface: repairs, areas, floors, entity/device lifecycle, labels, integrations), Index 4.6.3 topology seeds + pagination + registry modes, Inspect 4.6.2 registry enum modes, Ninja run governor, Scribe 1.2.0.
 
-Full notes: [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md) | [2026.3.1 Patch Notes](zenos_ai/docs/releases/patch_4_5_6.md)
+Full notes: [Action Jackson Release Notes](zenos_ai/docs/releases/action_jackson.md) | [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md)
 
 ---
 
@@ -128,7 +130,7 @@ This layer binds **behavior to the definitions** established by Ring-0.
 Components include:
 
 • Zen DojoTools scripts  
-• the summarizer pipeline  
+• the KF4 action pipeline  
 • prompt compilation  
 • persona capsules  
 • the conversation agent interface  
@@ -395,9 +397,9 @@ Adding a new component requires no code changes and no Scheduler edits. Write a 
 
 ---
 
-# Summarizer Pipeline
+# KF4 Action Pipeline
 
-ZenOS-AI compresses system activity through a Dojo-driven summarization pipeline.
+ZenOS-AI compresses system activity through a Dojo-driven action pipeline.
 
 ```
 Trigger → Scheduler reads Dojo → Ninja Summarizer per KFC → Kata → SuperSummary → Friday
@@ -410,7 +412,7 @@ Components:
 
 The Scheduler auto-discovers which components to run based on their `trigger_subscriptions` in the Dojo. No hardcoded dispatch. No choose branches.
 
-This allows the system to preserve context while maintaining token efficiency.
+Under load, lower-priority components are shed and recovered by the drain router — ensuring high-priority signal always gets through without starving the queue. Component tiers (`keeper`, `ambient`, `system`) control dispatch priority and SuperSummary routing.
 
 ---
 

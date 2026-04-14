@@ -121,6 +121,15 @@ script:
               message: "{% if created_count > 0 %}\n  Create Action Complete.\n{% else
                 %}\n  Create requires confirmation, no labels created.\n{% endif %}"
               caller_token: '{{ caller_token }}'
+        - if:
+          - condition: template
+            value_template: '{{ created_count > 0 }}'
+          then:
+          - event: zen_event
+            event_data:
+              event:
+                kind: label_mutation
+                action: "{{ action }}"
         - stop: pass var scope
           response_variable: response
       - conditions:
@@ -205,6 +214,15 @@ script:
               message: "{% if deleted_count > 0 %}\n  Delete Action Complete.\n{% else
                 %}\n  Delete requires confirmation, no labels deleted.\n{% endif %}"
               caller_token: '{{ caller_token }}'
+        - if:
+          - condition: template
+            value_template: '{{ deleted_count > 0 }}'
+          then:
+          - event: zen_event
+            event_data:
+              event:
+                kind: label_mutation
+                action: "{{ action }}"
         - stop: pass var scope
           response_variable: response
         alias: DELETE
@@ -251,6 +269,11 @@ script:
               affected_labels: '{{ user_labels }}'
               affected_entities: '{{ target_ent_list }}'
               caller_token: '{{ caller_token }}'
+        - event: zen_event
+          event_data:
+            event:
+              kind: label_mutation
+              action: "{{ action }}"
         - stop: pass var scope
           response_variable: response
       - conditions:
@@ -296,6 +319,11 @@ script:
               affected_labels: '{{ user_labels }}'
               affected_entities: '{{ target_ent_list }}'
               caller_token: '{{ caller_token }}'
+        - event: zen_event
+          event_data:
+            event:
+              kind: label_mutation
+              action: "{{ action }}"
         - stop: pass var scope
           response_variable: response
       - conditions:
@@ -344,6 +372,11 @@ script:
                 cleared. All assignments wiped. zen_resolver_refresh fired —
                 Flynn will re-assign on next label health check.
               caller_token: '{{ caller_token }}'
+        - event: zen_event
+          event_data:
+            event:
+              kind: label_mutation
+              action: "{{ action }}"
         - stop: pass var scope
           response_variable: response
       - conditions:
@@ -414,6 +447,11 @@ script:
                 16 canonical labels created with icons and colors.
                 zen_resolver_refresh fired — Flynn will re-tag core cabinets.
               caller_token: '{{ caller_token }}'
+        - event: zen_event
+          event_data:
+            event:
+              kind: label_mutation
+              action: "{{ action }}"
         - stop: pass var scope
           response_variable: response
         alias: INSTALL
@@ -553,6 +591,11 @@ script:
                 {% if _labels_ok %}Icon/color/description preserved from existing where not provided.
                 {% else %}REST pre-read unavailable — only caller-provided fields applied.{% endif %}
               caller_token: '{{ caller_token }}'
+        - event: zen_event
+          event_data:
+            event:
+              kind: label_mutation
+              action: "{{ action }}"
         - stop: pass var scope
           response_variable: response
         alias: UPDATE

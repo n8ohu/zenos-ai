@@ -146,7 +146,7 @@ Frequency:
 
 ## **Class E: User-Requested Tasks**
 
-Requests coming directly from Nathan (or another authorized user).
+Requests coming directly from the primary user (or another authorized user).
 
 Examples:
 
@@ -332,7 +332,7 @@ The Abbot continuously adapts to conditions such as:
 
 For example:
 
-* If Nathan is awake and moving, summarizers run more aggressively.
+* If the primary user is awake and moving, summarizers run more aggressively.
 * If everyone is asleep, synoptic summaries slow to a crawl.
 * If HA CPU spikes, expansions disable automatically.
 * If the house quiets for long periods, the Abbot injects periodic heartbeat summaries to prevent stale cognition.

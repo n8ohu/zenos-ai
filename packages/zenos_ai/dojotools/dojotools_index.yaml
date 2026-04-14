@@ -264,7 +264,7 @@ script:
     - choose:
       - conditions:
         - condition: template
-          value_template: "{{- emit_event -}}"
+          value_template: "{{- emit_event if emit_event is defined else false -}}"
         sequence:
         - data:
             component: dojo_query
@@ -724,7 +724,7 @@ script:
         timeout_s: "{{- timeout | default(60) -}}"
         results: []
         label_targets_input: >
-          {%- set _lt = label_targets | default([]) -%}
+          {%- set _lt = label_targets if label_targets is defined else [] -%}
           {%- if _lt is iterable and _lt is not string -%}
             {{- _lt | map('trim') | map('lower') | reject('equalto', '') | list -}}
           {%- elif _lt is string and _lt | trim | length > 0 -%}
@@ -895,7 +895,8 @@ script:
                 {%- set idents = (device_attr(dev_id, 'identifiers') or []) | list -%}
                 {%- set first = idents | first | default([]) | list -%}
                 {%- set integ = first[0] if first | length > 0 else none -%}
-                {{- 
+                {%- set _dev_area = area_id(dev_id) -%}
+                {{-
                   {
                     'device_id': dev_id,
                     'name': device_attr(dev_id, 'name'),
@@ -1139,7 +1140,7 @@ script:
           data:
             action_type: read
             volume_entity_id: "{{- states('sensor.zen_dojo_cabinet_resolved') -}}"
-            label_targets: "{{- label_targets_input | join('','') -}}"
+            label_targets: "{{- label_targets_input | join(',') -}}"
             caller_token: "{{- caller_token -}}"
           response_variable: _fc_label_response
         - variables:
@@ -1484,8 +1485,9 @@ script:
         _ci_entry: >
           {%- set e = _ci_vars.get('_compact_index') if _ci_vars is mapping else none -%} 
           {{- e if e is mapping else {} -}}
-        _ci_val: >
-          {%- set v = _ci_entry.get('value') if _ci_entry is mapping else none -%} 
+        _ci_val: >-
+          {%- set v = _ci_entry.get('value') if _ci_entry is mapping else none -%}
+          {%- set v = v | from_json({}) if v is string else v -%}
           {{- v if v is mapping else {} -}}
         _ci_generated: "{{- _ci_val.get('generated', '') if _ci_val is mapping else '' -}}"
         compact_index_stale: >
@@ -1502,44 +1504,37 @@ script:
           alias: Build compact index mode
         sequence:
         - variables:
-            compact_index_value: >
-              {%- set all_labels = labels() | list | sort -%}
-              {%- set ns = namespace(entries=[]) -%}
+            compact_index_value: >-
+              {%- set all_labels = labels() | sort -%}
+              {%- set ns = namespace(out=[]) -%}
               {%- for lbl in all_labels -%}
-                {%- set ents = label_entities(lbl) | list -%}
-                {%- set cnt = ents | length -%}
-                {%- if cnt > 0 -%}
-                  {%- if lbl.startswith('zen_') -%}
-                    {%- set grp = 'zenos' -%}
-                  {%- else -%}
-                    {%- set ns_d = namespace(doms=[]) -%}
-                    {%- for eid in ents -%}{%- set ns_d.doms = ns_d.doms + [eid.split('.')[0]] -%}{%- endfor -%}
-                    {%- set udoms = ns_d.doms | unique | list -%}
-                    {%- set ns_w = namespace(top='misc', top_c=0) -%}
-                    {%- for dom in udoms -%}
-                      {%- set c = ns_d.doms | select('equalto', dom) | list | length -%}
-                      {%- if c > ns_w.top_c -%}{%- set ns_w.top = dom -%}{%- set ns_w.top_c = c -%}{%- endif -%}
-                    {%- endfor -%}
-                    {%- set grp = ns_w.top -%}
-                  {%- endif -%}
-                  {%- set ns.entries = ns.entries + [{'label': lbl, 'group': grp, 'entity_count': cnt, 'score': (cnt ** 0.5) | round(3)}] -%}
-                {%- endif -%}
+                {%- set cnt = label_entities(lbl) | list | length -%}
+                {%- set ns.out = ns.out + [{
+                  'slug':  lbl,
+                  'name':  lbl | replace('_', ' ') | title,
+                  'count': cnt,
+                  'score': cnt
+                }] -%}
               {%- endfor -%}
-              {%- set sorted_e = ns.entries | sort(attribute='score', reverse=true) | list -%}
-              {{- {'generated': now().isoformat(), 'label_count': [sorted_e | length, 120] | min, 'labels': sorted_e[:120]} -}}
-        - event: set_variable_legacy
-          event_data:
+              {{- {'generated': now().isoformat(), 'labels': ns.out} | tojson -}}
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: write
+            volume_entity_id:
+              - "{{- zen_household_cab -}}"
             key: _compact_index
             value: "{{- compact_index_value -}}"
             set_timestamp: true
-            volume_entity: "{{- zen_household_cab -}}"
+          response_variable: _ci_write
         - variables:
             final_response:
-              status: success
+              status: "{{- _ci_write.get('status', 'error') if _ci_write is mapping else 'error' -}}"
               message: Compact label index built.
-              label_count: "{{- compact_index_value.get('label_count', 0) -}}"
-              generated: "{{- compact_index_value.get('generated', '') -}}"
-              labels: "{{- compact_index_value.get('labels', []) -}}"
+              generated: "{{- now().isoformat() -}}"
+              labels: >-
+                {%- set _v = compact_index_value -%}
+                {%- set _v = (_v | from_json) if _v is string else _v -%}
+                {{- _v.get('labels', []) if _v is mapping else [] -}}
         - stop: Compact index built
           response_variable: final_response
     - alias: Compact Index Staleness Trap
@@ -2220,9 +2215,9 @@ automation:
               -}}
     - alias: Dispatch Zen Index Command
       data:
-        entities_1: "{{- entities_1 -}}"
+        entities_1: "{{- entities_1 if entities_1 is defined else [] -}}"
         label_1: "{{- parsed_cmd.label_1 -}}"
-        entities_2: "{{- entities_2 -}}"
+        entities_2: "{{- entities_2 if entities_2 is defined else [] -}}"
         label_2: "{{- parsed_cmd.label_2 -}}"
         operator: "{{- parsed_cmd.operator -}}"
         expand_entities: "{{- parsed_cmd.expand_entities -}}"

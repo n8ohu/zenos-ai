@@ -173,12 +173,22 @@ automation:
         event: start
     conditions: []
     actions:
-      - delay: "00:05:00"
+      - delay: "00:00:05"
+      - variables:
+          _warmup_minutes: >-
+            {%- set _hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- set _cfg_raw = (state_attr(_hh, 'variables') or {}).get('zen_scheduler_config', {}) -%}
+            {%- set _v = _cfg_raw.get('value', _cfg_raw) if _cfg_raw is mapping else {} -%}
+            {%- set _v = (_v | from_json) if _v is string else _v -%}
+            {{ (_v.get('warmup_minutes', 5) | int(5)) if _v is mapping else 5 }}
+      - delay:
+          minutes: "{{ _warmup_minutes }}"
       - event: zen_event
         event_data:
           event:
             kind: warmup_expired
             source: zen_warmup_timer
+            warmup_minutes: "{{ _warmup_minutes }}"
             timestamp: "{{ now().isoformat() }}"
 
   - alias: "Flynn: Stepgate Sentinel"
@@ -789,7 +799,7 @@ script:
                 # GUID GATE — REINIT IS DEAD.
                 # If AI_Cabinet_VolumeInfo exists in variables, this cabinet has data.
                 # State showing 'init' is a boot race artifact — data is intact.
-                # Nathan's invariant: GUID present = absolute stop. No override. No force.
+                # Invariant: GUID present = absolute stop. No override. No force.
                 # See: req_reinit_dead_external_gate_2026-03-23.md
                 - if: "{{ _has_volumeinfo }}"
                   then:
@@ -1596,7 +1606,7 @@ script:
 
       household_name:
         name: Household Name
-        description: "Your household name (e.g. 'The Curtis House'). Non-destructive."
+        description: "Your household name (e.g. 'The Garcia House'). Non-destructive."
         default: ""
         selector:
           text:
@@ -1617,7 +1627,7 @@ script:
 
       family_members:
         name: Family Members (JSON)
-        description: "JSON list e.g. [{\"name\": \"Kim\", \"role\": \"partner\"}]. Written to zenai_family. Skipped if key already exists."
+        description: "JSON list e.g. [{\"name\": \"Alex\", \"role\": \"partner\"}]. Written to zenai_family. Skipped if key already exists."
         default: "[]"
         selector:
           text:
@@ -1694,12 +1704,12 @@ script:
                           "household_name": "Household name. Skipped if already set.",
                           "persona_name": "Agent name (essence identity.name). Skipped if already set.",
                           "primary_user": "Primary user name (essence identity.primary_user). Skipped if already set.",
-                          "family_members": "JSON list [{\"name\": \"Kim\", \"role\": \"partner\"}]. Skipped if zenai_family key exists."
+                          "family_members": "JSON list [{\"name\": \"Alex\", \"role\": \"partner\"}]. Skipped if zenai_family key exists."
                         },
                         "user_script": {
                           "role": "You are Flynn. Walk the user through these questions, then call mode: build with their answers.",
                           "questions": [
-                            "What would you like to call your home? (e.g. 'The Curtis House', 'Casa Garcia')",
+                            "What would you like to call your home? (e.g. 'The Garcia House', 'Casa Verde')",
                             "What's your name? You're the main person I'll be working with.",
                             "What do you want to name your AI assistant?",
                             "Who else lives here? Give me names and how they're connected — partner, kids, housemates, whatever applies."

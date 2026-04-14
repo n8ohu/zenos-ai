@@ -1,6 +1,6 @@
 {# =====================================================================
    ZenOS-AI - Zen Query Engine (ZQ-1)
-   Version: 4.5.5
+   Version: 4.5.7
    Author: Nathan Curtis & Veronica
    ===================================================================== #}
 
@@ -19,6 +19,7 @@
   {%- set exclude_states = f.get('exclude_states', []) %}
   {%- set num_above      = f.get('numeric_above') %}
   {%- set num_below      = f.get('numeric_below') %}
+  {%- set label_regex    = f.get('label_regex') %}
   {%- set regex          = f.get('regex') %}
   {%- set sort_spec      = f.get('sort', {}) %}
 
@@ -42,9 +43,16 @@
     {%- set pipe.ids = [] %}
   {%- endif %}
 
-  {# --- 2. Auto-build from domain if needed ---------------------------- #}
+  {# --- 2. Auto-build from domain or label if needed ------------------ #}
+  {# Priority: domain > label seed. label seed is cross-domain —        #}
+  {# use label_entities(label) when label is set but domain is not.     #}
+  {# This enables cross-domain compound queries like                    #}
+  {# {"label":"alert_manager","label_regex":"^alert_when_"} with no     #}
+  {# domain required. Step 4 intersect becomes a no-op in that case.   #}
   {%- if (pipe.ids | count == 0) and domain %}
     {%- set pipe.ids = states[domain] | map(attribute='entity_id') | list %}
+  {%- elif (pipe.ids | count == 0) and label %}
+    {%- set pipe.ids = label_entities(label | slugify) | list %}
   {%- endif %}
 
   {# --- 3. Domain filter ----------------------------------------------- #}
@@ -63,6 +71,23 @@
     {%- set normalized = label | slugify %}
     {%- set labeled = label_entities(normalized) | list %}
     {%- set pipe.ids = pipe.ids | intersect(labeled) %}
+  {%- endif %}
+
+  {# --- 4.1 Label-regex filter ----------------------------------------- #}
+  {%- if label_regex %}
+    {%- set new = namespace(list=[]) %}
+    {%- for ent in pipe.ids %}
+      {%- set ns_lbl = namespace(hit=false) %}
+      {%- for lbl in labels(ent) | default([]) %}
+        {%- if lbl | regex_search(label_regex) %}
+          {%- set ns_lbl.hit = true %}
+        {%- endif %}
+      {%- endfor %}
+      {%- if ns_lbl.hit %}
+        {%- set new.list = new.list + [ent] %}
+      {%- endif %}
+    {%- endfor %}
+    {%- set pipe.ids = new.list %}
   {%- endif %}
 
   {# --- 4a. Area filter ------------------------------------------------- #}
@@ -450,7 +475,7 @@
 {{
   {
     "tool": "Zen DojoTools Query (ZQ-1)",
-    "version": "4.5.5",
+    "version": "4.5.7",
     "overview":
       "ZQ-1 is a deterministic, multi-stage, HA-safe entity filtering engine. It consumes flexible JSON filter definitions and produces a fully-evaluated list of entity_ids. Each stage applies conjunctively (logical AND), narrowing the working set. ZQ-1 never mutates state, never guesses, never throws template errors, and never performs unsafe Python operations.",
 
@@ -463,7 +488,14 @@
       "normalization_rules":
         "• null → []\n• string → [string]\n• iterable → list(iterable)\n• non-iterable scalar → []",
       "initialization_pipeline":
-        "1. Normalize entity_list\n2. If empty AND domain provided → auto-expand from states[domain]\n3. Sequentially apply filters (each narrows pipe.ids)\n4. Apply shortcuts (late-stage narrowing)\n5. Apply sorting\n6. Apply paging (offset + limit)"
+        "1. Normalize entity_list\n"
+        "2. If empty AND domain provided → auto-expand from states[domain]\n"
+        "   If empty AND no domain BUT label provided → auto-seed from label_entities(label) [cross-domain]\n"
+        "   If empty AND neither → empty set (no results)\n"
+        "3. Sequentially apply filters (each narrows pipe.ids)\n"
+        "4. Apply shortcuts (late-stage narrowing)\n"
+        "5. Apply sorting\n"
+        "6. Apply paging (offset + limit)"
     },
 
     "fields": {
@@ -471,7 +503,18 @@
         "Restricts or auto-builds the set. If entity_list is empty, ZQ-1 expands using states[domain]. If entity_list is non-empty, ZQ-1 keeps only entity_ids starting with domain+'.'.",
 
       "label":
-        "PURE intersection with label_entities(slugified_label). No expansion, no guessing.",
+        "PURE intersection with label_entities(slugified_label). No expansion, no guessing. "
+        "CROSS-DOMAIN SEED: if no domain and no target_entities are provided, ZQ auto-seeds "
+        "from label_entities(label) instead of starting empty. This makes label a cross-domain "
+        "entry point — no domain required when label is the primary filter.",
+
+      "label_regex":
+        "Keep only entities that carry at least one label slug matching this regex pattern. "
+        "Uses labels(entity_id) per entity in the current working set. "
+        "Compounds cleanly with 'label': set label as the cross-domain seed, label_regex as "
+        "the modifier filter. Example: label='alert_manager' + label_regex='^alert_when_' "
+        "returns all alert_manager entities across all domains that carry any alert_when_* label, "
+        "no domain parameter needed.",
 
       "area":
         "Slugify → area_id() → area_entities() → intersect.",
@@ -613,6 +656,9 @@
 
       "regex_match_for_heating_modes":
         "{'domain':'climate', 'regex':'heat|on|aux'}",
+
+      "alert_manager_with_any_modifier_cross_domain":
+        "{'label':'alert_manager', 'label_regex':'^alert_when_'} — no domain needed; seeds from label_entities('alert_manager') across all domains, then filters to those with any alert_when_* modifier label",
 
       "top_5_hottest":
         "{'sort':{'by':'numeric_state','order':'desc'}, 'limit':5}",

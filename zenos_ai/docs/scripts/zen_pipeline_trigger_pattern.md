@@ -170,7 +170,7 @@ automation:
                 message: "{{ _summary }}"
         - conditions: "{{ _urgency == 'medium' }}"
           sequence:
-            - action: notify.mobile_app_nathan
+            - action: notify.mobile_app_default_user
               data:
                 message: "{{ _summary }}"
       default:

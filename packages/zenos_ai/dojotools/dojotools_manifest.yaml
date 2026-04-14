@@ -24,6 +24,8 @@
 script:
   zen_dojotools_manifest:
     alias: Zen DojoTools Manifest
+    mode: queued
+    max: 20
     description: 'Zen DojoTools Manifest (4.5.x) Sandbox Safe! Runtime-only health,
       zero persistent health storage. Authoritative manifest  scanner for AI_Cabinet
       volumes. Extracts users, metadata, context, capacity, access flags, ACLs, drawers.
@@ -285,12 +287,15 @@ script:
           {%- endfor -%}
           
           {{- result.data -}}
-    - event: set_variable_legacy
-      event_data:
+    - action: script.zen_dojotools_filecabinet
+      data:
+        action_type: write
+        volume_entity_id:
+          - "{{- zen_default_house_cab -}}"
         key: "{{- manifest_key -}}"
-        value: "{{- manifest -}}"
+        value: "{{- manifest | tojson -}}"
         set_timestamp: true
-        volume_entity: "{{- zen_default_house_cab -}}"
+      response_variable: _manifest_write
     - variables:
         manifest: "{{- manifest | combine({'caller_token': caller_token | default('')}) if manifest is mapping else manifest -}}"
     - alias: Return Manifest Data

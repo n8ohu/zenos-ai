@@ -22,9 +22,9 @@
 
 Welcome to the **ZenOS-AI Documentation** — the full map of the architecture, tools, cognitive model, and operational philosophy behind *Friday’s Party*.
 
-ZenOS-AI turns **Home Assistant** into a real agentic, persona-aware operating system. This documentation explains how the pieces fit together: the **Cabinet System** for identity and memory, the **Monastery** for reasoning, the **Summarizer Engine** for awareness, and the **HyperIndex** for graph-based attention and discovery.
+ZenOS-AI turns **Home Assistant** into a real agentic, persona-aware operating system. This documentation explains how the pieces fit together: the **Cabinet System** for identity and memory, the **Monastery** for reasoning, the **KF4 action pipeline** for awareness and action, and the **HyperIndex** for graph-based attention and discovery.
 
-If you're building an AI construct, designing a DojoTool, wiring a Summarizer pipeline, or just trying to understand how Friday thinks, this directory is your guide.
+If you're building an AI construct, designing a DojoTool, wiring the action pipeline, or just trying to understand how Friday thinks, this directory is your guide.
 
 ---
 
@@ -123,7 +123,7 @@ Each Kung Fu component is a discipline: a subsystem Friday loads at runtime.
 
 Documents:
 
-* `understanding_kf4.md` — **Start here.** Plain-language guide to the Dojo, Kung Fu Components, and the Summarizer pipeline. How to add a new component in five steps, no code required.
+* `understanding_kf4.md` — **Start here.** Plain-language guide to the Dojo, Kung Fu Components, and the KF4 action pipeline. How to add a new component in five steps, no code required.
 * `readme.md` — Technical spec: drawer schema, trigger ID reference, command strip migration notes.
 
 This is Friday’s skill tree.

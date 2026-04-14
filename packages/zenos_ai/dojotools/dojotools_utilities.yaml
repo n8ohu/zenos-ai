@@ -2,16 +2,37 @@
 # ZenOS-AI DojoTools: Utilities Bundle
 # Phase 1 migration from scripts.yaml
 #
-# Version: 4.5.5
+# Version: 4.6.0
 #
 # Scripts:
-#   zen_dojotools_calculator   — math + GUID generator (v4.5.x)
-#   zen_dojotools_dice_roller  — D&D dice / random (v4.5.x)
-#   zen_dojotools_announce     — TTS announcement router (v4.5.x)
-#   zen_dojotools_music_search — Music Assistant search (v4.5.x)
-#   zen_dojotools_help         — ZenOS-AI about/help (v4.5.x)
-#   zen_dojotools_wait         — timed delay utility
-#   dojotools_volume_auditor   — cabinet volume accessibility scanner (fixed _report)
+#   zen_dojotools_calculator      — math + GUID generator (v4.5.x)
+#   zen_dojotools_dice_roller     — D&D dice / random (v4.5.x)
+#   zen_dojotools_announce        — TTS announcement router (v4.5.x)
+#   zen_dojotools_music_search    — Music Assistant search (v4.5.x)
+#   zen_dojotools_help            — ZenOS-AI about/help (v4.5.x)
+#   zen_dojotools_wait            — timed delay utility
+#   dojotools_volume_auditor      — cabinet volume accessibility scanner
+#
+# CANONICAL HA DOMAIN TOOLS — prefer these over HA built-ins and legacy intents:
+#   zen_dojotools_select_control  — CANONICAL: select / input_select (v1.0.0)
+#   zen_dojotools_number         — CANONICAL: number / input_number (v1.0.0)
+#   zen_dojotools_text            — CANONICAL: text / input_text (v1.0.0)
+#   zen_dojotools_climate         — CANONICAL: climate (v1.0.0)
+#   zen_dojotools_water_heater    — CANONICAL: water_heater (v1.0.0)
+#   zen_dojotools_datetime        — CANONICAL: input_datetime (v1.0.0)
+#   zen_dojotools_zones           — CANONICAL: zone — CRUD + bearing (v1.1.0)
+#
+# Migrated from intent_script/ 2026-04-08:
+#   select_control, numeric_set_value, text_set_value, climate_set,
+#   water_heater_set, input_datetime_set_datetime, get_zones,
+#   bearing_to_target → promoted to proper dojotools scripts.
+#   Full field selectors expose all params via MCP.
+#   climate: added swing_mode, humidity, aux_heat, entity shorthand,
+#            full GET capabilities (min/max_temp, humidity range)
+#   water_heater: fixed can_off bug (was bit 4, ON_OFF is bit 3),
+#                 added current_temperature + state to GET response
+#   zones: full CRUD (zone.create/edit/delete) + bearing mode (haversine
+#          distance + compass direction, origin defaults to zone.home)
 ###############################################################################
 
 script:
@@ -222,6 +243,172 @@ script:
     - variables:
         results: []
         tts_entity: tts.openai_gpt_4o_mini_tts_2
+
+    # --------------------------------------------------------------
+    # Normalize urgency — sentinel -1 means "not provided"
+    # urgency is required. Callers that omit it are blocked.
+    # --------------------------------------------------------------
+    - variables:
+        _urgency_raw: "{{ urgency | default(none) }}"
+        _urgency_int: "{{ _urgency_raw | int(-1) if _urgency_raw is not none else -1 }}"
+
+    # --------------------------------------------------------------
+    # URGENCY REQUIRED GATE
+    # urgency is a required field. Callers that omit it are blocked
+    # with a clear error. This forces all callers to declare intent.
+    # --------------------------------------------------------------
+    - if: "{{ _urgency_int == -1 }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "urgency_required",
+                  "message": "urgency field is required. Pass urgency (4–8) for voice. urgency <= 3 = push only (use notification_router). urgency >= 9 = life-safety only (smoke, CO, flood, alarm). Callers that cannot determine urgency should use notification_router instead.",
+                  "urgency": none} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: warn
+              summary: >-
+                Announce blocked (urgency_required) — caller '{{ caller_token | default('anon') }}'
+                did not pass urgency
+              metadata:
+                reason: urgency_required
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+        - stop: Urgency required — not provided
+          response_variable: final_response
+
+    # --------------------------------------------------------------
+    # URGENCY GATE
+    # urgency <= 3 = push only. Never audio.
+    # Error katas, no-data, informational = not household audio events.
+    # --------------------------------------------------------------
+    - if: "{{ _urgency_int <= 3 }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "blocked_urgency",
+                  "message": "Audio blocked — urgency " ~ _urgency_int ~ " is below voice threshold (minimum 4). Use zen_dojotools_notification_router for push.",
+                  "urgency": _urgency_int} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: info
+              summary: >-
+                Announce blocked (urgency gate) — caller '{{ caller_token | default('anon') }}'
+                urgency={{ _urgency_int }} below threshold 4
+              metadata:
+                reason: urgency_gate
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                urgency: "{{ _urgency_int }}"
+        - stop: Urgency gate — blocked
+          response_variable: final_response
+
+    # --------------------------------------------------------------
+    # SLEEP GATE
+    # Blocks audio when household is sleeping or in quiet hours (11pm–7am).
+    # Life-safety urgency >= 9 bypasses (smoke, CO, flooding, alarm).
+    # Returns structured response — use zen_dojotools_notification_router instead.
+    # --------------------------------------------------------------
+    - variables:
+        _zen_mode: "{{ states('input_select.zen_home_mode') | default('', true) }}"
+        _hour: "{{ now().hour | int }}"
+        _is_sleep_time: >-
+          {{ _zen_mode == 'sleep' or (_hour >= 23 or _hour < 7) }}
+        _sleep_exempt: "{{ _urgency_int >= 9 }}"
+    - if: "{{ _is_sleep_time and not _sleep_exempt }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "blocked_sleep",
+                  "message": "Audio blocked — household in sleep state or quiet hours (11pm–7am). Use zen_dojotools_notification_router for push. Only life-safety urgency >= 9 bypasses this gate (smoke, CO, flood, alarm).",
+                  "urgency": _urgency_int,
+                  "mode": _zen_mode} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: info
+              summary: >-
+                Announce blocked (sleep gate) — caller '{{ caller_token | default('anon') }}'
+                urgency={{ _urgency_int }} mode={{ _zen_mode }}
+              metadata:
+                reason: sleep_gate
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                urgency: "{{ _urgency_int }}"
+        - stop: Sleep gate — blocked
+          response_variable: final_response
+
+    # --------------------------------------------------------------
+    # Announcement log + dedup gate
+    # Reads zen_announcement_log from kata cabinet.
+    # Blocks if identical message from same caller fired within
+    # dedup_seconds (default 300). Always writes log entry after fire.
+    # Prevents looping components from spamming audio.
+    # --------------------------------------------------------------
+    - variables:
+        _kata_cab: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
+        _kata_ok: >-
+          {{ _kata_cab not in ['unknown', 'unavailable', 'none', ''] }}
+    - variables:
+        _ann_log_raw: >-
+          {%- if _kata_ok -%}
+            {%- set _cab = state_attr(_kata_cab, 'variables') | default({}, true) -%}
+            {%- set _d = _cab.get('zen_announcement_log', {}) -%}
+            {%- set _v = _d.get('value', _d) if _d is mapping else {} -%}
+            {%- set _v = (_v | from_json) if _v is string else _v -%}
+            {{ _v if _v is mapping else {} }}
+          {%- else -%}
+            {{ {} }}
+          {%- endif -%}
+        _dedup_seconds: >-
+          {%- set _hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+          {%- set _cfg = (state_attr(_hh, 'variables') | default({}, true)).get('zen_scheduler_config', {}) -%}
+          {%- set _v = _cfg.get('value', _cfg) if _cfg is mapping else {} -%}
+          {%- set _v = (_v | from_json) if _v is string else _v -%}
+          {{ (_v.get('announce_dedup_seconds', 300) | int(300)) if _v is mapping else 300 }}
+    - variables:
+        _msg_key: "{{ message | default('') | truncate(80, true, '') | slugify }}"
+        _caller_key: "{{ caller_token | default('anon') | slugify | truncate(32, true, '') }}"
+        _dedup_key: "{{ _caller_key ~ '__' ~ _msg_key }}"
+        _recent: >-
+          {%- set _entries = _ann_log_raw.get('entries', []) if _ann_log_raw is mapping else [] -%}
+          {%- set _now_ts = now().timestamp() -%}
+          {%- set _win = _dedup_seconds | int(300) -%}
+          {%- set ns = namespace(found=false) -%}
+          {%- for e in _entries -%}
+            {%- if e is mapping and e.get('dedup_key') == _dedup_key -%}
+              {%- set _age = (_now_ts - (e.get('ts', 0) | float(0))) | int -%}
+              {%- if _age < _win -%}
+                {%- set ns.found = true -%}
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ ns.found }}
+    - if: "{{ _recent | bool }}"
+      then:
+        - variables:
+            final_response: >-
+              {{ {"status": "dedup", "message": "Announcement suppressed — identical message from same caller within dedup window.", "dedup_key": _dedup_key, "caller_token": caller_token} | tojson }}
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_suppressed
+              severity: warn
+              summary: >-
+                Announcement dedup triggered — suppressed repeat from caller
+                '{{ caller_token | default('anon') }}' (key: {{ _dedup_key }})
+              metadata:
+                dedup_key: "{{ _dedup_key }}"
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                areas: "{{ area | default([]) }}"
+        - stop: Announce dedup — suppressed
+          response_variable: final_response
     - repeat:
         sequence:
         - variables:
@@ -261,6 +448,57 @@ script:
         final_response: "{{\n  {\n    \"results\": results\n  } | tojson\n}}"
     - variables:
         final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token}) | tojson }}"
+
+    # --------------------------------------------------------------
+    # Write announcement log entry to kata cabinet
+    # Keeps last 50 entries. Cap prevents unbounded growth.
+    # --------------------------------------------------------------
+    - if: "{{ _kata_ok }}"
+      then:
+        - variables:
+            _new_entry: >-
+              {{
+                {
+                  "ts":         now().timestamp() | round(0) | int,
+                  "iso":        now().isoformat(),
+                  "dedup_key":  _dedup_key,
+                  "caller":     caller_token | default('anon'),
+                  "message":    message | default('') | truncate(255, true, '...'),
+                  "areas":      area | default([])
+                } | tojson
+              }}
+            _prev_entries: >-
+              {%- set _entries = _ann_log_raw.get('entries', []) if _ann_log_raw is mapping else [] -%}
+              {{ _entries | list }}
+            _log_value: >-
+              {{
+                {
+                  "entries": ([_new_entry | from_json] + _prev_entries)[:50]
+                } | tojson
+              }}
+        - action: script.zen_dojotools_filecabinet
+          data:
+            action_type: create
+            force_action: true
+            set_timestamp: true
+            volume_entity_id:
+              - "{{ _kata_cab }}"
+            key: zen_announcement_log
+            value: "{{ _log_value }}"
+        - event: zen_event
+          event_data:
+            event:
+              kind: announcement_fired
+              severity: info
+              summary: >-
+                Audio announcement fired by '{{ caller_token | default('anon') }}'
+                to {{ area | default([]) | join(', ') }}
+              metadata:
+                caller: "{{ caller_token | default('anon') }}"
+                message: "{{ message | default('') | truncate(120, true, '...') }}"
+                areas: "{{ area | default([]) }}"
+                dedup_key: "{{ _dedup_key }}"
+
     - stop: Pass Variable
       response_variable: final_response
     fields:
@@ -279,6 +517,19 @@ script:
         description: Message to be announced using your default TTS in your area(s)
           selected. (Short message, max 255 char, no encyclopedias)
         required: true
+      urgency:
+        name: Urgency
+        description: >-
+          Required. Urgency level (4–10 for voice; 1–3 = push only, blocked here).
+          urgency 4–8: normal voice announcement range.
+          urgency >= 9: life-safety bypass (smoke, CO, flood, alarm) — bypasses sleep gate.
+          urgency <= 3: blocked — use zen_dojotools_notification_router for push instead.
+          Omitting urgency is also blocked (status: urgency_required).
+        required: true
+        selector:
+          number:
+            min: 1
+            max: 10
       caller_token:
         name: Caller Token
         description: Opaque token passed through by the caller for correlation. Not interpreted by this script.
@@ -286,12 +537,16 @@ script:
         selector:
           text:
     alias: Zen DojoTools Announce
-    description: "Zen DojoTools Announce (0.0.9)\n\nShort Message Audible Announcement
-      router.\nUses Media Manager Rules to identify the correct TTS endpoint, use index
-      key 'tts_output' to locate eligible endpoints. \nInput message to send and areas
-      to send to - let the tool figure out the rest...\nWill handle identifying the
-      correct endpoint, volume etc. for the time and report results.  Happy Notifying...
-      \ Don't overuse."
+    description: "Zen DojoTools Announce (0.1.0)\n\nShort Message Audible Announcement\
+      \ router.\nUses Media Manager Rules to identify the correct TTS endpoint.\n\n\
+      GATES (enforced by the tool — all responses are machine-readable status codes):\n\
+      \  1. URGENCY REQUIRED: urgency must be passed. Returns status: urgency_required.\n\
+      \  2. URGENCY GATE: urgency <= 3 = push only. Returns status: blocked_urgency.\n\
+      \     Use zen_dojotools_notification_router instead.\n\
+      \  3. SLEEP GATE: zen_home_mode=sleep or 11pm-7am. Returns status: blocked_sleep.\n\
+      \     urgency >= 9 bypasses (life-safety only: smoke, CO, flood, alarm).\n\
+      \  4. DEDUP GATE: same caller+message within dedup window. Returns status: dedup.\n\n\
+      Voice range: urgency 4–8. Don't overuse."
 
   zen_dojotools_music_search:
     sequence:
@@ -677,7 +932,7 @@ script:
 
       This tool is the DEFAULT notification channel unless asked otherwise.
 
-      ''Text The Boss'', ''Text PERSON''
+      ''Text The Admin'', ''Text PERSON''
 
       '
     mode: single
@@ -831,8 +1086,8 @@ script:
             - Admin Devices
             - Family Devices
             - Family Devices (Verbose)
-            - Nathan's Phone
-            - Kim's Phone
+            - Default User Phone
+            - Secondary User Phone
             multiple: true
         name: Notification Targets
         description: REQUIRED - Where to send the notification... (Default - Admin Devices)
@@ -974,9 +1229,9 @@ script:
             - data: '{{ message_data }}'
               action: notify.family_devices_verbose
           - conditions:
-            - alias: Nathan Phone
+            - alias: Default User Phone
               condition: template
-              value_template: '{{ repeat.item == "Nathan''s Phone" }}
+              value_template: '{{ repeat.item == "Default User Phone" }}
 
                 '
             - alias: Breakthrough Check
@@ -985,11 +1240,11 @@ script:
                 ) ) or ( breakthrough_allowed == ''on'' ) }}'
             sequence:
             - data: '{{ message_data }}'
-              action: notify.mobile_app_mjolnir_mk_xi
+              action: notify.default_user
           - conditions:
-            - alias: Kim Phone
+            - alias: Secondary User Phone
               condition: template
-              value_template: '{{ repeat.item == "Kim''s Phone" }}
+              value_template: '{{ repeat.item == "Secondary User Phone" }}
 
                 '
             - alias: Breakthrough Check
@@ -998,7 +1253,7 @@ script:
                 ) ) or ( breakthrough_allowed == ''on'' ) }}'
             sequence:
             - data: '{{ message_data }}'
-              action: notify.mobile_app_kim_s_phone
+              action: notify.secondary_user
         for_each: '{{ notification_devices }}'
     - variables:
         result: '{%- set ns = namespace(d={}) %} {%- set ns.d = ns.d | combine({''action'':
@@ -1019,3 +1274,2083 @@ script:
         result: "{{ result | combine({'caller_token': caller_token}) if result is mapping else result }}"
     - stop: Pass Variables
       response_variable: result
+
+  # ============================================================================
+  # zen_dojotools_select_control
+  # Migrated from intent_script/select_control v1.0.0 — 2026-04-08
+  # ============================================================================
+  zen_dojotools_select_control:
+    alias: Zen DojoTools Select Control
+    mode: parallel
+    max: 10
+    description: >-
+      zen_dojotools_select_control (v1.0.0)
+
+      CANONICAL HA DOMAIN TOOL — select / input_select
+      Preferred over select_control intent and HA MCP built-ins for this domain.
+      Fall back to HA built-ins ONLY if this tool is confirmed non-functional.
+
+      GET+SET for select and input_select entities. Resolves shorthand names or
+      full entity_ids. Validates option against supported list before applying.
+      Omit option (or pass get=true) to read current state and options.
+
+      Examples:
+        Read:       { "name": "office_occupancy" }
+        Set:        { "name": "office_occupancy", "option": "Occupied" }
+        Full id:    { "name": "input_select.master_bedroom_occupancy", "option": "Asleep" }
+        Force read: { "name": "office_occupancy", "get": "true" }
+
+    fields:
+      name:
+        name: Entity
+        description: select or input_select entity_id, or shorthand name
+        required: true
+        selector:
+          text:
+
+      option:
+        name: Option
+        description: Option value to set. Omit to read current state.
+        required: false
+        selector:
+          text:
+
+      get:
+        name: Read-only
+        description: Pass any truthy value to force read-only mode even if option is set.
+        required: false
+        selector:
+          text:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque audit token echoed in response.
+        required: false
+        selector:
+          text:
+
+    sequence:
+      # ── Input normalization ────────────────────────────────────────────────
+      - variables:
+          raw: "{{ name | string | trim }}"
+          opt_raw: "{{ option | default(none, true) }}"
+          get_raw: "{{ get | default(none, true) }}"
+          _token: "{{ caller_token | default('', true) }}"
+
+      # ── Entity resolution ─────────────────────────────────────────────────
+      - variables:
+          _slug: "{{ raw | replace(':', '') | slugify }}"
+          _input_ent: "input_select.{{ _slug }}"
+          _select_ent: "select.{{ _slug }}"
+          _entity_id: >-
+            {%- if '.' in raw -%}
+              {{ raw }}
+            {%- elif states(_input_ent) not in ['unknown', 'unavailable'] -%}
+              {{ _input_ent }}
+            {%- elif states(_select_ent) not in ['unknown', 'unavailable'] -%}
+              {{ _select_ent }}
+            {%- else -%}
+              INVALID
+            {%- endif -%}
+          _domain: >-
+            {%- if _entity_id.startswith('input_select.') -%}input_select
+            {%- elif _entity_id.startswith('select.') -%}select
+            {%- else -%}invalid{%- endif -%}
+
+      - if:
+          - condition: template
+            value_template: "{{ _domain == 'invalid' }}"
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_select_control
+                caller_token: "{{ _token }}"
+                error: invalid_entity
+                input: "{{ raw }}"
+          - stop: error
+            response_variable: result
+
+      # ── Fetch current state + options ─────────────────────────────────────
+      - variables:
+          _state: "{{ states(_entity_id) }}"
+          _options: "{{ state_attr(_entity_id, 'options') | default([]) }}"
+
+      # ── Read-only path ────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ get_raw is not none or opt_raw is none }}"
+        then:
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_select_control
+                caller_token: "{{ _token }}"
+                mode: read
+                entity_id: "{{ _entity_id }}"
+                domain: "{{ _domain }}"
+                state: "{{ _state }}"
+                options: "{{ _options }}"
+          - stop: read
+            response_variable: result
+
+      # ── Option validation ─────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ opt_raw not in _options }}"
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_select_control
+                caller_token: "{{ _token }}"
+                error: invalid_option
+                entity_id: "{{ _entity_id }}"
+                requested: "{{ opt_raw }}"
+                supported: "{{ _options }}"
+          - stop: invalid_option
+            response_variable: result
+
+      # ── Apply option ──────────────────────────────────────────────────────
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ _domain == 'input_select' }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: "{{ _entity_id }}"
+                data:
+                  option: "{{ opt_raw }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ _domain == 'select' }}"
+            sequence:
+              - action: select.select_option
+                target:
+                  entity_id: "{{ _entity_id }}"
+                data:
+                  option: "{{ opt_raw }}"
+
+      # ── Response ──────────────────────────────────────────────────────────
+      - variables:
+          result:
+            ok: true
+            tool: zen_dojotools_select_control
+            caller_token: "{{ _token }}"
+            mode: set
+            entity_id: "{{ _entity_id }}"
+            domain: "{{ _domain }}"
+            previous: "{{ _state }}"
+            state: "{{ opt_raw }}"
+            options: "{{ _options }}"
+      - stop: set
+        response_variable: result
+
+  # ============================================================================
+  # zen_dojotools_number
+  # Migrated from intent_script/numeric_set_value v1.0.0 — 2026-04-08
+  # ============================================================================
+  zen_dojotools_number:
+    alias: Zen DojoTools Number
+    mode: parallel
+    max: 10
+    description: >-
+      zen_dojotools_number (v1.0.0)
+
+      CANONICAL HA DOMAIN TOOL — number / input_number
+      Preferred over numeric_set_value intent and HA MCP built-ins for this domain.
+      Fall back to HA built-ins ONLY if this tool is confirmed non-functional.
+
+      GET+SET+arithmetic for number and input_number entities. Resolves shorthand
+      or full entity_ids. Enforces entity min/max. Optional int/float cast.
+      Operations: set, add, sub, mul, div, inc, dec.
+
+      Examples:
+        Read:      { "name": "ninja_governor" }
+        Set:       { "name": "ninja_governor", "value": 60 }
+        Add:       { "name": "Office Brightness", "operation": "add", "amount": 10 }
+        Increment: { "name": "ninja_governor", "operation": "inc" }
+        Div+cast:  { "name": "ninja_governor", "operation": "div", "amount": 2, "cast": "int" }
+
+    fields:
+      name:
+        name: Entity
+        description: number or input_number entity_id, or shorthand name
+        required: true
+        selector:
+          text:
+
+      value:
+        name: Value
+        description: Direct value to set (used when operation=set or omitted)
+        required: false
+        selector:
+          number:
+            min: -1000000000
+            max: 1000000000
+            step: 0.001
+            mode: box
+
+      operation:
+        name: Operation
+        description: Math operation to perform. Default is set.
+        required: false
+        selector:
+          select:
+            options:
+              - set
+              - add
+              - sub
+              - mul
+              - div
+              - inc
+              - dec
+
+      amount:
+        name: Amount
+        description: Operand for add/sub/mul/div operations
+        required: false
+        selector:
+          number:
+            min: -1000000000
+            max: 1000000000
+            step: 0.001
+            mode: box
+
+      cast:
+        name: Cast
+        description: Final value cast mode. Default is float.
+        required: false
+        selector:
+          select:
+            options:
+              - float
+              - int
+
+      caller_token:
+        name: Caller Token
+        description: Opaque audit token echoed in response.
+        required: false
+        selector:
+          text:
+
+    sequence:
+      # ── Input normalization ────────────────────────────────────────────────
+      - variables:
+          raw: "{{ name | string | trim }}"
+          op: "{{ operation | default('set') | lower }}"
+          amt: "{{ amount | float(0) if amount is defined else 0 }}"
+          cast_mode: "{{ cast | default('float') | lower }}"
+          value_raw: "{{ value | float(0) if value is defined and value is not none else none }}"
+          _token: "{{ caller_token | default('', true) }}"
+
+      # ── Entity resolution ─────────────────────────────────────────────────
+      - variables:
+          _slug: "{{ raw | replace(':', '') | slugify }}"
+          _input_ent: "input_number.{{ _slug }}"
+          _number_ent: "number.{{ _slug }}"
+          _entity_id: >-
+            {%- if '.' in raw and states(raw) not in ['unknown', 'unavailable'] -%}
+              {{ raw }}
+            {%- elif states(_input_ent) not in ['unknown', 'unavailable'] -%}
+              {{ _input_ent }}
+            {%- elif states(_number_ent) not in ['unknown', 'unavailable'] -%}
+              {{ _number_ent }}
+            {%- else -%}
+              INVALID
+            {%- endif -%}
+
+      - if:
+          - condition: template
+            value_template: "{{ _entity_id == 'INVALID' }}"
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_number
+                caller_token: "{{ _token }}"
+                error: invalid_entity
+                input: "{{ raw }}"
+          - stop: error
+            response_variable: result
+
+      # ── Read current state + constraints ─────────────────────────────────
+      - variables:
+          _current: "{{ states(_entity_id) | float(0) }}"
+          _min: >-
+            {%- set a = state_attr(_entity_id, 'min') -%}
+            {%- set b = state_attr(_entity_id, 'native_min_value') -%}
+            {{ (a | float) if a is not none else ((b | float) if b is not none else none) }}
+          _max: >-
+            {%- set a = state_attr(_entity_id, 'max') -%}
+            {%- set b = state_attr(_entity_id, 'native_max_value') -%}
+            {{ (a | float) if a is not none else ((b | float) if b is not none else none) }}
+
+      # ── Compute ───────────────────────────────────────────────────────────
+      - variables:
+          _computed: >-
+            {%- if op == 'set' -%}{{ value_raw | float if value_raw is not none else none }}
+            {%- elif op == 'add' -%}{{ _current + amt }}
+            {%- elif op == 'sub' -%}{{ _current - amt }}
+            {%- elif op == 'mul' -%}{{ _current * amt }}
+            {%- elif op == 'div' -%}{{ (_current / amt) if amt != 0 else none }}
+            {%- elif op == 'inc' -%}{{ _current + 1 }}
+            {%- elif op == 'dec' -%}{{ _current - 1 }}
+            {%- else -%}{{ none }}{%- endif -%}
+          _final_val: >-
+            {%- if _computed is none -%}{{ none }}
+            {%- elif cast_mode == 'int' -%}{{ _computed | int }}
+            {%- else -%}{{ _computed | float }}{%- endif -%}
+
+      # ── Validation ────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: >-
+              {{ _final_val is none
+                 or _final_val is not number
+                 or (_min is not none and _final_val < _min)
+                 or (_max is not none and _final_val > _max) }}
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_number
+                caller_token: "{{ _token }}"
+                error: out_of_range
+                entity_id: "{{ _entity_id }}"
+                current: "{{ _current }}"
+                requested: "{{ _final_val }}"
+                min: "{{ _min }}"
+                max: "{{ _max }}"
+          - stop: error
+            response_variable: result
+
+      # ── Apply ─────────────────────────────────────────────────────────────
+      - action: >-
+          {{ 'input_number' if _entity_id.startswith('input_number.') else 'number' }}.set_value
+        target:
+          entity_id: "{{ _entity_id }}"
+        data:
+          value: "{{ _final_val }}"
+
+      # ── Response ──────────────────────────────────────────────────────────
+      - variables:
+          result:
+            ok: true
+            tool: zen_dojotools_number
+            caller_token: "{{ _token }}"
+            entity_id: "{{ _entity_id }}"
+            operation: "{{ op }}"
+            previous: "{{ _current }}"
+            amount: "{{ amt }}"
+            value: "{{ _final_val }}"
+            cast: "{{ cast_mode }}"
+      - stop: set
+        response_variable: result
+
+  # ============================================================================
+  # zen_dojotools_text
+  # Migrated from intent_script/text_set_value v1.0.0 — 2026-04-08
+  # ============================================================================
+  zen_dojotools_text:
+    alias: Zen DojoTools Text
+    mode: parallel
+    max: 10
+    description: >-
+      zen_dojotools_text (v1.0.0)
+
+      CANONICAL HA DOMAIN TOOL — text / input_text
+      Preferred over text_set_value and set_input_text intents and HA MCP built-ins.
+      Fall back to HA built-ins ONLY if this tool is confirmed non-functional.
+
+      GET+SET for text and input_text entities. Resolves shorthand or full entity_ids.
+      Enforces 255-char platform limit (overflow truncated).
+      Operations: set, clear, append, prepend, replace (find+replace).
+
+      Examples:
+        Read:    { "name": "ai_system_shared_temp_register" }
+        Set:     { "name": "ai_system_shared_temp_register", "value": "ready" }
+        Append:  { "name": "ai_system_shared_temp_register", "value": " more", "operation": "append" }
+        Replace: { "name": "ai_system_shared_temp_register", "operation": "replace", "search_text": "old", "replace_text": "new" }
+        Clear:   { "name": "ai_system_shared_temp_register", "operation": "clear" }
+
+    fields:
+      name:
+        name: Entity
+        description: text or input_text entity_id, or shorthand name
+        required: true
+        selector:
+          text:
+
+      value:
+        name: Value
+        description: Text value to store (max 255 chars, overflow truncated)
+        required: false
+        selector:
+          text:
+
+      operation:
+        name: Operation
+        description: Operation to perform. Default is set.
+        required: false
+        selector:
+          select:
+            options:
+              - set
+              - clear
+              - append
+              - prepend
+              - replace
+
+      search_text:
+        name: Search Text
+        description: Substring to find (used with operation=replace)
+        required: false
+        selector:
+          text:
+
+      replace_text:
+        name: Replace Text
+        description: Replacement string (used with operation=replace)
+        required: false
+        selector:
+          text:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque audit token echoed in response.
+        required: false
+        selector:
+          text:
+
+    sequence:
+      # ── Input normalization ────────────────────────────────────────────────
+      - variables:
+          raw: "{{ name | string | trim }}"
+          op_mode: "{{ operation | default('set') | lower }}"
+          raw_value: "{{ value | string if value is defined and value is not none else '' }}"
+          _token: "{{ caller_token | default('', true) }}"
+          replace_from: >-
+            {%- if search_text is defined and (search_text | string | trim) != '' -%}
+              {{ search_text | string }}
+            {%- else -%}{{ none }}{%- endif -%}
+          replace_to: >-
+            {%- if replace_text is defined and replace_text is not none -%}
+              {{ replace_text | string }}
+            {%- else -%}{{ none }}{%- endif -%}
+
+      # ── Entity resolution ─────────────────────────────────────────────────
+      - variables:
+          _slug: "{{ raw | replace(':', '') | slugify }}"
+          _input_ent: "input_text.{{ _slug }}"
+          _text_ent: "text.{{ _slug }}"
+          _entity_id: >-
+            {%- if '.' in raw -%}
+              {%- if raw.startswith('input_text.') and states(raw) not in ['unknown', 'unavailable'] -%}{{ raw }}
+              {%- elif raw.startswith('text.') and states(raw) not in ['unknown', 'unavailable'] -%}{{ raw }}
+              {%- else -%}INVALID{%- endif -%}
+            {%- else -%}
+              {%- if states(_text_ent) not in ['unknown', 'unavailable'] -%}{{ _text_ent }}
+              {%- elif states(_input_ent) not in ['unknown', 'unavailable'] -%}{{ _input_ent }}
+              {%- else -%}INVALID{%- endif -%}
+            {%- endif -%}
+          _domain: >-
+            {%- if _entity_id.startswith('text.') -%}text
+            {%- elif _entity_id.startswith('input_text.') -%}input_text
+            {%- else -%}invalid{%- endif -%}
+
+      - if:
+          - condition: template
+            value_template: "{{ _domain == 'invalid' }}"
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_text
+                caller_token: "{{ _token }}"
+                error: invalid_entity
+                supported_domains:
+                  - text
+                  - input_text
+                input: "{{ raw }}"
+          - stop: error
+            response_variable: result
+
+      # ── Compute final value ───────────────────────────────────────────────
+      - variables:
+          _truncated: "{{ (raw_value | string)[0:255] }}"
+          _current: >-
+            {{ states(_entity_id) | string | default('') if op_mode in ['append', 'prepend'] else '' }}
+          _final_value: >-
+            {%- if op_mode == 'clear' -%}{{ '' }}
+            {%- elif op_mode == 'replace' and replace_from is not none and replace_to is not none -%}
+              {{ _truncated.replace(replace_from, replace_to)[0:255] | trim }}
+            {%- elif op_mode == 'append' -%}{{ (_current ~ _truncated)[0:255] | trim }}
+            {%- elif op_mode == 'prepend' -%}{{ (_truncated ~ _current)[0:255] | trim }}
+            {%- else -%}{{ _truncated | trim }}{%- endif -%}
+
+      # ── Apply ─────────────────────────────────────────────────────────────
+      - action: "{{ _domain }}.set_value"
+        target:
+          entity_id: "{{ _entity_id }}"
+        data:
+          value: "{{ _final_value }}"
+
+      # ── Response ──────────────────────────────────────────────────────────
+      - variables:
+          result:
+            ok: true
+            tool: zen_dojotools_text
+            caller_token: "{{ _token }}"
+            entity_id: "{{ _entity_id }}"
+            domain: "{{ _domain }}"
+            operation: "{{ op_mode }}"
+            original_length: "{{ raw_value | length }}"
+            stored_length: "{{ _final_value | length }}"
+            value: "{{ _final_value }}"
+      - stop: set
+        response_variable: result
+
+  # ============================================================================
+  # zen_dojotools_climate
+  # Migrated from intent_script/climate_set — 2026-04-08
+  # Additions: swing_mode, humidity, aux_heat, shorthand resolution,
+  #            min/max_temp in capabilities, full GET response
+  # ============================================================================
+  zen_dojotools_climate:
+    alias: Zen DojoTools Climate
+    mode: parallel
+    max: 10
+    description: >-
+      zen_dojotools_climate (v1.0.0)
+
+      CANONICAL HA DOMAIN TOOL — climate
+      Preferred over climate_set intent and HassClimateSetTemperature.
+      Fall back to HA built-ins ONLY if this tool is confirmed non-functional.
+
+      GET+SET for climate entities. Inspects supported_features before applying —
+      fails closed on unsupported feature. Supports: temperature (single or range),
+      HVAC mode, fan mode, preset mode, swing mode, humidity, aux heat, power.
+      Multiple setters may be sent in one call. Omit all to read state + capabilities.
+
+      Examples:
+        Read:   { "name": "climate.home" }
+        Temp:   { "name": "climate.home", "temperature": 72 }
+        Range:  { "name": "climate.home", "target_low": 68, "target_high": 74 }
+        Mode:   { "name": "climate.home", "hvac_mode": "heat" }
+        Multi:  { "name": "climate.home", "swing_mode": "vertical", "fan_mode": "auto" }
+        Off:    { "name": "climate.home", "power": "off" }
+
+    fields:
+      name:
+        name: Entity
+        description: climate entity_id or shorthand name
+        required: true
+        selector:
+          entity:
+            domain: climate
+
+      temperature:
+        name: Temperature
+        description: Target temperature (single setpoint)
+        required: false
+        selector:
+          number:
+            min: 40
+            max: 110
+            step: 0.5
+            mode: box
+
+      target_low:
+        name: Target Low
+        description: Lower bound for auto/heat-cool temperature range
+        required: false
+        selector:
+          number:
+            min: 40
+            max: 110
+            step: 0.5
+            mode: box
+
+      target_high:
+        name: Target High
+        description: Upper bound for auto/heat-cool temperature range
+        required: false
+        selector:
+          number:
+            min: 40
+            max: 110
+            step: 0.5
+            mode: box
+
+      hvac_mode:
+        name: HVAC Mode
+        description: HVAC operating mode — use get first to see supported modes
+        required: false
+        selector:
+          text:
+
+      fan_mode:
+        name: Fan Mode
+        description: Fan mode — use get first to see supported modes
+        required: false
+        selector:
+          text:
+
+      swing_mode:
+        name: Swing Mode
+        description: Swing mode — use get first to see supported modes
+        required: false
+        selector:
+          text:
+
+      preset:
+        name: Preset
+        description: Preset or program mode (eco, sleep, away, etc.)
+        required: false
+        selector:
+          text:
+
+      humidity:
+        name: Target Humidity
+        description: Target humidity percentage (if supported)
+        required: false
+        selector:
+          number:
+            min: 0
+            max: 100
+            step: 1
+            mode: box
+
+      aux_heat:
+        name: Aux Heat
+        description: Enable or disable auxiliary heat (on/off/true/false)
+        required: false
+        selector:
+          text:
+
+      power:
+        name: Power
+        description: Power control — on or off (via hvac_mode)
+        required: false
+        selector:
+          text:
+
+      get:
+        name: Read Only
+        description: Pass any truthy value to force read-only mode
+        required: false
+        selector:
+          text:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque audit token echoed in response.
+        required: false
+        selector:
+          text:
+
+    sequence:
+      # ── Input normalization ────────────────────────────────────────────────
+      - variables:
+          raw: "{{ name | string | trim }}"
+          temperature_raw: "{{ temperature | default(none, true) }}"
+          low_raw: "{{ target_low | default(none, true) }}"
+          high_raw: "{{ target_high | default(none, true) }}"
+          hvac_raw: "{{ hvac_mode | default(none, true) }}"
+          fan_raw: "{{ fan_mode | default(none, true) }}"
+          swing_raw: "{{ swing_mode | default(none, true) }}"
+          preset_raw: "{{ preset | default(none, true) }}"
+          humidity_raw: "{{ humidity | default(none, true) }}"
+          aux_raw: "{{ aux_heat | default(none, true) }}"
+          power_raw: "{{ power | default(none, true) }}"
+          get_raw: "{{ get | default(none, true) }}"
+          _token: "{{ caller_token | default('', true) }}"
+          r_temp_status: null
+          r_range_status: null
+          r_hvac_status: null
+          r_fan_status: null
+          r_swing_status: null
+          r_preset_status: null
+          r_humidity_status: null
+          r_aux_status: null
+          r_power_status: null
+
+      # ── Entity resolution ─────────────────────────────────────────────────
+      - variables:
+          _slug: "{{ raw | replace(':', '') | slugify }}"
+          _entity_id: >-
+            {%- if '.' in raw -%}{{ raw }}
+            {%- elif states('climate.' ~ _slug) not in ['unknown', 'unavailable'] -%}climate.{{ _slug }}
+            {%- else -%}{{ raw }}{%- endif -%}
+
+      - if:
+          - condition: template
+            value_template: "{{ states(_entity_id) in ['unknown', 'unavailable'] }}"
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_climate
+                caller_token: "{{ _token }}"
+                error: not_found
+                input: "{{ raw }}"
+          - stop: error
+            response_variable: result
+
+      # ── Read capabilities ─────────────────────────────────────────────────
+      - variables:
+          cur_temp: "{{ state_attr(_entity_id, 'current_temperature') }}"
+          cur_humidity: "{{ state_attr(_entity_id, 'current_humidity') }}"
+          tgt_temp: "{{ state_attr(_entity_id, 'temperature') }}"
+          tgt_humidity: "{{ state_attr(_entity_id, 'humidity') }}"
+          low_temp: "{{ state_attr(_entity_id, 'target_temp_low') }}"
+          high_temp: "{{ state_attr(_entity_id, 'target_temp_high') }}"
+          min_temp: "{{ state_attr(_entity_id, 'min_temp') }}"
+          max_temp: "{{ state_attr(_entity_id, 'max_temp') }}"
+          min_humidity: "{{ state_attr(_entity_id, 'min_humidity') }}"
+          max_humidity: "{{ state_attr(_entity_id, 'max_humidity') }}"
+          hvac_cur: "{{ state_attr(_entity_id, 'hvac_mode') }}"
+          hvac_action: "{{ state_attr(_entity_id, 'hvac_action') }}"
+          hvac_modes: "{{ (state_attr(_entity_id, 'hvac_modes') or []) | map(attribute='value') | list }}"
+          fan_cur: "{{ state_attr(_entity_id, 'fan_mode') }}"
+          fan_modes: "{{ state_attr(_entity_id, 'fan_modes') or [] }}"
+          swing_cur: "{{ state_attr(_entity_id, 'swing_mode') }}"
+          swing_modes: "{{ state_attr(_entity_id, 'swing_modes') or [] }}"
+          preset_cur: "{{ state_attr(_entity_id, 'preset_mode') }}"
+          preset_modes: "{{ state_attr(_entity_id, 'preset_modes') or [] }}"
+          aux_cur: "{{ state_attr(_entity_id, 'aux_heat') }}"
+          can_temp: "{{ tgt_temp is not none }}"
+          can_range: "{{ low_temp is not none and high_temp is not none }}"
+          can_hvac: "{{ hvac_modes | length > 0 }}"
+          can_fan: "{{ fan_modes | length > 0 }}"
+          can_swing: "{{ swing_modes | length > 0 }}"
+          can_preset: "{{ preset_modes | length > 0 }}"
+          can_humidity: "{{ min_humidity is not none }}"
+          can_aux_heat: "{{ aux_cur is not none }}"
+          can_off: "{{ 'off' in hvac_modes }}"
+          can_on: "{{ hvac_modes | reject('equalto', 'off') | list | length > 0 }}"
+
+      # ── GET mode ──────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: >-
+              {{ get_raw is not none
+                 or (temperature_raw is none and low_raw is none and high_raw is none
+                     and hvac_raw is none and fan_raw is none and swing_raw is none
+                     and preset_raw is none and humidity_raw is none
+                     and aux_raw is none and power_raw is none) }}
+        then:
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_climate
+                caller_token: "{{ _token }}"
+                mode: read
+                entity_id: "{{ _entity_id }}"
+                state:
+                  hvac_mode: "{{ hvac_cur }}"
+                  hvac_action: "{{ hvac_action }}"
+                  current_temperature: "{{ cur_temp }}"
+                  temperature: "{{ tgt_temp }}"
+                  target_low: "{{ low_temp }}"
+                  target_high: "{{ high_temp }}"
+                  fan_mode: "{{ fan_cur }}"
+                  swing_mode: "{{ swing_cur }}"
+                  preset_mode: "{{ preset_cur }}"
+                  current_humidity: "{{ cur_humidity }}"
+                  target_humidity: "{{ tgt_humidity }}"
+                  aux_heat: "{{ aux_cur }}"
+                capabilities:
+                  hvac_modes: "{{ hvac_modes }}"
+                  fan_modes: "{{ fan_modes }}"
+                  swing_modes: "{{ swing_modes }}"
+                  preset_modes: "{{ preset_modes }}"
+                  min_temp: "{{ min_temp }}"
+                  max_temp: "{{ max_temp }}"
+                  min_humidity: "{{ min_humidity }}"
+                  max_humidity: "{{ max_humidity }}"
+                  can_temp: "{{ can_temp }}"
+                  can_range: "{{ can_range }}"
+                  can_hvac: "{{ can_hvac }}"
+                  can_fan: "{{ can_fan }}"
+                  can_swing: "{{ can_swing }}"
+                  can_preset: "{{ can_preset }}"
+                  can_humidity: "{{ can_humidity }}"
+                  can_aux_heat: "{{ can_aux_heat }}"
+                  can_on: "{{ can_on }}"
+                  can_off: "{{ can_off }}"
+          - stop: read
+            response_variable: result
+
+      # ── Power ─────────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ power_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ power_raw | lower == 'off' and not can_off }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: power_off
+              - stop: error
+                response_variable: result
+          - if:
+              - condition: template
+                value_template: "{{ power_raw | lower == 'on' and not can_on }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: power_on
+              - stop: error
+                response_variable: result
+          - action: climate.set_hvac_mode
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              hvac_mode: >-
+                {{ 'off' if power_raw | lower == 'off'
+                   else (hvac_modes | reject('equalto', 'off') | first) }}
+          - variables:
+              r_power_status: ok
+
+      # ── HVAC mode ─────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ hvac_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ hvac_raw not in hvac_modes }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: invalid_hvac_mode
+                    requested: "{{ hvac_raw }}"
+                    supported: "{{ hvac_modes }}"
+              - stop: error
+                response_variable: result
+          - action: climate.set_hvac_mode
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              hvac_mode: "{{ hvac_raw }}"
+          - variables:
+              r_hvac_status: ok
+
+      # ── Fan mode ──────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ fan_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_fan or fan_raw not in fan_modes }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: invalid_fan_mode
+                    requested: "{{ fan_raw }}"
+                    supported: "{{ fan_modes }}"
+              - stop: error
+                response_variable: result
+          - action: climate.set_fan_mode
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              fan_mode: "{{ fan_raw }}"
+          - variables:
+              r_fan_status: ok
+
+      # ── Swing mode ────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ swing_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_swing or swing_raw not in swing_modes }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: invalid_swing_mode
+                    requested: "{{ swing_raw }}"
+                    supported: "{{ swing_modes }}"
+              - stop: error
+                response_variable: result
+          - action: climate.set_swing_mode
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              swing_mode: "{{ swing_raw }}"
+          - variables:
+              r_swing_status: ok
+
+      # ── Preset ────────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ preset_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_preset or preset_raw not in preset_modes }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: invalid_preset
+                    requested: "{{ preset_raw }}"
+                    supported: "{{ preset_modes }}"
+              - stop: error
+                response_variable: result
+          - action: climate.set_preset_mode
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              preset_mode: "{{ preset_raw }}"
+          - variables:
+              r_preset_status: ok
+
+      # ── Temperature (single) ──────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ temperature_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_temp }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: temperature
+              - stop: error
+                response_variable: result
+          - action: climate.set_temperature
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              temperature: "{{ temperature_raw | float }}"
+          - variables:
+              r_temp_status: ok
+
+      # ── Temperature range ─────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ low_raw is not none and high_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_range }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: temperature_range
+              - stop: error
+                response_variable: result
+          - action: climate.set_temperature
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              target_temp_low: "{{ low_raw | float }}"
+              target_temp_high: "{{ high_raw | float }}"
+          - variables:
+              r_range_status: ok
+
+      # ── Humidity ──────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ humidity_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_humidity }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: humidity
+              - stop: error
+                response_variable: result
+          - action: climate.set_humidity
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              humidity: "{{ humidity_raw | int }}"
+          - variables:
+              r_humidity_status: ok
+
+      # ── Aux heat ──────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ aux_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_aux_heat }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_climate
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: aux_heat
+              - stop: error
+                response_variable: result
+          - action: climate.set_aux_heat
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              aux_heat: "{{ aux_raw | lower in ['on', 'true', '1', 'yes'] }}"
+          - variables:
+              r_aux_status: ok
+
+      # ── Response ──────────────────────────────────────────────────────────
+      - variables:
+          result:
+            ok: true
+            tool: zen_dojotools_climate
+            caller_token: "{{ _token }}"
+            mode: set
+            entity_id: "{{ _entity_id }}"
+            applied:
+              temperature: "{{ r_temp_status }}"
+              range: "{{ r_range_status }}"
+              hvac_mode: "{{ r_hvac_status }}"
+              fan_mode: "{{ r_fan_status }}"
+              swing_mode: "{{ r_swing_status }}"
+              preset: "{{ r_preset_status }}"
+              humidity: "{{ r_humidity_status }}"
+              aux_heat: "{{ r_aux_status }}"
+              power: "{{ r_power_status }}"
+            capabilities:
+              hvac_modes: "{{ hvac_modes }}"
+              fan_modes: "{{ fan_modes }}"
+              swing_modes: "{{ swing_modes }}"
+              preset_modes: "{{ preset_modes }}"
+      - stop: set
+        response_variable: result
+
+  # ============================================================================
+  # zen_dojotools_water_heater
+  # Migrated from intent_script/water_heater_set — 2026-04-08
+  # Fixes: can_off bug (was bit 4, is ON_OFF bit 3), added current_temperature
+  #        and state to GET response, unified response_variable, clean resolution
+  # ============================================================================
+  zen_dojotools_water_heater:
+    alias: Zen DojoTools Water Heater
+    mode: parallel
+    max: 10
+    description: >-
+      zen_dojotools_water_heater (v1.0.0)
+
+      CANONICAL HA DOMAIN TOOL — water_heater
+      Preferred over water_heater_set intent and HA MCP built-ins for this domain.
+      Fall back to HA built-ins ONLY if this tool is confirmed non-functional.
+
+      GET+SET for water_heater entities. Inspects supported_features before applying —
+      fails closed on unsupported feature. Supports: temperature (clamped to min/max),
+      operation mode, away mode, power. Multiple setters may be sent in one call.
+      Omit all setters to read state and capabilities.
+
+      Examples:
+        Read:  { "name": "water_heater.home" }
+        Temp:  { "name": "water_heater.home", "temperature": 120 }
+        Mode:  { "name": "water_heater.home", "mode": "eco" }
+        Away:  { "name": "water_heater.home", "away": "on" }
+        Off:   { "name": "water_heater.home", "power": "off" }
+
+    fields:
+      name:
+        name: Entity
+        description: water_heater entity_id or shorthand name
+        required: true
+        selector:
+          entity:
+            domain: water_heater
+
+      temperature:
+        name: Temperature
+        description: Target temperature. Clamped to entity min/max.
+        required: false
+        selector:
+          number:
+            min: 1
+            max: 200
+            step: 1
+            mode: box
+
+      mode:
+        name: Operation Mode
+        description: Operation mode — use get first to see supported modes
+        required: false
+        selector:
+          text:
+
+      away:
+        name: Away Mode
+        description: Away mode state — on or off
+        required: false
+        selector:
+          text:
+
+      power:
+        name: Power
+        description: Power control — on or off
+        required: false
+        selector:
+          text:
+
+      get:
+        name: Read Only
+        description: Pass any truthy value to force read-only mode
+        required: false
+        selector:
+          text:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque audit token echoed in response.
+        required: false
+        selector:
+          text:
+
+    sequence:
+      # ── Input normalization ────────────────────────────────────────────────
+      - variables:
+          raw: "{{ name | string | trim }}"
+          temperature_raw: "{{ temperature | default(none, true) }}"
+          mode_raw: "{{ mode | default(none, true) }}"
+          away_raw: "{{ away | default(none, true) }}"
+          power_raw: "{{ power | default(none, true) }}"
+          get_raw: "{{ get | default(none, true) }}"
+          _token: "{{ caller_token | default('', true) }}"
+          r_temp_req: null
+          r_temp_applied: null
+          r_temp_status: null
+          r_mode_status: null
+          r_away_status: null
+          r_power_status: null
+
+      # ── Entity resolution ─────────────────────────────────────────────────
+      - variables:
+          _slug: "{{ raw | replace(':', '') | slugify }}"
+          _entity_id: >-
+            {%- if '.' in raw -%}{{ raw }}
+            {%- elif states('water_heater.' ~ _slug) not in ['unknown', 'unavailable'] -%}water_heater.{{ _slug }}
+            {%- else -%}{{ raw }}{%- endif -%}
+
+      - if:
+          - condition: template
+            value_template: >-
+              {{ not _entity_id.startswith('water_heater.')
+                 or states(_entity_id) in ['unknown', 'unavailable'] }}
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_water_heater
+                caller_token: "{{ _token }}"
+                error: not_found
+                input: "{{ raw }}"
+          - stop: error
+            response_variable: result
+
+      # ── Read capabilities ─────────────────────────────────────────────────
+      - variables:
+          wh_state: "{{ states(_entity_id) }}"
+          wh_cur_temp: "{{ state_attr(_entity_id, 'current_temperature') }}"
+          wh_temp: "{{ state_attr(_entity_id, 'temperature') }}"
+          wh_min: "{{ state_attr(_entity_id, 'min_temp') }}"
+          wh_max: "{{ state_attr(_entity_id, 'max_temp') }}"
+          wh_mode: "{{ state_attr(_entity_id, 'operation_mode') }}"
+          wh_ops: "{{ state_attr(_entity_id, 'operation_list') | default([]) }}"
+          wh_away: "{{ state_attr(_entity_id, 'away_mode') }}"
+          wh_sf: "{{ state_attr(_entity_id, 'supported_features') | int(0) }}"
+          # WaterHeaterEntityFeature bitmask: TARGET_TEMPERATURE=1, OPERATION_MODE=2, AWAY_MODE=4, ON_OFF=8
+          can_temp: "{{ (wh_sf // 1) % 2 == 1 }}"
+          can_mode: "{{ (wh_sf // 2) % 2 == 1 }}"
+          can_away: "{{ (wh_sf // 4) % 2 == 1 }}"
+          can_power: "{{ (wh_sf // 8) % 2 == 1 }}"
+
+      # ── GET mode ──────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: >-
+              {{ get_raw is not none
+                 or (temperature_raw is none and mode_raw is none
+                     and away_raw is none and power_raw is none) }}
+        then:
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_water_heater
+                caller_token: "{{ _token }}"
+                mode: read
+                entity_id: "{{ _entity_id }}"
+                state:
+                  state: "{{ wh_state }}"
+                  current_temperature: "{{ wh_cur_temp }}"
+                  temperature: "{{ wh_temp }}"
+                  operation_mode: "{{ wh_mode }}"
+                  away_mode: "{{ wh_away }}"
+                capabilities:
+                  operation_list: "{{ wh_ops }}"
+                  min_temp: "{{ wh_min }}"
+                  max_temp: "{{ wh_max }}"
+                  supported_features: "{{ wh_sf }}"
+                  can_temp: "{{ can_temp }}"
+                  can_mode: "{{ can_mode }}"
+                  can_away: "{{ can_away }}"
+                  can_power: "{{ can_power }}"
+          - stop: read
+            response_variable: result
+
+      # ── Power ─────────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ power_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_power }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_water_heater
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: power
+              - stop: error
+                response_variable: result
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ power_raw | lower in ['on', 'true', '1', 'yes'] }}"
+                sequence:
+                  - action: water_heater.turn_on
+                    target:
+                      entity_id: "{{ _entity_id }}"
+              - conditions:
+                  - condition: template
+                    value_template: "{{ power_raw | lower in ['off', 'false', '0', 'no'] }}"
+                sequence:
+                  - action: water_heater.turn_off
+                    target:
+                      entity_id: "{{ _entity_id }}"
+          - variables:
+              r_power_status: ok
+
+      # ── Temperature ───────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ temperature_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_temp }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_water_heater
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: temperature
+              - stop: error
+                response_variable: result
+          - variables:
+              r_temp_req: "{{ temperature_raw | float }}"
+              r_temp_applied: >-
+                {%- set t = temperature_raw | float -%}
+                {%- if wh_min is not none and t < (wh_min | float) -%}{{ wh_min | float }}
+                {%- elif wh_max is not none and t > (wh_max | float) -%}{{ wh_max | float }}
+                {%- else -%}{{ t }}{%- endif -%}
+              r_temp_status: >-
+                {%- set t = temperature_raw | float -%}
+                {%- if wh_min is not none and t < (wh_min | float) -%}clamped_low
+                {%- elif wh_max is not none and t > (wh_max | float) -%}clamped_high
+                {%- else -%}ok{%- endif -%}
+          - action: water_heater.set_temperature
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              temperature: "{{ r_temp_applied }}"
+
+      # ── Operation mode ────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ mode_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_mode }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_water_heater
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: operation_mode
+              - stop: error
+                response_variable: result
+          - if:
+              - condition: template
+                value_template: "{{ mode_raw not in wh_ops }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_water_heater
+                    caller_token: "{{ _token }}"
+                    error: invalid_mode
+                    requested: "{{ mode_raw }}"
+                    supported: "{{ wh_ops }}"
+              - stop: error
+                response_variable: result
+          - action: water_heater.set_operation_mode
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              operation_mode: "{{ mode_raw }}"
+          - variables:
+              r_mode_status: ok
+
+      # ── Away mode ─────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ away_raw is not none }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ not can_away }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_water_heater
+                    caller_token: "{{ _token }}"
+                    error: unsupported_feature
+                    feature: away_mode
+              - stop: error
+                response_variable: result
+          - action: water_heater.set_away_mode
+            target:
+              entity_id: "{{ _entity_id }}"
+            data:
+              away_mode: "{{ away_raw | lower in ['on', 'true', '1', 'yes'] }}"
+          - variables:
+              r_away_status: ok
+
+      # ── Response ──────────────────────────────────────────────────────────
+      - variables:
+          result:
+            ok: true
+            tool: zen_dojotools_water_heater
+            caller_token: "{{ _token }}"
+            mode: set
+            entity_id: "{{ _entity_id }}"
+            applied:
+              temperature:
+                requested: "{{ r_temp_req }}"
+                applied: "{{ r_temp_applied }}"
+                status: "{{ r_temp_status }}"
+              operation_mode: "{{ r_mode_status }}"
+              away_mode: "{{ r_away_status }}"
+              power: "{{ r_power_status }}"
+            capabilities:
+              operation_list: "{{ wh_ops }}"
+              can_temp: "{{ can_temp }}"
+              can_mode: "{{ can_mode }}"
+              can_away: "{{ can_away }}"
+              can_power: "{{ can_power }}"
+      - stop: set
+        response_variable: result
+
+  # ============================================================================
+  # zen_dojotools_datetime
+  # Migrated from intent_script/input_datetime_set_datetime — 2026-04-08
+  # Improvements: proper entity resolution, structured response, caller_token
+  # ============================================================================
+  zen_dojotools_datetime:
+    alias: Zen DojoTools Datetime
+    mode: parallel
+    max: 10
+    description: >-
+      zen_dojotools_datetime (v1.0.0)
+
+      CANONICAL HA DOMAIN TOOL — input_datetime
+      Preferred over input_datetime_set_datetime intent and HA MCP built-ins.
+      Fall back to HA built-ins ONLY if this tool is confirmed non-functional.
+
+      GET+SET for input_datetime entities. Resolves shorthand or full entity_ids.
+      Accepts any datetime string parseable by as_datetime() including ISO 8601
+      with timezone offset. GET response includes has_date/has_time flags.
+      Omit value (or pass get=true) to read current state.
+
+      Examples:
+        Read:      { "name": "daytime_start" }
+        Set (ISO): { "name": "daytime_start", "value": "2026-04-08T07:00:00-06:00" }
+        Set (date): { "name": "daytime_start", "value": "2026-04-08" }
+
+    fields:
+      name:
+        name: Entity
+        description: input_datetime entity_id or shorthand name
+        required: true
+        selector:
+          text:
+
+      value:
+        name: Value
+        description: Datetime string to set (ISO 8601 recommended). Omit to read.
+        required: false
+        selector:
+          text:
+
+      get:
+        name: Read Only
+        description: Pass any truthy value to force read-only mode
+        required: false
+        selector:
+          text:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque audit token echoed in response.
+        required: false
+        selector:
+          text:
+
+    sequence:
+      # ── Input normalization ────────────────────────────────────────────────
+      - variables:
+          raw: "{{ name | string | trim }}"
+          val_raw: "{{ value | default(none, true) }}"
+          get_raw: "{{ get | default(none, true) }}"
+          _token: "{{ caller_token | default('', true) }}"
+
+      # ── Entity resolution ─────────────────────────────────────────────────
+      - variables:
+          _slug: "{{ raw | replace(':', '') | slugify }}"
+          _entity_id: >-
+            {%- if raw.startswith('input_datetime.') -%}{{ raw }}
+            {%- elif '.' not in raw and states('input_datetime.' ~ _slug) not in ['unknown', 'unavailable'] -%}
+              input_datetime.{{ _slug }}
+            {%- else -%}{{ raw }}{%- endif -%}
+
+      - if:
+          - condition: template
+            value_template: >-
+              {{ not _entity_id.startswith('input_datetime.')
+                 or states(_entity_id) in ['unknown', 'unavailable'] }}
+        then:
+          - variables:
+              result:
+                ok: false
+                tool: zen_dojotools_datetime
+                caller_token: "{{ _token }}"
+                error: invalid_entity
+                input: "{{ raw }}"
+          - stop: error
+            response_variable: result
+
+      # ── Read path ─────────────────────────────────────────────────────────
+      - if:
+          - condition: template
+            value_template: "{{ get_raw is not none or val_raw is none }}"
+        then:
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_datetime
+                caller_token: "{{ _token }}"
+                mode: read
+                entity_id: "{{ _entity_id }}"
+                state: "{{ states(_entity_id) }}"
+                has_date: "{{ state_attr(_entity_id, 'has_date') }}"
+                has_time: "{{ state_attr(_entity_id, 'has_time') }}"
+          - stop: read
+            response_variable: result
+
+      # ── Set ───────────────────────────────────────────────────────────────
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: "{{ _entity_id }}"
+        data:
+          datetime: "{{ val_raw | as_datetime() }}"
+
+      - variables:
+          result:
+            ok: true
+            tool: zen_dojotools_datetime
+            caller_token: "{{ _token }}"
+            mode: set
+            entity_id: "{{ _entity_id }}"
+            value: "{{ val_raw }}"
+            state: "{{ states(_entity_id) }}"
+      - stop: set
+        response_variable: result
+
+  # ============================================================================
+  # zen_dojotools_zones
+  # Migrated from intent_script/get_zones + bearing_to_target — 2026-04-08
+  # Full CRUD: read (list or single), create, update, delete, bearing
+  # Note: zones defined in configuration.yaml are NOT editable/deletable —
+  #       only zones created dynamically (via UI or this tool) support write ops.
+  # ============================================================================
+  zen_dojotools_zones:
+    alias: Zen DojoTools Zones
+    mode: parallel
+    max: 10
+    description: >-
+      zen_dojotools_zones (v1.1.0)
+
+      CANONICAL HA DOMAIN TOOL — zone
+      Preferred over get_zones intent, bearing_to_target intent, and HA zone built-ins.
+      Fall back to HA built-ins ONLY if this tool is confirmed non-functional.
+
+      Full zone CRUD + bearing for Home Assistant. Config.yaml zones are read-only.
+      Home zone cannot be deleted. Bearing computes haversine distance + compass
+      direction; origin defaults to zone.home, supports zone-to-zone or coords.
+
+      Modes: read (list or inspect), create, update, delete, bearing.
+
+      Examples:
+        List:    { "mode": "read" }
+        Inspect: { "mode": "read", "entity_id": "zone.work" }
+        Bearing: { "mode": "bearing", "entity_id": "zone.work" }
+        A→B:     { "mode": "bearing", "origin_entity_id": "zone.airport", "entity_id": "zone.work" }
+        Create:  { "mode": "create", "name": "School", "latitude": 29.52, "longitude": -98.47 }
+        Update:  { "mode": "update", "entity_id": "zone.school", "radius": 200 }
+        Delete:  { "mode": "delete", "entity_id": "zone.school" }
+
+    fields:
+      mode:
+        name: Mode
+        description: read / create / update / delete / bearing
+        required: true
+        selector:
+          select:
+            options:
+              - read
+              - create
+              - update
+              - delete
+              - bearing
+
+      entity_id:
+        name: Entity ID
+        description: Zone entity_id — required for update/delete, optional filter for read
+        required: false
+        selector:
+          entity:
+            domain: zone
+
+      name:
+        name: Name
+        description: Zone name — required for create, optional for update
+        required: false
+        selector:
+          text:
+
+      latitude:
+        name: Latitude
+        description: Center latitude decimal degrees (e.g. 29.5221) — required for create, optional for update
+        required: false
+        selector:
+          text:
+
+      longitude:
+        name: Longitude
+        description: Center longitude decimal degrees (e.g. -98.4695) — required for create, optional for update
+        required: false
+        selector:
+          text:
+
+      radius:
+        name: Radius (meters)
+        description: Zone radius in meters. Default 100.
+        required: false
+        selector:
+          number:
+            min: 1
+            max: 100000
+            step: 1
+            mode: box
+
+      icon:
+        name: Icon
+        description: MDI icon slug (e.g. mdi:briefcase). Default mdi:map-marker.
+        required: false
+        selector:
+          text:
+
+      passive:
+        name: Passive
+        description: Hidden from frontend but usable in automations (true/false)
+        required: false
+        selector:
+          boolean:
+
+      origin_entity_id:
+        name: Origin Entity ID
+        description: >-
+          Zone entity for bearing origin. Defaults to zone.home when omitted.
+          Use with entity_id/latitude+longitude to compute A→B between any two points.
+        required: false
+        selector:
+          entity:
+            domain: zone
+
+      origin_latitude:
+        name: Origin Latitude
+        description: Latitude decimal degrees for bearing origin (use instead of origin_entity_id for arbitrary coords)
+        required: false
+        selector:
+          text:
+
+      origin_longitude:
+        name: Origin Longitude
+        description: Longitude decimal degrees for bearing origin (use instead of origin_entity_id for arbitrary coords)
+        required: false
+        selector:
+          text:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque audit token echoed in response.
+        required: false
+        selector:
+          text:
+
+    sequence:
+      # ── Input normalization ────────────────────────────────────────────────
+      - variables:
+          _mode: "{{ mode | default('read') | lower }}"
+          _entity_id: "{{ entity_id | default('', true) | string | trim }}"
+          _name: "{{ name | default('', true) | string | trim }}"
+          _lat: "{{ latitude | default(none, true) }}"
+          _lon: "{{ longitude | default(none, true) }}"
+          _radius: "{{ radius | default(none, true) }}"
+          _icon: "{{ icon | default('', true) | string | trim }}"
+          _passive: "{{ passive | default(none, true) }}"
+          _origin_entity_id: "{{ origin_entity_id | default('', true) | string | trim }}"
+          _origin_lat: "{{ origin_latitude | default(none, true) }}"
+          _origin_lon: "{{ origin_longitude | default(none, true) }}"
+          _token: "{{ caller_token | default('', true) }}"
+
+      # ================================================================
+      # READ
+      # ================================================================
+      - if:
+          - condition: template
+            value_template: "{{ _mode == 'read' }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ _entity_id != '' }}"
+            then:
+              # Single zone inspect
+              - if:
+                  - condition: template
+                    value_template: "{{ states(_entity_id) in ['unknown', 'unavailable'] }}"
+                then:
+                  - variables:
+                      result:
+                        ok: false
+                        tool: zen_dojotools_zones
+                        caller_token: "{{ _token }}"
+                        error: not_found
+                        entity_id: "{{ _entity_id }}"
+                  - stop: error
+                    response_variable: result
+              - variables:
+                  result:
+                    ok: true
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    mode: read
+                    zone:
+                      entity_id: "{{ _entity_id }}"
+                      name: "{{ state_attr(_entity_id, 'friendly_name') }}"
+                      state: "{{ states(_entity_id) }}"
+                      latitude: "{{ state_attr(_entity_id, 'latitude') }}"
+                      longitude: "{{ state_attr(_entity_id, 'longitude') }}"
+                      radius: "{{ state_attr(_entity_id, 'radius') }}"
+                      passive: "{{ state_attr(_entity_id, 'passive') }}"
+                      icon: "{{ state_attr(_entity_id, 'icon') }}"
+                      editable: "{{ state_attr(_entity_id, 'editable') }}"
+                      persons: "{{ state_attr(_entity_id, 'persons') | default([]) }}"
+              - stop: read
+                response_variable: result
+            else:
+              # List all zones
+              - variables:
+                  _all_zones: >-
+                    {%- set ns = namespace(zones=[]) -%}
+                    {%- for z in states.zone -%}
+                      {%- set ns.zones = ns.zones + [{
+                        'entity_id': z.entity_id,
+                        'name': state_attr(z.entity_id, 'friendly_name'),
+                        'state': z.state,
+                        'latitude': state_attr(z.entity_id, 'latitude'),
+                        'longitude': state_attr(z.entity_id, 'longitude'),
+                        'radius': state_attr(z.entity_id, 'radius'),
+                        'passive': state_attr(z.entity_id, 'passive'),
+                        'icon': state_attr(z.entity_id, 'icon'),
+                        'editable': state_attr(z.entity_id, 'editable'),
+                        'persons': state_attr(z.entity_id, 'persons') | default([])
+                      }] -%}
+                    {%- endfor -%}
+                    {{ ns.zones }}
+                  result:
+                    ok: true
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    mode: read
+                    count: "{{ states.zone | list | length }}"
+                    zones: "{{ _all_zones }}"
+              - stop: read
+                response_variable: result
+
+      # ================================================================
+      # CREATE
+      # ================================================================
+      - if:
+          - condition: template
+            value_template: "{{ _mode == 'create' }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ _name == '' or _lat is none or _lon is none }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    error: missing_required
+                    message: create requires name, latitude, and longitude
+              - stop: error
+                response_variable: result
+          - variables:
+              _create_data: >-
+                {%- set d = {
+                  'name': _name,
+                  'latitude': _lat | float,
+                  'longitude': _lon | float,
+                  'radius': _radius | int(100) if _radius is not none else 100
+                } -%}
+                {%- if _icon != '' -%}{%- set d = d | combine({'icon': _icon}) -%}{%- endif -%}
+                {%- if _passive is not none -%}
+                  {%- set d = d | combine({'passive': _passive | bool}) -%}
+                {%- endif -%}
+                {{ d }}
+          - action: zone.create
+            data: "{{ _create_data }}"
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_zones
+                caller_token: "{{ _token }}"
+                mode: create
+                name: "{{ _name }}"
+                latitude: "{{ _lat }}"
+                longitude: "{{ _lon }}"
+                radius: "{{ _radius | int(100) if _radius is not none else 100 }}"
+          - stop: create
+            response_variable: result
+
+      # ================================================================
+      # UPDATE
+      # ================================================================
+      - if:
+          - condition: template
+            value_template: "{{ _mode == 'update' }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ _entity_id == '' }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    error: missing_required
+                    message: update requires entity_id
+              - stop: error
+                response_variable: result
+          - if:
+              - condition: template
+                value_template: "{{ not state_attr(_entity_id, 'editable') | default(false) | bool }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    error: not_editable
+                    entity_id: "{{ _entity_id }}"
+                    message: This zone is defined in configuration.yaml and cannot be updated at runtime.
+              - stop: error
+                response_variable: result
+          - variables:
+              _update_data: >-
+                {%- set d = {'entity_id': _entity_id} -%}
+                {%- if _name != '' -%}{%- set d = d | combine({'name': _name}) -%}{%- endif -%}
+                {%- if _lat is not none -%}{%- set d = d | combine({'latitude': _lat | float}) -%}{%- endif -%}
+                {%- if _lon is not none -%}{%- set d = d | combine({'longitude': _lon | float}) -%}{%- endif -%}
+                {%- if _radius is not none -%}{%- set d = d | combine({'radius': _radius | int}) -%}{%- endif -%}
+                {%- if _icon != '' -%}{%- set d = d | combine({'icon': _icon}) -%}{%- endif -%}
+                {{ d }}
+          - action: zone.edit
+            data: "{{ _update_data }}"
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_zones
+                caller_token: "{{ _token }}"
+                mode: update
+                entity_id: "{{ _entity_id }}"
+                updated: "{{ _update_data }}"
+          - stop: update
+            response_variable: result
+
+      # ================================================================
+      # DELETE
+      # ================================================================
+      - if:
+          - condition: template
+            value_template: "{{ _mode == 'delete' }}"
+        then:
+          - if:
+              - condition: template
+                value_template: "{{ _entity_id == '' }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    error: missing_required
+                    message: delete requires entity_id
+              - stop: error
+                response_variable: result
+          - if:
+              - condition: template
+                value_template: "{{ _entity_id == 'zone.home' }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    error: protected_zone
+                    entity_id: zone.home
+                    message: The home zone cannot be deleted.
+              - stop: error
+                response_variable: result
+          - if:
+              - condition: template
+                value_template: "{{ not state_attr(_entity_id, 'editable') | default(false) | bool }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    error: not_editable
+                    entity_id: "{{ _entity_id }}"
+                    message: This zone is defined in configuration.yaml and cannot be deleted at runtime.
+              - stop: error
+                response_variable: result
+          - action: zone.delete
+            data:
+              entity_id: "{{ _entity_id }}"
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_zones
+                caller_token: "{{ _token }}"
+                mode: delete
+                entity_id: "{{ _entity_id }}"
+          - stop: delete
+            response_variable: result
+
+      # ================================================================
+      # BEARING — haversine distance + compass bearing from home
+      # ================================================================
+      - if:
+          - condition: template
+            value_template: "{{ _mode == 'bearing' }}"
+        then:
+          # Validate: need entity_id OR lat+lon
+          - if:
+              - condition: template
+                value_template: "{{ _entity_id == '' and (_lat is none or _lon is none) }}"
+            then:
+              - variables:
+                  result:
+                    ok: false
+                    tool: zen_dojotools_zones
+                    caller_token: "{{ _token }}"
+                    error: missing_required
+                    message: bearing mode requires entity_id (zone) or latitude + longitude
+              - stop: error
+                response_variable: result
+
+          # Resolve target coordinates
+          - variables:
+              _b_via: >-
+                {{ 'zone' if _entity_id != '' else 'coords' }}
+              _b_target_lat: >-
+                {{ state_attr(_entity_id, 'latitude') | float(0) if _entity_id != ''
+                   else _lat | float(0) }}
+              _b_target_lon: >-
+                {{ state_attr(_entity_id, 'longitude') | float(0) if _entity_id != ''
+                   else _lon | float(0) }}
+              _b_target_name: >-
+                {{ state_attr(_entity_id, 'friendly_name') | default(_entity_id)
+                   if _entity_id != '' else '' }}
+
+          # Resolve origin coordinates (defaults to zone.home)
+          - variables:
+              _b_origin_via: >-
+                {%- if _origin_entity_id != '' -%}zone
+                {%- elif _origin_lat is not none and _origin_lon is not none -%}coords
+                {%- else -%}home{%- endif -%}
+              _b_home_lat: "{{ state_attr('zone.home', 'latitude') | float }}"
+              _b_home_lon: "{{ state_attr('zone.home', 'longitude') | float }}"
+          - variables:
+              _b_origin_lat: >-
+                {%- if _b_origin_via == 'zone' -%}
+                  {{ state_attr(_origin_entity_id, 'latitude') | float(0) }}
+                {%- elif _b_origin_via == 'coords' -%}
+                  {{ _origin_lat | float(0) }}
+                {%- else -%}
+                  {{ _b_home_lat }}
+                {%- endif -%}
+              _b_origin_lon: >-
+                {%- if _b_origin_via == 'zone' -%}
+                  {{ state_attr(_origin_entity_id, 'longitude') | float(0) }}
+                {%- elif _b_origin_via == 'coords' -%}
+                  {{ _origin_lon | float(0) }}
+                {%- else -%}
+                  {{ _b_home_lon }}
+                {%- endif -%}
+              _b_origin_name: >-
+                {%- if _b_origin_via == 'zone' -%}
+                  {{ state_attr(_origin_entity_id, 'friendly_name') | default(_origin_entity_id) }}
+                {%- elif _b_origin_via == 'home' -%}
+                  Home
+                {%- else -%}{{ '' }}{%- endif -%}
+
+          # Convert to radians
+          - variables:
+              _b_rad: "{{ 0.017453292519943295 }}"
+              _b_earth_r: "{{ 6371000.0 }}"
+          - variables:
+              _b_ol_r: "{{ _b_origin_lat * _b_rad }}"
+              _b_oln_r: "{{ _b_origin_lon * _b_rad }}"
+              _b_tl_r: "{{ _b_target_lat * _b_rad }}"
+              _b_tln_r: "{{ _b_target_lon * _b_rad }}"
+
+          # Haversine
+          - variables:
+              _b_dlat: "{{ _b_tl_r - _b_ol_r }}"
+              _b_dlon: "{{ _b_tln_r - _b_oln_r }}"
+          - variables:
+              _b_a: >-
+                {{ (sin(_b_dlat / 2) ** 2) +
+                   cos(_b_ol_r) * cos(_b_tl_r) * (sin(_b_dlon / 2) ** 2) }}
+          - variables:
+              _b_dist_m: "{{ _b_earth_r * 2 * atan2(sqrt(_b_a), sqrt(1 - _b_a)) }}"
+              _b_y: "{{ sin(_b_dlon) * cos(_b_tl_r) }}"
+              _b_x: >-
+                {{ cos(_b_ol_r) * sin(_b_tl_r) -
+                   sin(_b_ol_r) * cos(_b_tl_r) * cos(_b_dlon) }}
+          - variables:
+              _b_bearing: "{{ ((atan2(_b_y, _b_x) * 57.2957795) + 360) % 360 }}"
+              _b_dist_mi: "{{ (_b_dist_m / 1609.344) | round(1) }}"
+          - variables:
+              _b_cardinal: >-
+                {%- set dirs = ['north','north-east','east','south-east',
+                                'south','south-west','west','north-west'] -%}
+                {{ dirs[((_b_bearing + 22.5) / 45) | int % 8] }}
+          - variables:
+              result:
+                ok: true
+                tool: zen_dojotools_zones
+                caller_token: "{{ _token }}"
+                mode: bearing
+                origin:
+                  via: "{{ _b_origin_via }}"
+                  entity_id: "{{ _origin_entity_id if _origin_entity_id != '' else none }}"
+                  name: "{{ _b_origin_name if _b_origin_name != '' else none }}"
+                  latitude: "{{ _b_origin_lat }}"
+                  longitude: "{{ _b_origin_lon }}"
+                target:
+                  via: "{{ _b_via }}"
+                  entity_id: "{{ _entity_id if _entity_id != '' else none }}"
+                  name: "{{ _b_target_name if _b_target_name != '' else none }}"
+                  latitude: "{{ _b_target_lat }}"
+                  longitude: "{{ _b_target_lon }}"
+                distance_miles: "{{ _b_dist_mi }}"
+                bearing_degrees: "{{ _b_bearing | round(1) }}"
+                cardinal: "{{ _b_cardinal }}"
+          - stop: bearing
+            response_variable: result
+
+      # ── Unknown mode fallback ──────────────────────────────────────────────
+      - variables:
+          result:
+            ok: false
+            tool: zen_dojotools_zones
+            caller_token: "{{ _token }}"
+            error: invalid_mode
+            mode: "{{ _mode }}"
+            supported:
+              - read
+              - create
+              - update
+              - delete
+              - bearing
+      - stop: error
+        response_variable: result

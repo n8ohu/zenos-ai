@@ -1085,31 +1085,19 @@
 {# ================== MANIFEST LOADER ================== #}
 {%- macro manifest_loader() -%}
   {%- set mani_cab = states('sensor.zen_default_household_cabinet_resolved') -%}
-
-  {#-
-  {%- set manifest = {} -%}
-
-  {%- if mani_cab -%}
-    {%- set mani_vars = state_attr(mani_cab, 'variables') or {} -%}
-    {%- set raw_mani = mani_vars.get('zen_library_manifest') | default({}, true) -%}
-
-    {%- if raw_mani is mapping and 'value' in raw_mani -%}
-      {%- set manifest = raw_mani['value'] -%}
-    {%- else -%}
-      {%- set manifest = raw_mani -%}
+  {%- set manifest_raw = CABS.cabinet_drawer_value(mani_cab, 'zen_library_manifest') | from_json() -%}
+  {%- set ns = namespace(cabs={}) -%}
+  {%- for eid, cab in manifest_raw.items() -%}
+    {%- if cab is mapping -%}
+      {%- set ns.cabs = ns.cabs | combine({eid: {
+        'name':      cab.get('friendly_name', ''),
+        'drawers':   cab.get('drawers', 0),
+        'status':    cab.get('status', ''),
+        'writeable': cab.get('writeable', false)
+      }}) -%}
     {%- endif -%}
-  {%- endif -%}
-  -#}
-
-  {%- set manifest = CABS.cabinet_drawer_value(mani_cab, 'zen_library_manifest') | from_json() -%}
-
-
-    {%- set result = dict(
-    cabinet = mani_cab,
-    manifest = manifest
-  ) -%}
-
-  {{ result | tojson }}
+  {%- endfor -%}
+  {{ dict(cabinet=mani_cab, manifest=ns.cabs) | tojson }}
 {%- endmacro -%}
 
 {# ================== IDENTITY MANIFEST LOADER ================== #}
@@ -1176,9 +1164,26 @@
   {%- else -%}
     {%- set ci_age_s = 9999 -%}
   {%- endif -%}
-  {%- set ci_stale = ci_age_s > 600 -%}
+  {%- set ci_stale = ci_age_s > 3600 -%}
+  {%- set _excl_raw = CABS.cabinet_drawer(hcab, 'compact_index_exclude', []) | from_json() -%}
+  {%- set _excl_val = _excl_raw.get('value', _excl_raw) if _excl_raw is mapping else _excl_raw -%}
+  {%- set ci_exclude = _excl_val if _excl_val is sequence and _excl_val is not string and _excl_val is not mapping else [] -%}
   {%- if ci_labels | length > 0 and not ci_stale -%}
-    {{ ci_val | tojson }}
+    {%- if ci_exclude | length > 0 -%}
+      {%- set ns = namespace(filtered=[]) -%}
+      {%- for entry in ci_labels -%}
+        {%- if entry.get('label', '') not in ci_exclude -%}
+          {%- set ns.filtered = ns.filtered + [{'label': entry.get('label',''), 'group': entry.get('group',''), 'entity_count': entry.get('entity_count', 0)}] -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ ci_val | combine({'labels': ns.filtered}) | tojson }}
+    {%- else -%}
+      {%- set ns = namespace(filtered=[]) -%}
+      {%- for entry in ci_labels -%}
+        {%- set ns.filtered = ns.filtered + [{'label': entry.get('label',''), 'group': entry.get('group',''), 'entity_count': entry.get('entity_count', 0)}] -%}
+      {%- endfor -%}
+      {{ ci_val | combine({'labels': ns.filtered}) | tojson }}
+    {%- endif -%}
   {%- else -%}
     {{ {
       'mode': 'fallback',
@@ -1219,63 +1224,23 @@
 {# ================== DRAWER BUILDER ================== #}
 {%- macro zen_drawer(drawer, value, mode="default") -%}
 
-  {# Base info #}
   {%- set base = dict(
     id = drawer,
     friendly_name = value['friendly_name'] | default(''),
     label = value['label'] | default(''),
     description = value['component_summary'] | default(''),
-    master_switch = value['master_switch'] | default(''),
     tools = value['tools'] | default([]),
-    priority = value['priority'] | default(''),
-    more_info = value['more_info'] | default('')
+    meta = value['meta'] | default({}),
+    details = 'Full instructions in Dojo drawer. Load via index_call or filecabinet when needed.'
   ) %}
 
-  {# Priority logic #}
-  {%- if value['priority'] | default('') == 'demand' %}
-    {% set result = base | combine({
-      "command": value['command'] | default(''),
-      "details": "Detailed instructions for this component may be found in the Dojo. Load as needed."
-    }) %}
-  {%- elif value['priority'] | default('') == 'system' %}
-    {% set libcmd = value['command'] | default('') %}
-    {% if libcmd %}
-      {% set cmd_result = command_interpreter.interpreter(libcmd) | default('') %}
-      {% set result = base | combine({
-        "command": dict(command=libcmd, result=cmd_result),
-        "instructions": value['component_instructions'] | default('')
-      }) %}
-    {% else %}
-      {% set result = base | combine({
-        "command": libcmd,
-        "instructions": value['component_instructions'] | default('')
-      }) %}
-    {% endif %}
-  {%- else %}
-    {% set result = base | combine({
-      "command": value['command'] | default(''),
-      "instructions": value['component_instructions'] | default('')
-    }) %}
-  {%- endif %}
-
-  {# system-priority drawers: include urgency+attention micro-signal from kata only #}
-  {%- if value['priority'] | default('') == 'system' -%}
-      {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') -%}
-      {#-
-      {%- set kata_node = (state_attr(kata_cab, 'variables') or {}).get(drawer, {}) -%}
-      {%- set kata_val = kata_node.get('value', kata_node) if kata_node is mapping else {} -%}
-      -#}
-      {%- set kata_val = CABS.cabinet_drawer_value(kata_cab, drawer) | from_json() -%}
-
-    {%- set kata_signal = {
-      'urgency': kata_val.get('urgency', 1),
-      'attention': kata_val.get('attention', none)
-    } -%}
-    {%- set enriched = result | combine({ 'kata': kata_signal }) -%}
-  {%- else -%}
-    {%- set enriched = result -%}
-  {%- endif -%}
-  {{ enriched | tojson }}
+  {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') -%}
+  {%- set kata_val = CABS.cabinet_drawer_value(kata_cab, drawer) | from_json() -%}
+  {%- set kata_signal = {
+    'urgency': kata_val.get('urgency', 1),
+    'attention': kata_val.get('attention', none)
+  } -%}
+  {{ base | combine({ 'kata': kata_signal }) | tojson }}
 {%- endmacro -%}
 
 {# ================== MAIN DOJO LOADER ================== #}
@@ -1975,6 +1940,26 @@ AutoContext:
      prev_snapshot_exists — zenai_essence_prev drawer present
      health_signals     — {schema_ok, sig_ok, manifest_ok, familiar_ok}
    ============================== #}
+{%- macro compact_overview() -%}
+  {%- set _rooms_raw = state_attr('sensor.home_overview', 'rooms') | default({}, true) -%}
+  {%- set _ns = namespace(rooms={}) -%}
+  {%- for rname, rdata in _rooms_raw.items() -%}
+    {%- if rdata is mapping and '_timer' in rdata.get('room_timer_entity_id', '') -%}
+      {%- set _ns.rooms = _ns.rooms | combine({rname: rdata.get('room_state', 'unknown')}) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{- {
+    'home_mode':          states('input_select.zen_home_mode'),
+    'security_mode':      state_attr('sensor.home_overview', 'security_mode') | default(''),
+    'guest_mode':         state_attr('sensor.home_overview', 'guest_mode') | default(''),
+    'entertainment_mode': state_attr('sensor.home_overview', 'entertainment_mode') | default(''),
+    'vacation_mode':      state_attr('sensor.home_overview', 'vacation_mode') | default(''),
+    'quiet_hours':        state_attr('sensor.home_overview', 'quiet_hours') | default(''),
+    'work_hours':         state_attr('sensor.home_overview', 'work_hours') | default(''),
+    'rooms':              _ns.rooms
+  } | tojson -}}
+{%- endmacro -%}
+
 {# ==============================
    PROMPT LENGTH AUDIT
    Full stem-to-stern char count across all prompt sections.
@@ -2005,7 +1990,7 @@ AutoContext:
     {%- set _idx     = root_index() | trim -%}
     {%- set _dojo    = dojo_loader() | trim -%}
     {%- set _cap     = ai_capsule(_idcard) | trim -%}
-    {%- set _over    = states['sensor.home_overview'].attributes | default({}) | tojson | trim -%}
+    {%- set _over    = compact_overview() | trim -%}
     {%- set _wake    = ai_wake_sequence(_idcard) | trim -%}
     {%- set _total   = (_header|length) + (_system|length) + (_mfst|length) + (_id_mani|length) + (_idx|length) + (_dojo|length) + (_cap|length) + (_over|length) + (_wake|length) -%}
     {{ {
@@ -2081,7 +2066,7 @@ render_prompt() — persona sensor unavailable (state: {{ _ai_ent }}). Check inp
     {%- set _dojo      = ({} | tojson) if _is_flynn else dojo_loader() -%}
     {%- set _active_notif = flynn.active_notification() | trim | from_json if _is_flynn else none -%}
     {%- set _capsule  = ({'type': 'flynn_gate', 'reason': _flynn_reason, 'active_notification': _active_notif, 'status': flynn.flynn_gate_status(_ai_user) | trim} | tojson) if _is_flynn else ai_capsule(_idcard) -%}
-    {%- set _overview = ({} | tojson) if _is_flynn else (states['sensor.home_overview'].attributes | default({}) | tojson) -%}
+    {%- set _overview = ({} | tojson) if _is_flynn else compact_overview() -%}
 {"header": {{ _header    | from_json | default({}) | tojson }},
 "system": {{ _system    | from_json | default({}) | tojson }},
 "manifest": {{ _manifest  | from_json | default({}) | tojson }},

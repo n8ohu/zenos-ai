@@ -311,7 +311,7 @@ Human-confirmed passthrough to versioned one-time maintenance scripts. Each repa
 |---|---|
 | `identity_family_repair_4_5_6` | Wire the default family cabinet into the household graph. Targets pre-4.5.6 installs missing the family link. |
 | `stamp_cab_guid_4_5_6` | Stamp a GUID onto a single cabinet. Requires `entity_id`. Targets installs where a cabinet was created without a GUID. |
-| `roster_guid_repair_4_5_6` | Stamp GUIDs and re-wire all default cabinet roster entries. Targets pre-provisioner installs (Nathan/Phil/Zach only — destructive on live provisioner installs). |
+| `roster_guid_repair_4_5_6` | Stamp GUIDs and re-wire all default cabinet roster entries. Targets pre-provisioner installs only — destructive on live provisioner installs. |
 
 ### When to Use
 

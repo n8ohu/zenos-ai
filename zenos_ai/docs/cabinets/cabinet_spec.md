@@ -299,7 +299,7 @@ variables:
 
   _label_index:
     value:
-      nathan:
+      primary_user:
         - user_prefs
       system:
         - device_state

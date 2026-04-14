@@ -141,10 +141,6 @@ automation:
       minutes: /10
       id: every_10_minutes
       enabled: true
-    - trigger: time_pattern
-      minutes: /5
-      id: every_5_minutes
-      enabled: true
     - trigger: event
       event_type: zen_event
       id: force_summary
@@ -182,6 +178,10 @@ automation:
       alias: 'Zen Event: Force Identity Manifest rebuild'
     actions:
 
+    # ── Capture run start time for duration tracking ─────────────────────────
+    - variables:
+        _run_start_ts: "{{ now().isoformat() }}"
+
     # ── Pre-fetch home overview ──────────────────────────────────────────────
     - action: script.zen_dojotools_inspect
       metadata: {}
@@ -191,13 +191,18 @@ automation:
         timeout: 30
       response_variable: home_overview
 
-    # ── Extract zen_event component (for targeted force_summary) ────────────
+    # ── Extract zen_event component + schedule (for targeted force_summary) ──
     - variables:
         zen_event_component: >-
           {%- set ev   = trigger.get('event') if trigger is mapping else None -%}
           {%- set data = ev.get('data') if ev is mapping else None -%}
           {%- set comp = data.get('event', {}).get('component') if data is mapping else None -%}
           {{ comp | default('', true) }}
+        zen_event_schedule: >-
+          {%- set ev   = trigger.get('event') if trigger is mapping else None -%}
+          {%- set data = ev.get('data') if ev is mapping else None -%}
+          {%- set sched = data.get('event', {}).get('schedule') if data is mapping else None -%}
+          {{ sched | default('', true) | slugify }}
 
     # ── Explicit non-Ninja branches ──────────────────────────────────────────
     - choose:
@@ -230,32 +235,6 @@ automation:
           response_variable: response_identity_manifest
         alias: Run the Identity Manifest
 
-      - conditions:
-        - condition: trigger
-          id:
-          - daily_midnight
-          - daily_noon
-          - ha_start
-          - every_10_minutes
-          - force_summary
-          - force_supersummary
-        sequence:
-        - variables:
-            supplemental_prompt: >-
-              {{
-                {
-                  "source": {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
-                  "home_overview": home_overview | default({}),
-                  "notes": "Don't comment about the state of the component's master switch or script. Comment only on the items the component manages. Please ignore when you perform summarization."
-                } | tojson
-              }}
-        - action: script.zen_dojotools_supersummary
-          metadata: {}
-          data:
-            post_to_kata_cabinet: true
-            supplemental_prompt: '{{ supplemental_prompt }}'
-          response_variable: response_zen_summary
-        alias: Zen Summary
 
       - conditions:
         - condition: trigger
@@ -288,6 +267,24 @@ automation:
     # delay_seconds is skipped for force_summary / force_ninja (urgent path).
     # force_ninja remaps to ha_start scope — runs only boot-sequence KFCs.
     # force_supersummary skips this block entirely (gated by if above).
+    # Pipeline tier filtering: ambient blocked on fast triggers; under pressure,
+    # keeper/ambient shed according to zen_scheduler_config thresholds.
+    - variables:
+        _household_cab: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+        _queue_depth: "{{ states('sensor.zen_scheduler_queue_depth') | int(0) }}"
+    - variables:
+        _shed_ambient_at: >-
+          {%- set _hv = state_attr(_household_cab, 'variables') | default({}, true) -%}
+          {%- set _r  = _hv.get('zen_scheduler_config', {}) if _hv is mapping else {} -%}
+          {%- set _v  = _r.get('value', _r) if _r is mapping else {} -%}
+          {%- set _v  = (_v | from_json) if _v is string else _v -%}
+          {{ (_v.get('shed_ambient_at', 4) if _v is mapping else 4) | int(4) }}
+        _shed_keeper_at: >-
+          {%- set _hv = state_attr(_household_cab, 'variables') | default({}, true) -%}
+          {%- set _r  = _hv.get('zen_scheduler_config', {}) if _hv is mapping else {} -%}
+          {%- set _v  = _r.get('value', _r) if _r is mapping else {} -%}
+          {%- set _v  = (_v | from_json) if _v is string else _v -%}
+          {{ (_v.get('shed_keeper_at', 8) if _v is mapping else 8) | int(8) }}
     - variables:
         _dojo_cab: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
         _kata_cab: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
@@ -301,6 +298,7 @@ automation:
             {%- set _raw_trig = trigger.id | default('') -%}
             {%- set trig_id   = 'ha_start' if _raw_trig == 'force_ninja' else _raw_trig -%}
             {%- set force_c   = zen_event_component | default('', true) | slugify -%}
+            {%- set force_s   = zen_event_schedule   | default('', true) | slugify -%}
             {%- set protected = ['AI_Cabinet_VolumeInfo', 'kfc_template', 'zen_library_manifest', 'zen_identity_manifest', '_context'] -%}
             {%- set ns = namespace(subs=[]) -%}
             {%- for key, drawer in dojo_vars.items() -%}
@@ -310,8 +308,49 @@ automation:
                   {%- set sub_list  = val.get('trigger_subscriptions', []) -%}
                   {%- set subscribed = trig_id in sub_list -%}
                   {%- set targeted   = force_c == '' or force_c == key -%}
-                  {%- if subscribed and targeted -%}
-                    {%- set ns.subs = ns.subs + [val | combine({'_drawer_key': key})] -%}
+                  {%- set _tier      = val.get('pipeline_tier', 'keeper') | lower -%}
+                  {%- set _eff_delay = 0 if _tier == 'super' else val.get('delay_seconds', 0) | int(0) -%}
+                  {%- set _forced    = trig_id == 'force_summary' and force_c != '' -%}
+                  {%- set _shed = not _forced and (
+                      (_tier == 'ambient' and (trig_id in ['quarter_hour', 'every_10_minutes'] or _queue_depth | int(0) >= _shed_ambient_at | int(4)))
+                      or
+                      (_tier not in ['super', 'ambient'] and _queue_depth | int(0) >= _shed_keeper_at | int(8))
+                  ) -%}
+                  {%- if subscribed and targeted and not _shed -%}
+                    {%- set schedules = val.get('schedules', []) -%}
+                    {%- if schedules | length > 0 and force_s != '' -%}
+                      {# targeted sub-schedule run — expand matching schedule only #}
+                      {%- for sched in schedules -%}
+                        {%- set sched_key = sched.get('kata_key', '') | slugify -%}
+                        {%- if force_s == sched_key -%}
+                          {%- set ns.subs = ns.subs + [val | combine({
+                            '_drawer_key':          key,
+                            'kata_key':             sched_key,
+                            '_index_call_override': sched.get('index_call', {}),
+                            '_parent_component':    key,
+                            'delay_seconds':        _eff_delay
+                          })] -%}
+                        {%- endif -%}
+                      {%- endfor -%}
+                    {%- elif schedules | length > 0 and force_s == '' and force_c == '' -%}
+                      {# time-based trigger — expand all schedules #}
+                      {%- for sched in schedules -%}
+                        {%- set sched_key = sched.get('kata_key', '') | slugify -%}
+                        {%- set ns.subs = ns.subs + [val | combine({
+                          '_drawer_key':          key,
+                          'kata_key':             sched_key,
+                          '_index_call_override': sched.get('index_call', {}),
+                          '_parent_component':    key,
+                          'delay_seconds':        _eff_delay
+                        })] -%}
+                      {%- endfor -%}
+                    {%- elif schedules | length > 0 and force_c == key and force_s == '' -%}
+                      {# force_summary on parent with no schedule — run top-level component #}
+                      {%- set ns.subs = ns.subs + [val | combine({'_drawer_key': key, 'delay_seconds': _eff_delay})] -%}
+                    {%- else -%}
+                      {# no schedules — normal single subscriber #}
+                      {%- set ns.subs = ns.subs + [val | combine({'_drawer_key': key, 'delay_seconds': _eff_delay})] -%}
+                    {%- endif -%}
                   {%- endif -%}
                 {%- endif -%}
               {%- endif -%}
@@ -319,7 +358,29 @@ automation:
             {{ ns.subs | sort(attribute='delay_seconds') }}
           {%- endif -%}
 
-    - if: "{{ trigger.id != 'force_supersummary' }}"
+    # ── Compute per-call timeout from recent run history ────────────────────
+    # Reads zen_scheduler kata recent_runs, derives avg seconds/component.
+    # Timeout = max(2 * avg, 120). Falls back to 240s until history exists.
+    - variables:
+        _sched_prev_runs: >-
+          {%- set cab = state_attr(_kata_cab, 'variables') | default({}, true) -%}
+          {%- set drawer = cab.get('zen_scheduler', {}) if cab is mapping else {} -%}
+          {%- set val = drawer.get('value', drawer) if drawer is mapping else {} -%}
+          {%- set parsed = (val | from_json) if val is string else val -%}
+          {{ (parsed.get('recent_runs', []) if parsed is mapping else []) | list }}
+        _ninja_timeout: >-
+          {%- set hist = _sched_prev_runs if _sched_prev_runs is iterable and _sched_prev_runs is not string else [] -%}
+          {%- set ns = namespace(total=0, n=0) -%}
+          {%- for r in hist -%}
+            {%- if r is mapping and (r.get('duration_seconds', 0) | int(0)) > 0 and (r.get('count', 0) | int(0)) > 0 -%}
+              {%- set ns.total = ns.total + (r.duration_seconds | int) / (r.count | int(1)) -%}
+              {%- set ns.n = ns.n + 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {%- set _raw = [((ns.total / ns.n) if ns.n > 0 else 120) * 2, 60] | max -%}
+          {{ [_raw, 120] | min | int }}
+
+    - if: "{{ trigger.id != 'force_supersummary' and _queue_depth | int(0) < 5 }}"
       then:
         - repeat:
             for_each: "{{ _subscribers }}"
@@ -343,22 +404,58 @@ automation:
                 response_variable: _iter_last_kata
               - variables:
                   _iter_prompt: >-
-                    {{
-                      {
-                        "source":            {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
-                        "home_overview":     home_overview | default({}),
-                        "last_kata_summary": _iter_last_kata | default({})
-                      } | tojson
-                    }}
-              - action: script.zen_dojotools_ninja_summarizer
-                metadata: {}
+                    {%- set _p = {
+                      "source":            {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
+                      "last_kata_summary": _iter_last_kata | default({})
+                    } | tojson -%}
+                    {{ _p[:50000] }}
+              - action: script.turn_on
                 data:
-                  kung_fu_component_id: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
-                  post_to_kata_cabinet: true
-                  supplemental_prompt: '{{ _iter_prompt }}'
-                response_variable: _iter_ninja_response
+                  entity_id: script.zen_dojotools_ninja_summarizer
+                  variables:
+                    kung_fu_component_id: "{{ repeat.item.kata_key | default(repeat.item._drawer_key) }}"
+                    post_to_kata_cabinet: true
+                    supplemental_prompt: '{{ _iter_prompt }}'
+                    index_call_override: >-
+                      {%- set _ov = repeat.item._index_call_override | default({}) -%}
+                      {{ _ov | tojson if _ov else '' }}
+                    parent_component_id: "{{ repeat.item._parent_component | default('', true) }}"
+
+    # ── Conditional SuperSummary — fires after ninjas, not before ────────────
+    - variables:
+        _always_super: >-
+          {{ trigger.id in ['force_supersummary', 'daily_midnight', 'ha_start', 'daily_noon', 'hourly_trigger'] }}
+        _should_super: >-
+          {{ _always_super or (_subscribers | default([]) | length > 0) }}
+    - if: "{{ _should_super }}"
+      then:
+        - wait_template: "{{ state_attr('script.zen_dojotools_ninja_summarizer', 'current') | int(0) < 2 }}"
+          timeout:
+            seconds: 30
+          continue_on_timeout: true
+        - variables:
+            supplemental_prompt: >-
+              {{
+                {
+                  "source": {"id": trigger.id | default(''), "platform": trigger.platform | default('')},
+                  "home_overview": home_overview | default({}),
+                  "notes": "Don't comment about the state of the component's master switch or script. Comment only on the items the component manages. Please ignore when you perform summarization."
+                } | tojson
+              }}
+        - action: script.turn_on
+          data:
+            entity_id: script.zen_dojotools_supersummary
+            variables:
+              post_to_kata_cabinet: true
+              supplemental_prompt: '{{ supplemental_prompt }}'
 
     # ── Write scheduler heartbeat to Kata ───────────────────────────────────
+    # Wait for FC to be idle — parallel ninja kata writes (FC mode:single) can
+    # race the heartbeat and cause silent drops. 60s ceiling, always continues.
+    - wait_template: "{{ not is_state('script.zen_dojotools_filecabinet', 'on') }}"
+      timeout:
+        seconds: 60
+      continue_on_timeout: true
     - variables:
         trigger_entity_id: >-
           {%- if 'from_state' in trigger and trigger.from_state -%}
@@ -376,12 +473,37 @@ automation:
               "entity_id": trigger_entity_id
             }
           }}
+        _dispatched_keys: >-
+          {{ _subscribers | default([]) | map(attribute='kata_key') | list }}
+        _this_run: >-
+          {{
+            {
+              "ts":               now().isoformat(),
+              "trigger":          this_trigger | default({}),
+              "dispatched":       _dispatched_keys,
+              "count":            _dispatched_keys | length,
+              "super":            _should_super | default(false) | bool,
+              "duration_seconds": (now() - (_run_start_ts | as_datetime)).total_seconds() | int
+            }
+          }}
+        _prev_runs: >-
+          {%- set raw = states(_kata_cab) -%}
+          {%- set cab = state_attr(_kata_cab, 'variables') | default({}) -%}
+          {%- set drawer = cab.get('zen_scheduler', {}) -%}
+          {%- set val = drawer.get('value', drawer) if drawer is mapping else {} -%}
+          {%- set parsed = (val | from_json) if val is string else val -%}
+          {%- set hist = parsed.get('recent_runs', []) if parsed is mapping else [] -%}
+          {{ hist | list }}
+        _recent_runs: >-
+          {%- set prev = _prev_runs if _prev_runs is iterable and _prev_runs is not string else [] -%}
+          {{ ([_this_run] + prev)[:5] }}
         final_response: >-
           {{
             {
-              "status":    "success",
-              "trigger":   this_trigger | default({}),
-              "dispatched": _subscribers | default([]) | map(attribute='kata_key') | list
+              "status":       "success",
+              "trigger":      this_trigger | default({}),
+              "dispatched":   _dispatched_keys,
+              "recent_runs":  _recent_runs | default([])
             } | tojson
           }}
     - action: script.zen_dojotools_filecabinet
@@ -400,4 +522,4 @@ automation:
     - event: zen_health_tick
 
     mode: queued
-    max: 5
+    max: 15

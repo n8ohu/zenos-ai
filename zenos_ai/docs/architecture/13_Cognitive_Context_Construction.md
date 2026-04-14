@@ -76,7 +76,7 @@ Derived entirely from the Identity module:
 * cabinet ACLs (who is allowed to write, command, request actions)
 * token/visa authorization (if applicable)
 
-IdentityContext is what lets Friday know “this action affects Nathan” or “Kim is sleeping.”
+IdentityContext is what lets Friday know “this action affects Alex” or “Jordan is sleeping.”
 
 **D. SystemContext**
 Internal system conditions:

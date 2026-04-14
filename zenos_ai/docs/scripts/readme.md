@@ -53,6 +53,9 @@ Guided authoring and lifecycle management for KF4 artifacts. Fully MCP-exposed �
 * Non-destructive by default — `patch` preserves existing content; `replace`, `clear`, `delete`, and `publish_kfc` all require explicit confirmation
 * Component group model — one corpus, multiple component views, shared clock and labelset
 * Self-indexing and drawer feedback loop guards built in
+* `read` response includes `schedules_summary` — `{count, kata_keys}` for KFCs with sub-schedule entries; avoids raw JSON trawl to inspect schedule structure
+* `patch` merges `schedules[]` by `kata_key` (upsert) — add or update individual schedule entries without overwriting the full array
+* `publish_kfc` preserves the `schedules` array — was silently dropped before v1.3.0
 
 A capable LLM can run the full authoring loop — scope a domain, draft the component, refine iteratively, formalize, and publish to the Dojo — without operator intervention beyond initial label design. `zen_dojotools_kungfu_writer` is retired; Scribe is the replacement.
 
@@ -71,7 +74,8 @@ Ring-2 administrative tools for component registration, cabinet repair, template
 * `zen_admintools_cabinetadmin` — Inspect, restore, reset, hammer, init, or `reset_all` Ring-0 cabinets
 * `zen_admintools_cabinetadmin_factory` — Factory-stamp or repair a cabinet's VolumeInfo header
 * `zen_admintools_kfc_migration_press` — One-time migration: seed KF4 scheduling fields into existing drawers
-* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose. Includes `ship_alert_manager` and `ship_taskmaster` KFC gates. (v32/latest = True Voice)
+* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose. Chains `zen_admintools_kungfu_loader` in factory mode. (v34/latest = Ambient Aware)
+* `zen_admintools_kungfu_loader` — Factory KFC deployer. Modes: `status` (report), `factory` (deploys zen_system v1.1.0, alert_manager v1.4.0, taskmaster v1.3.1, trapper_keeper v2.4.0), `deploy` (boolean-selected). Extracted from prompt_loader so KFC deployment can run independently.
 * `zen_admintools_run_repair` — Human-confirmed passthrough to versioned maint/ repair scripts (operator use only)
 
 All tools in this module are admin-only. For KFC component registration, use `zen_dojotools_scribe` (DojoTools namespace, fully MCP-exposed).
@@ -114,7 +118,7 @@ Expose this to your conversation agent — Friday can then help you configure yo
 
 ---
 
-## **4. Zen DojoTools Labels — 4.1.0**
+## **4. Zen DojoTools Labels — 4.6.0**
 
 **File:** `zen_dojotools_labels_readme.md`
 **Type:** Technical Documentation
@@ -127,6 +131,7 @@ Core primitive for label CRUD and entity tagging. Backbone of the label index th
 * `read` — full index or filtered by label/entity
 * `tag` / `untag` — assign or remove labels from entities
 * `reset` — soft reset: wipe all entity assignments from every `zen_` label (labels survive); fires `zen_resolver_refresh`
+* All 7 mutating actions emit `zen_event(kind: label_mutation)` on success — triggers `zen_label_mutation_router` to rebuild `_compact_index` in the household cabinet automatically
 
 `new_description`, `new_icon`, `new_color` params available on `create` and `update`. Label descriptions travel inline in every Inspect call as `{slug: description}` — annotate labels at creation time.
 
@@ -191,13 +196,15 @@ How to wire an HA automation that fires a component summarizer run on a real-wor
 **Type:** Technical Documentation
 
 **Summary:**
-The cognition pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
+The KF4 action pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
 
 * **Ninja Summarizer** (`zen_dojotools_ninja_summarizer`) — per-component kata writer. Reads one KFC component's Dojo drawer, runs HyperIndex + library command, sends to AI monk, writes kata drawer.
-* **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. Reads all active kata drawers (gated by `meta.enabled`), sends to AI monk, writes `zen_summary` — the canonical home state that loads Friday's prompt.
+* **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. `direct`-tier components load into `component_data`; `ambient`-tier components are excluded and flow via Trapper Keeper pre-digest into `ambient_context`. Sends to AI monk, writes `zen_summary`.
 * **Run governor** — dedup burnout window prevents duplicate runs within a configurable window (`zen_ninja_config.burnout_seconds`, default 300s). Bypass with `force: true`.
 * Three kill switches: master (`zen_summarizers_enabled`), ninja, supersummary — **all default off** (ship disabled; enable after verifying AI task entity points at a local model — cost risk if pointed at a paid API)
 * Auto-refire on re-enable via `zen_pipeline_autofire_on_enable`
+* `index_call_override` — optional JSON string; replaces the dojo drawer's `index_call` for one run. Used by the Scheduler for per-schedule sub-runs where each schedule entry defines its own HyperIndex query.
+* `parent_component_id` — optional; when running as a sub-schedule, load dojo drawer + component instructions from the parent KFC instead of the sub-schedule's own slug.
 
 > **Warning:** Do not point the AI task entity at a paid inference API — the pipeline fires multiple times per hour. Use a local model.
 
@@ -376,7 +383,7 @@ If any drawer changes anywhere in ZenOS-AI, it happened through FileCabinet.
 
 ---
 
-## **17. Zen DojoTools Manifest — 4.5.5 'Ready Player Two'**
+## **17. Zen DojoTools Manifest — 4.5.8**
 
 **File:** `zen_dojotools_manifest_readme.md`
 **Type:** Technical Documentation
@@ -384,6 +391,7 @@ If any drawer changes anywhere in ZenOS-AI, it happened through FileCabinet.
 **Summary:**
 The runtime-only Cabinet manifest scanner.
 Builds a complete, zero-persistence health and metadata model for every Cabinet Volume.
+`mode: queued, max: 20` — burst-safe for provision/deprovision sequences. Write path migrated to `script.zen_dojotools_filecabinet`.
 
 Provides:
 

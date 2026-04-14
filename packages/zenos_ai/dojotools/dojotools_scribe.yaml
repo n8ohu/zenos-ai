@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Scribe
-# Version: 1.2.0
+# Version: 1.3.0
 #
 # Purpose:
 #   Guided authoring and maintenance for KF4 artifacts.
@@ -48,6 +48,14 @@
 #   - Added:  wrapper_detected field on read responses — true if shell detected before step 4
 #   - Added:  repair mode — detect wrapper depth (up to 5 levels) and optionally flatten
 #             accumulated drawers back to canonical artifact body. dry_run: true default.
+#
+# Changelog vs 1.2.0:
+#   - Added:  schedules_summary field on read responses — {count, kata_keys} for KFCs
+#             that define sub-schedule entries; avoids raw JSON trawl to see what's there
+#   - Fixed:  patch mode now merges schedules by kata_key (upsert) instead of replacing
+#             the full array — add/update individual schedule entries without losing others
+#   - Fixed:  publish_kfc payload now preserves schedules array — was silently dropped
+#             because the explicit payload dict did not include the schedules key
 #
 # Assumptions:
 #   - thoughts, scrolls, and drafts may exist in any cabinet
@@ -950,6 +958,9 @@ script:
                       and not _a.get('index_call')
                       and not _a.get('component_summary')
                     }}
+                  _r_schedules_summary: >-
+                    {%- set _sched = (_r3.get('schedules', []) if _r3 is mapping else []) -%}
+                    {{ {'count': _sched | length, 'kata_keys': _sched | map(attribute='kata_key') | list} }}
                   result:
                     ok: true
                     tool: zen_dojotools_scribe
@@ -960,6 +971,7 @@ script:
                     key: "{{ _storage_key }}"
                     value: "{{ _r3 }}"
                     wrapper_detected: "{{ _r_is_wrapped }}"
+                    schedules_summary: "{{ _r_schedules_summary }}"
               - stop: read
                 response_variable: result
 
@@ -1201,7 +1213,22 @@ script:
                     {%- endif -%}
                   _patch_merged: >-
                     {%- set base = _p3 if _p3 is mapping else {} -%}
-                    {{ base | combine(_changes, recursive=true) | tojson }}
+                    {%- set _inc_sched = _changes.get('schedules', none) -%}
+                    {%- if _inc_sched is sequence and _inc_sched is not string and _inc_sched is not none -%}
+                      {%- set _exist = base.get('schedules', []) -%}
+                      {%- set _new_keys = _inc_sched | map(attribute='kata_key') | list -%}
+                      {%- set ns = namespace(merged=[]) -%}
+                      {%- for s in _exist -%}
+                        {%- if s.get('kata_key', '') not in _new_keys -%}
+                          {%- set ns.merged = ns.merged + [s] -%}
+                        {%- endif -%}
+                      {%- endfor -%}
+                      {%- set ns.merged = ns.merged + _inc_sched -%}
+                      {%- set _no_sched = dict(_changes.items() | rejectattr('0', 'equalto', 'schedules')) -%}
+                      {{ base | combine(_no_sched, recursive=true) | combine({'schedules': ns.merged}) | tojson }}
+                    {%- else -%}
+                      {{ base | combine(_changes, recursive=true) | tojson }}
+                    {%- endif -%}
               - action: script.zen_dojotools_filecabinet
                 data:
                   action_type: update
@@ -1670,6 +1697,7 @@ script:
                           "shared_delay_seconds": _shared_delay_seconds,
                           "shared_labelset": _shared_labelset
                         }),
+                        "schedules": base.get('schedules', []),
                         "kata_key": _slug,
                         "meta": {
                           "enabled": (base.get('meta', {}) if base is mapping else {}).get('enabled', enabled | default(true) | bool),

@@ -167,6 +167,8 @@ template:
               Summary pipeline is disabled. Enable zen_summarizers_enabled (and optionally zen_ninja_summarizer_enabled / zen_supersummarizer_enabled) in Settings > Helpers to restore full cognition.
             {%- elif mon_st == 'warn' %}
               Monastery still settling after boot — should clear on its own within a few minutes.
+            {%- elif mon_st in ['unavailable', 'unknown'] %}
+              Monastery health sensors still initializing after restart — this is normal. Should clear within a few minutes. No action needed.
             {%- elif mon_st != 'ok' %}
               Cabinets ready but content not bootstrapped. Fill in Settings > Helpers (household name, primary user, persona name, conversation agent), then trigger automation.flynn_stepgate_sentinel.
             {%- else %}

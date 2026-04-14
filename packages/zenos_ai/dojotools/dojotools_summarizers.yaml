@@ -112,8 +112,7 @@ script:
       Respects zen_summarizers_enabled (master) and zen_supersummarizer_enabled
       kill switches — early-outs immediately if either is off.
     icon: mdi:home-circle
-    mode: queued
-    max: 3
+    mode: single
     fields:
       query:
         name: Override Query
@@ -136,6 +135,14 @@ script:
         required: false
         selector:
           text:
+      force:
+        name: Force Run
+        description: >-
+          Bypass the cooldown governor. Use for admin overrides or emergency
+          on-demand runs. Default false.
+        default: false
+        selector:
+          boolean:
 
     sequence:
 
@@ -168,7 +175,40 @@ script:
           - stop: "ai_task entity unset — aborting supersummary"
             error: true
 
-      # ── 0b. Start timer + emit summarizer_start ──────────────────────────
+      # ── 0b. Cooldown governor ─────────────────────────────────────────────
+      # Reads super_burnout_seconds from zen_ninja_config in household cabinet.
+      # Default 600s (10 min). Bypassed by force: true.
+      - alias: SuperSummary cooldown governor
+        variables:
+          _super_gov_cfg: >-
+            {%- set _household = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- set _cfg_raw = (state_attr(_household, 'variables') or {}).get('zen_ninja_config', {}) -%}
+            {%- set _v1 = _cfg_raw.get('value', _cfg_raw) if _cfg_raw is mapping else {} -%}
+            {{ (_v1 | from_json) if _v1 is string else _v1 }}
+          _super_burnout: "{{ (_super_gov_cfg.get('super_burnout_seconds', 600) | int(600)) if _super_gov_cfg is mapping else 600 }}"
+          _super_last_ts: >-
+            {%- set _kc = states('sensor.zen_kata_cabinet_resolved') -%}
+            {%- set _ts_str = (state_attr(_kc, 'variables') or {}).get('zen_summary', {}).get('timestamp', '') -%}
+            {{ (_ts_str | as_datetime).timestamp() | float(0) if _ts_str | trim != '' else 0 }}
+          _super_elapsed: "{{ (now().timestamp() - _super_last_ts) | round(0) | int }}"
+          _super_blocked: "{{ _super_elapsed < _super_burnout | int and not (force | default(false) | bool) }}"
+      - if:
+          - condition: template
+            value_template: "{{ _super_blocked }}"
+        then:
+          - event: zen_event
+            event_data:
+              event:
+                kind: supersummary_run_blocked
+                reason: cooldown_window
+                elapsed_secs: "{{ _super_elapsed }}"
+                burnout_secs: "{{ _super_burnout }}"
+                severity: info
+          - stop: >-
+              SuperSummary governor — last run {{ _super_elapsed }}s ago
+              (< {{ _super_burnout }}s cooldown). Skipping.
+
+      # ── 0c. Start timer + emit summarizer_start ──────────────────────────
       - alias: Capture start time and emit summarizer_start
         variables:
           started_at: "{{ now().isoformat() }}"
@@ -236,10 +276,14 @@ script:
             {%- set _v2 = _v1 if _v1 is mapping else (_v1 | from_json if _v1 is string else {}) -%}
             {{ _v2 | tojson }}
 
-      # ── 5. Collect active components ──────────────────────────────────────
+      # ── 5. Collect active components — direct tier only ──────────────────
       # FIX: was {% set active = {} %} inside for loop — Jinja2 scoping bug,
       #      always returned {}. Fixed with namespace().
-      - alias: Collect active components from Dojo meta.enabled
+      # v1.2.0: pipeline_tier split. ambient + system tier components excluded
+      #   from direct component_data. Ambient context flows via Trapper Keeper
+      #   kata (step 5b). Drawers with no pipeline_tier default to 'direct'
+      #   for backwards compatibility.
+      - alias: Collect active components — direct tier only
         variables:
           active_components: >-
             {%- set dojo = state_attr(dojo_cabinet, 'variables') | default({}, true) -%}
@@ -255,7 +299,8 @@ script:
                   {%- set _meta = val.get('meta', {}) -%}
                   {%- set _meta = _meta if _meta is mapping else {} -%}
                   {%- set resolved = _meta.get('enabled', true) | bool -%}
-                  {%- if resolved and comp_key in kata -%}
+                  {%- set tier = val.get('pipeline_tier', 'direct') | lower -%}
+                  {%- if resolved and comp_key in kata and tier not in ['ambient', 'system'] -%}
                     {%- set kd = kata[comp_key] -%}
                     {%- set kv = kd.get('value', {}) if kd is mapping else {} -%}
                     {%- set ns.active = ns.active | combine({comp_key: kv}) -%}
@@ -268,6 +313,20 @@ script:
       - alias: Extract active component IDs
         variables:
           active_component_ids: "{{ active_components.keys() | list }}"
+
+      # ── 5b. Load ambient context from Trapper Keeper kata ────────────────
+      # Trapper Keeper pre-digests all ambient-tier components into a compact
+      # breadcrumb + navigation index. SuperSummary reads the Keeper output
+      # instead of loading 9 raw ambient katas directly.
+      - alias: Load ambient context from Trapper Keeper
+        variables:
+          ambient_context: >-
+            {%- set kata = state_attr(kata_cabinet, 'variables') | default({}, true) -%}
+            {%- set _raw = kata.get('trapper_keeper', {}) -%}
+            {%- set _v1 = _raw if _raw is mapping else (_raw | from_json if _raw is string else {}) -%}
+            {%- set _v2 = _v1.get('value', _v1) if _v1 is mapping else {} -%}
+            {%- set _v3 = _v2 if _v2 is mapping else (_v2 | from_json if _v2 is string else {}) -%}
+            {{ _v3 | tojson }}
 
       # ── 6. Collect component kata values ─────────────────────────────────
       - alias: Init component data
@@ -307,6 +366,24 @@ script:
             No extra prose. Normalize all fields. If missing, return null or {}.
             Include ONLY active components. Provide Cliff's Notes for important
             events, anomalies, and near-term focus.
+            review_data.ambient_context contains the Trapper Keeper pre-digest —
+            a compact breadcrumb + navigation index for all ambient-tier components
+            (weather, rooms, laundry, dishes, media, autovac, trash, water heater,
+            groceries). Use it for ambient awareness. Do NOT enumerate ambient
+            component details inline — the Keeper has already pre-chewed them.
+            AMBIENT URGENCY PROMOTION RULE (apply exactly — not vibes-based):
+              Use review_data.ambient_context.urgency (the number the Keeper set) as the
+              promotion score. Do NOT re-evaluate or re-score the ambient data yourself.
+              The Trapper Keeper is the authoritative source. Trust the number.
+              urgency 0-3  → ambient_nav only. No mention elsewhere.
+              urgency 4-5  → add one line to zen_summary.attention. Do NOT add to active_components.
+              urgency 6-10 → add to zen_summary.attention AND add an entry to active_components
+                             (treat as direct tier for this run only).
+            Populate ambient_nav by copying review_data.ambient_context directly.
+            Set ambient_nav.kata_cabinet to review_data.kata_cabinet.
+            ambient_nav is the agent's live-conversation navigation index — it lets the
+            agent cold-read any ambient component kata on demand with one FileCabinet call.
+            Do NOT summarize or compress ambient_nav — pass it through verbatim.
             Do NOT copy errors from last_summary into the errors[] field.
             The errors[] array is for errors encountered during THIS run only.
             Return errors: [] if no new errors occurred.
@@ -314,9 +391,10 @@ script:
           review_data: >-
             {{
               {
-                "kata_cabinet":   kata_cabinet,
-                "prompt_context": prompt_context | default({}),
-                "components":     component_data | default({})
+                "kata_cabinet":    kata_cabinet,
+                "prompt_context":  prompt_context | default({}),
+                "components":      component_data | default({}),
+                "ambient_context": ambient_context | default({})
               }
             }}
           example_data: >-
@@ -351,9 +429,7 @@ script:
         variables:
           zen_summary: >-
             {%- set ns = namespace(raw=monk_response.data | default('') | string | trim) -%}
-            {%- if ns.raw[:7] == '```json' -%}{%- set ns.raw = ns.raw[7:] | trim -%}{%- endif -%}
-            {%- if ns.raw[:3] == '```' -%}{%- set ns.raw = ns.raw[3:] | trim -%}{%- endif -%}
-            {%- if ns.raw[-3:] == '```' -%}{%- set ns.raw = ns.raw[:-3] | trim -%}{%- endif -%}
+            {%- set ns.raw = ns.raw | regex_replace('^```[a-zA-Z]*\n?', '') | regex_replace('\n?```$', '') | trim -%}
             {{ ns.raw }}
 
       # ── 8a. Compute run duration ──────────────────────────────────────────
@@ -514,6 +590,24 @@ script:
         required: false
         selector:
           boolean:
+      index_call_override:
+        name: Index Call Override
+        description: >-
+          Optional JSON string. When set, replaces the dojo drawer's index_call
+          for this run. Used by the scheduler for per-schedule sub-runs where
+          each schedule has its own HyperIndex query (e.g. room_manager schedules).
+        required: false
+        selector:
+          text:
+      parent_component_id:
+        name: Parent Component ID
+        description: >-
+          Optional. When running as a sub-schedule, the parent KFC slug whose
+          dojo drawer provides component_instructions and metadata. When set,
+          dojo drawer loads from parent_component_id instead of component_slug.
+        required: false
+        selector:
+          text:
 
     sequence:
       # --------------------------------------------------------------
@@ -568,12 +662,15 @@ script:
           monk_response: {}
           filecabinet_response: {}
           component_slug: "{{ kung_fu_component_id | slugify | default('kung_fu') }}"
+          _parent_slug: "{{ parent_component_id | default('', true) | slugify }}"
+          _index_override_raw: "{{ index_call_override | default('', true) }}"
 
       # ── 2. Read dojo + household drawers ──────────────────────────────────
       - alias: Read dojo drawer
         variables:
           dojo_drawer: >-
-            {{ (state_attr(dojo_cabinet, 'variables') or {}).get(component_slug, {}) }}
+            {%- set _key = _parent_slug if _parent_slug | trim != '' else component_slug -%}
+            {{ (state_attr(dojo_cabinet, 'variables') or {}).get(_key, {}) }}
           household_drawer: >-
             {{ (state_attr(household_cabinet, 'variables') or {}).get(component_slug, {}) }}
 
@@ -623,10 +720,20 @@ script:
             {%- set _ecm = (dojo_drawer.emission_cooldown_minutes | default(none)) -%}
             {%- set _ecm = _ecm if _ecm is not none else (dojo_drawer_value.emission_cooldown_minutes | default(none)) -%}
             {{ _ecm | int if _ecm is not none else 60 }}
+          staleness_minutes: >-
+            {%- set _sm = (dojo_drawer.staleness_minutes | default(none)) -%}
+            {%- set _sm = _sm if _sm is not none else (dojo_drawer_value.staleness_minutes | default(none)) -%}
+            {{ _sm | int if _sm is not none else 1440 }}
           index_call: >-
-            {%- set _ic = (dojo_drawer.index_call | default(none)) -%}
-            {%- set _ic = _ic if _ic is not none else (dojo_drawer_value.index_call | default(none)) -%}
-            {{ _ic if _ic is mapping else {} }}
+            {%- set _ior = _index_override_raw | default('', true) | trim -%}
+            {%- if _ior != '' -%}
+              {%- set _parsed = (_ior | from_json) if _ior is string else _ior -%}
+              {{ _parsed if _parsed is mapping else {} }}
+            {%- else -%}
+              {%- set _ic = (dojo_drawer.index_call | default(none)) -%}
+              {%- set _ic = _ic if _ic is not none else (dojo_drawer_value.index_call | default(none)) -%}
+              {{ _ic if _ic is mapping else {} }}
+            {%- endif -%}
           meta_enabled: >-
             {%- set _meta = (dojo_drawer.meta | default(none)) -%}
             {%- set _meta = _meta if _meta is not none else (dojo_drawer_value.meta | default(none)) -%}
@@ -902,6 +1009,13 @@ script:
           _action_required: "{{ _kata_parsed.get('action_required', false) | bool if _kata_parsed is mapping else false }}"
           _suggested_act_event: "{{ _kata_parsed.get('suggested_act_event', '') | default('', true) if _kata_parsed is mapping else '' }}"
           _current_period: "{{ states('input_select.zen_home_mode') | default('', true) }}"
+          _ninja_cfg: >-
+            {%- set _hh = states('sensor.zenos_default_household_cabinet') -%}
+            {%- set _cfg_raw = (state_attr(_hh, 'variables') or {}).get('zen_ninja_config', {}) if _hh != '' else {} -%}
+            {%- set _cfg = _cfg_raw.get('value', _cfg_raw) if _cfg_raw is mapping else {} -%}
+            {{ _cfg if _cfg is mapping else {} }}
+          _push_floor: "{{ (_ninja_cfg.get('push_gate_urgency_floor', 4)) | int }}"
+          _push_life_safety: "{{ (_ninja_cfg.get('push_gate_life_safety_bypass', 8)) | int }}"
 
       - alias: Read last_emission_at from existing kata drawer for cooldown check
         variables:
@@ -925,7 +1039,12 @@ script:
             {%- endif -%}
           _minutes_since_last: >-
             {%- if _last_emission_at is not none and _last_emission_at | trim != '' and _last_emission_at != 'None' -%}
-              {{ ((now().timestamp() - (_last_emission_at | as_datetime | as_timestamp)) / 60) | round(1) }}
+              {%- set _parsed = _last_emission_at | as_datetime | default(none, true) -%}
+              {%- if _parsed is not none -%}
+                {{ ((now().timestamp() - (_parsed | as_timestamp)) / 60) | round(1) }}
+              {%- else -%}
+                {{ emission_cooldown_minutes + 1 }}
+              {%- endif -%}
             {%- else -%}
               {{ emission_cooldown_minutes + 1 }}
             {%- endif -%}
@@ -993,7 +1112,9 @@ script:
               {{ not _cooldown_active
                  and post_to_kata_cabinet | default(false) | bool
                  and _action_required
-                 and _suggested_act_event | trim != '' }}
+                 and _suggested_act_event | trim != ''
+                 and ((_urgency | int) >= (_push_floor | int)
+                      or (_urgency | int) >= (_push_life_safety | int)) }}
         then:
           - alias: Layer 1 — master kill switch
             if:
@@ -1159,7 +1280,8 @@ script:
               set_timestamp: true
               show_hidden_volumes: false
               force_action: true
-              expires_after: 24
+              expires_after: >-
+                {{ (now() + timedelta(minutes=(staleness_minutes | int(1440)) * 2)).isoformat() }}
               volume_entity_id:
                 - "{{ kata_cabinet }}"
               key: "{{ component_slug }}"

@@ -35,7 +35,7 @@ Examples include:
 binary_sensor.living_motion: on
 sensor.kitchen_illuminance: 439.2
 input_boolean.guest_mode: off
-person.nathan: home
+person.primary_user: home
 lock.front_door_lock: locked
 cover.garage_door: opening
 media_player.living_room_tv: playing

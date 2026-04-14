@@ -129,7 +129,7 @@ script.zen_dojotools_provisioner:
   mode: provision
   cab_type: user
   target_cabinet: sensor.<stacks_cabinet>
-  person_entity: person.nathan  # optional — preloads name and user_id
+  person_entity: person.alex  # optional — preloads name and user_id
 ```
 
 Write the profile after provisioning:
@@ -139,8 +139,8 @@ script.zen_dojotools_profile_editor:
   mode: write
   target_type: user
   target: sensor.<newly_provisioned_cabinet>
-  first_name: Nathan
-  preferred_name: Nathan
+  first_name: Alex
+  preferred_name: Alex
   role: head_of_household
   pronouns: he/him
 ```
