@@ -1,6 +1,6 @@
 # Alert Manager — KFC Guide
 
-> **KF4 1.4.0** | ZenOS-AI 2026.4.1
+> **KF4 1.5.0** | ZenOS-AI 2026.4.1
 
 Alert Manager is ZenOS-AI's built-in alert component. It monitors entities tagged with the **`Alert Manager`** label, interprets their states, and dispatches notifications when something needs attention.
 
@@ -163,5 +163,5 @@ Tag any entity with the **`Alert Manager`** HA label. It's automatically include
 
 ---
 
-*ZenOS-AI KF4 1.4.0 — 2026-04-07*
+*ZenOS-AI KF4 1.5.0 — 2026-04-14*
 *Source: Nyx (live system observation), Cayt (dev)*

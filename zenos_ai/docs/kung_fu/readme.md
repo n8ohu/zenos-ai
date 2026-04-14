@@ -73,11 +73,24 @@ Run with `mode=schema` to get the live `kfc_template` from the Dojo cabinet.
 | `command` | no | Library command that activates this component (e.g. `~WATER~`). Omit for HyperIndex-only components. |
 | `schedules` | no | List of sub-schedule entries. Each entry has `kata_key` (string) and `index_call` (mapping). When present, the Scheduler expands the component into one Ninja run per schedule entry instead of a single run. A targeted `force_summary` with `schedule: <kata_key>` fires only the matching entry. |
 | `tool` | no | Specific DojoTools tool this component uses, if any |
-| `pipeline_tier` | no | `direct` (default) or `ambient`. Ambient-tier components are excluded from SuperSummary's direct `component_data` and instead flow through the Trapper Keeper pre-digest into `ambient_context`. Omit for standard components. |
+| `pipeline_tier` | no | Dispatch priority and SuperSummary routing. See tier table below. Default: `keeper`. |
+| `staleness_minutes` | no | Age threshold (minutes) at which the drain router will force a re-run regardless of queue depth. Default: `1440` (24 h). Set lower for components that must stay fresh. |
 | `emission_cooldown_minutes` | no | Minimum minutes between emissions for this component. Prevents notification spam on rapid-fire triggers. |
 | `drift_threshold` | no | Minimum urgency delta required to consider a kata change "significant" for emission gating. |
 | `suggested_act_event` | no | Slug of the action the AI should suggest in kata output (e.g. `zen_dojotools_notification_router`). `null` = no action. |
 | `master_switch` | deprecated | Legacy `input_boolean` gate. Replaced by `meta.enabled`. Honored by the Scheduler if present but no longer written by the KFC writer. |
+
+### Pipeline Tier Values
+
+| Tier | Shedding behavior | SuperSummary routing |
+|------|-------------------|----------------------|
+| `keeper` | Shed when queue depth ≥ `shed_keeper_at` (default 8). Standard components use this. | Kata read directly by SuperSummary |
+| `system` | Same shedding as `keeper`. Conventional for core infrastructure components (e.g. trapper_keeper). | Kata read directly by SuperSummary |
+| `ambient` | Shed on fast triggers (`quarter_hour`, `every_10_minutes`) AND when depth ≥ `shed_ambient_at` (default 4). More aggressively deferred under load. | Kata pre-digested by Trapper Keeper into `ambient_context`; SuperSummary receives the index, not the raw kata |
+| `super` | Never shed. Reserved for `zen_dojotools_supersummary` internal dispatch. Do not use on regular components. | N/A |
+| `direct` | Deprecated alias for `keeper`. Honored but not written by new tooling. | Kata read directly by SuperSummary |
+
+Omit `pipeline_tier` for standard components — `keeper` is the default.
 
 ### Standard Trigger IDs
 
@@ -147,4 +160,4 @@ Six others (`security_manager`, `taskmaster`, `room_manager`, `media_manager`,
 
 ---
 
-*Last updated: 2026-04-08 — KF4 1.4.0*
+*Last updated: 2026-04-14 — KF4 1.5.0*

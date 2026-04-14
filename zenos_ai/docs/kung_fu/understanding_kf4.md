@@ -65,6 +65,8 @@ That's it. That drawer is the entire spec for how ZenOS-AI understands your wate
 | `meta.enabled` | Whether this component is active (`true` / `false`). Replaces the deprecated `master_switch` field. |
 | `trigger_subscriptions` | Which Scheduler events cause this component to summarize |
 | `delay_seconds` | How long to wait after trigger before dispatching (lower = higher priority) |
+| `pipeline_tier` | Dispatch priority: `keeper` (default), `ambient` (low-priority), `super` (reserved), `system` (infrastructure). See below. |
+| `staleness_minutes` | How old the kata can get before the drain router forces a re-run. Default: 1440 min (24 h). |
 | `kata_key` | Where to write the summary output |
 | `component_summary` | Instructions the AI reads when summarizing this component |
 
@@ -126,6 +128,27 @@ A **Kata** is a compact, structured summary of one component at one moment in ti
 - Confidence level, urgency score
 
 Katas are not raw sensor data. They're **curated signal** — what a knowledgeable observer would say about this system if you asked them right now.
+
+---
+
+## Pressure-aware dispatch
+
+The Scheduler doesn't run all components on every trigger. Under load, it defers lower-priority work and recovers it later. This is controlled by two thresholds in the `zen_scheduler_config` drawer of your household cabinet:
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| `shed_ambient_at` | 4 | Queue depth at which `ambient`-tier components are deferred |
+| `shed_keeper_at` | 8 | Queue depth at which `keeper`-tier components are deferred |
+| `drain_below` | 3 | Depth the queue must fall below before shed work trickles back |
+| `warmup_minutes` | 5 | Boot delay before the first Scheduler dispatch |
+
+**`keeper` (the default)** — dispatched on all standard triggers; deferred when queue ≥ 8.
+
+**`ambient`** — dispatched only on slower triggers (hourly, occupancy change, etc.). Shed on fast triggers (`quarter_hour`, `every_10_minutes`) and when queue ≥ 4. These are pre-digested by Trapper Keeper rather than read directly by SuperSummary — Friday gets their signal through the ambient index.
+
+**Shed work doesn't disappear.** The drain router runs on a low-water timer and a starvation guard. When the queue quiets down, the most-stale shed-eligible component gets a recovery dispatch. If a component's kata exceeds its `staleness_minutes` ceiling, it fires regardless of queue depth.
+
+A targeted `force_summary` for a specific component bypasses shedding entirely.
 
 ---
 
@@ -236,5 +259,5 @@ zen_dojotools_index → key: kung_fu → Dojo Cabinet
 
 ---
 
-*ZenOS-AI KF4 1.3.0 — 2026-04-06*
+*ZenOS-AI KF4 1.4.0 — 2026-04-14*
 *Source: Nyx (live system observation), Cayt (dev)*

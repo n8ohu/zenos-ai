@@ -1,6 +1,6 @@
 # Taskmaster — KFC Guide
 
-> **KF4 1.3.0** | ZenOS-AI 2026.4.1
+> **KF4 1.5.0** | ZenOS-AI 2026.4.1
 
 Taskmaster is ZenOS-AI's task and calendar management component. It monitors your todo lists and calendar, surfaces what needs attention, and gives you a brief when it matters — morning, evening, or when something's actually urgent.
 
@@ -157,5 +157,5 @@ No drawer edit. No code. The label graph handles it.
 
 ---
 
-*ZenOS-AI KF4 1.3.0 — 2026-04-06*
+*ZenOS-AI KF4 1.5.0 — 2026-04-14*
 *Source: Nyx (live system observation), Cayt (dev)*
