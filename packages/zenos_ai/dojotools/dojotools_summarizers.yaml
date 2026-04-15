@@ -938,6 +938,13 @@ script:
             {{
               {
                 "kung_fu_component_id": component_slug | default(''),
+                "run_context": {
+                  "started_at":       started_at | default(''),
+                  "utc_now":          utcnow().isoformat(),
+                  "today_utc_date":   utcnow().strftime('%Y-%m-%d'),
+                  "local_now":        now().isoformat(),
+                  "today_local_date": now().strftime('%Y-%m-%d')
+                },
                 "library_data": {
                   "dojo_cabinet":          dojo_cabinet | default(''),
                   "kata_cabinet":          kata_cabinet | default(''),
