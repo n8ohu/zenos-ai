@@ -275,15 +275,25 @@ automation:
           _oobe_name: >-
             {{- (_oobe_essence_val.get('identity', {}).get('name', '') | trim) -}}
           _oobe_pending: "{{ not _oobe_complete and (_oobe_name in ['', 'your AI', 'unknown']) }}"
-      # Early exit: skip when all gates green (or monastery warn) AND oobe done.
-      # warn = degraded-but-functional; no bootstrap needed, agent is usable.
-      # If oobe is pending we must walk through to Gate 3.5 even on green systems.
+          _early_in_warmup: >-
+            {%- import 'zenos_ai/zenos_health.jinja' as HEALTH -%}
+            {{ HEALTH.is_warmup() | trim | bool }}
+          _early_init_cabs: >-
+            {%- set _sde = state_attr('sensor.zen_cabinet_health', 'slot_to_default_entity') | default({}) -%}
+            {%- set _sde = _sde if _sde is mapping else (_sde | from_json if _sde is string else {}) -%}
+            {%- set ns = namespace(found=false) -%}
+            {%- for slot, eid in _sde.items() -%}{%- if states(eid) == 'init' -%}{%- set ns.found = true -%}{%- endif -%}{%- endfor -%}
+            {{ ns.found }}
+      # Early exit: skip when all gates truly green AND oobe done AND no init cabs.
+      # Optional slots stay ok in cabinet_health even with init-state cabs — we
+      # check cabinet_states directly so Flynn can't be fooled by health rollup.
       - if: >
           {{ was_green
              and is_state('sensor.zen_label_health', 'ok')
              and is_state('sensor.zen_cabinet_health', 'ok')
              and is_state('sensor.zen_monastery_health', ['ok', 'warn'])
              and not _oobe_pending
+             and not _early_init_cabs
              and 'kfc_template' in (state_attr(states('sensor.zen_dojo_cabinet_resolved'), 'variables') or {})
              and 'zen_template'  in (state_attr(states('sensor.zen_kata_cabinet_resolved'), 'variables') or {}) }}
         then:
@@ -440,6 +450,40 @@ automation:
               alert_key: cab_schema_upgrade_available
 
       #####################################################################
+      # WARMUP EXIT: Infrastructure (Gates 0-2) has run. Defer everything
+      # else — cabinet init, bootstrap, OOBE — until system is settled.
+      # warmup_expired zen_event re-triggers Flynn once the window clears.
+      #####################################################################
+      - if: "{{ _early_in_warmup or trigger.id == 'ha_start' }}"
+        then:
+          - stop: "Warmup in progress — Gates 2.1+ deferred"
+
+      #####################################################################
+      # GATE 2.1: Init-state cabinets — virgin cabs needing first-time boot
+      # touch. Safe to auto-initialize: state=init means sensor has evaluated
+      # at least once with no VolumeInfo (genuinely virgin, not a boot race).
+      # The GUID gate inside flynn_initialize_cabinets blocks any cab that has
+      # VolumeInfo, so live data is never at risk.
+      # Infrastructure-only — no monastery required.
+      #
+      # BOOT SAFETY: Skipped during warmup and ha_start. In that window,
+      # recorder may not have restored variables yet — a live cabinet can
+      # transiently show state=init before its first re-evaluation completes.
+      # After warmup the state is stable: init = genuinely virgin.
+      #####################################################################
+      - variables:
+          _has_init_cabs: >-
+            {%- set _sde = state_attr('sensor.zen_cabinet_health', 'slot_to_default_entity') | default({}) -%}
+            {%- set _sde = _sde if _sde is mapping else (_sde | from_json if _sde is string else {}) -%}
+            {%- set ns = namespace(found=false) -%}
+            {%- for slot, eid in _sde.items() -%}{%- if states(eid) == 'init' -%}{%- set ns.found = true -%}{%- endif -%}{%- endfor -%}
+            {{ ns.found }}
+      - if: "{{ _has_init_cabs and not _in_warmup and not _is_ha_start }}"
+        then:
+          - action: script.flynn_initialize_cabinets
+            data: {}
+
+      #####################################################################
       # GATE 2.5: Mount-aware mode — core defaults must be online_mounted
       # Legacy mode (cab_schema_version absent or 0): skip, no disruption.
       # Mount-aware mode (cab_schema_version >= 1): required defaults must
@@ -592,21 +636,40 @@ automation:
               notification_id: flynn_oobe_pending
 
       #####################################################################
-      # GATE 4: All green — notify on transition only
+      # GATE 4: All green — notify on transition only, verify sensors first.
+      # Reaching Gate 4 is necessary but not sufficient — monastery unavailable
+      # or agent health not ok means the system is not actually green yet.
       #####################################################################
       - action: persistent_notification.dismiss
         data:
           notification_id: flynn_warmup
       - choose:
-          - conditions: "{{ not was_green }}"
+          - conditions: >-
+              {{ not was_green
+                 and is_state('sensor.zen_monastery_health', ['ok', 'warn'])
+                 and is_state('sensor.zen_agent_health', ['ok', 'warn'])
+                 and not _early_init_cabs }}
             sequence:
+              - variables:
+                  _g4_monk: "{{ states('sensor.zen_monastery_health') }}"
+                  _g4_agent: "{{ states('sensor.zen_agent_health') }}"
+                  _g4_truly_green: >-
+                    {{ _g4_monk == 'ok' and _g4_agent == 'ok' }}
               - action: persistent_notification.create
                 data:
-                  title: "ZenOS-AI: All green — your agent is ready"
-                  message: >
+                  title: >-
+                    {{ 'ZenOS-AI: All green — your agent is ready'
+                       if _g4_truly_green else
+                       'ZenOS-AI: Agent is ready (settling)' }}
+                  message: >-
+                    {% if _g4_truly_green %}
                     Everything's copacetic. All gates green, identity model wired, system is fully operational.
                     Your household is set, your principal slots are filled, and delegation is live.
                     Open a conversation and say hi — I'll hand you off to the real talent.
+                    {% else %}
+                    Your agent is up and the gates are clear. The monastery is still settling —
+                    summary pipeline will be live shortly. Open a conversation any time.
+                    {% endif %}
                   notification_id: flynn_system_ready
 
 
@@ -744,13 +807,18 @@ script:
       - variables:
           raw_missing: "{{ state_attr('sensor.zen_cabinet_health', 'missing_cabinets') }}"
           missing_list: >-
-            {% if raw_missing is string and raw_missing != 'none' %}
-              {{ raw_missing.split(', ') | map('trim') | list }}
-            {% elif raw_missing is iterable and raw_missing is not string %}
-              {{ raw_missing | list }}
-            {% else %}
-              []
-            {% endif %}
+            {%- set ns = namespace(slots=[]) -%}
+            {%- if raw_missing is string and raw_missing != 'none' -%}
+              {%- set ns.slots = raw_missing.split(', ') | map('trim') | list -%}
+            {%- elif raw_missing is iterable and raw_missing is not string -%}
+              {%- set ns.slots = raw_missing | list -%}
+            {%- endif -%}
+            {%- set _sde = state_attr('sensor.zen_cabinet_health', 'slot_to_default_entity') | default({}) -%}
+            {%- set _sde = _sde if _sde is mapping else (_sde | from_json if _sde is string else {}) -%}
+            {%- for slot, eid in _sde.items() -%}
+              {%- if states(eid) == 'init' and slot not in ns.slots -%}{%- set ns.slots = ns.slots + [slot] -%}{%- endif -%}
+            {%- endfor -%}
+            {{ ns.slots }}
           slot_to_entity_raw: "{{ state_attr('sensor.zen_cabinet_health', 'slot_to_default_entity') }}"
           slot_to_entity: "{{ slot_to_entity_raw if slot_to_entity_raw is mapping else (slot_to_entity_raw | from_json if slot_to_entity_raw is string else {}) }}"
           # Slot → CabinetAdmin cabinet_type mapping
@@ -813,11 +881,10 @@ script:
                     - stop: "REINIT BLOCKED — {{ entity_id }} has VolumeInfo. Data present. Not a missing cabinet."
                 - action: script.zen_admintools_cabinetadmin
                   data:
-                    mode: initialize
+                    mode: init
                     confirm_action: true
-                    cabinet_entity: "{{ entity_id }}"
-                    cabinet_type: "{{ cabinet_type }}"
-                    skip_auto_init: true
+                    target_cabinet: "{{ entity_id }}"
+                    cab_type: "{{ cabinet_type }}"
 
       - event: flynn_stepgate_event
         event_data:
