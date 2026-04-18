@@ -152,7 +152,7 @@ ZenOS has several layers of protection:
 **What this means for your component:**
 
 - Don't emit events that are likely to re-trigger your own summary. If you do, bound it with a cooldown.
-- Use `caller_token: your_component_name` on all FileCabinet writes. This is not optional — it's the current form of chain attribution.
+- for now you may Use `caller_token:  unique_foo` if you need basic chain attribution this will improve. 
 - Design your output contract (Decision 3) so consumers can make decisions *without* re-invoking you. The kata should be self-contained.
 - `mode: queued` on your trigger automation is not style — it's the mechanism that prevents a burst of simultaneous trigger fires from spawning parallel ninja runs.
 
