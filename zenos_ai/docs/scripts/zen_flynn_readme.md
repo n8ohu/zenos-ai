@@ -48,6 +48,9 @@ Flynn skips all gates and exits immediately if **all** of the following are true
 - All health sensors are `ok` (monastery and cabinet may be `warn` — both are non-blocking)
 - OOBE is not pending
 - Both `kfc_template` (Dojo) and `zen_template` (Kata) are already seeded
+- No cabinets are in `init` state (checked directly via `slot_to_default_entity` — not the health rollup)
+
+The init-state check is evaluated separately from `zen_cabinet_health`. Optional cabinet slots can appear healthy in the rollup even when their underlying entity is still in `init`. Flynn reads `slot_to_default_entity` directly to catch this case.
 
 If the system is already clean and stable, Flynn steps aside.
 
@@ -113,6 +116,24 @@ default_user, default_ai_user, history, index
 ```
 
 **Event fired:** `flynn_stepgate_event` (gate: 2, action: cabinets_initialized) — Case A only.
+
+---
+
+### Gate 2.1 — Virgin Cabinet Auto-Init
+
+**Trigger:** One or more cabinets in `init` state, post-warmup, not `ha_start`
+
+Detects cabinets that are present but genuinely uninitialized — `state=init` with no VolumeInfo. These are virgin cabinets: the sensor has evaluated at least once and found nothing. Flynn calls `script.flynn_initialize_cabinets` to bootstrap them.
+
+**Why this gate exists:** `zen_cabinet_health` rolls up optional slots as healthy even when their underlying entity is still in `init`. New installs were deadlocking — present-but-uninitialized cabinets never appeared in `missing_cabinets`, so Gate 2 never saw them, and nothing ever called cabinetadmin. Gate 2.1 catches them by reading `slot_to_default_entity` directly and checking entity state.
+
+**Safety guards:**
+- **Warmup / `ha_start` skip** — during the boot warmup window, the recorder may not have restored variables yet. A live cabinet can transiently show `state=init` before its first re-evaluation completes. Gate 2.1 is skipped entirely until warmup expires. After that, `init` = genuinely virgin.
+- **GUID gate** — `flynn_initialize_cabinets` checks VolumeInfo before touching any cabinet. Any cabinet that already has data is silently skipped. Live data is never at risk.
+
+**What you'll see:** No notification — this is silent infrastructure. Cabinets self-initialize and Flynn continues to Gate 3.
+
+**Event fired:** Handled internally by `script.flynn_initialize_cabinets`.
 
 ---
 
@@ -194,9 +215,11 @@ The conversational path: start chatting with your AI agent — Flynn's Agent Bui
 
 ### Gate 4 — System Ready
 
-**Trigger:** All health sensors green + OOBE complete
+**Trigger:** All health sensors green + OOBE complete + monastery and agent health confirmed
 
-Fires **once on transition** (not on subsequent green re-runs). Creates a persistent notification:
+Fires **once on transition** (not on subsequent green re-runs). Before creating the notification, Flynn verifies that `zen_monastery_health` is `ok` or `warn` and `zen_agent_health` is `ok` or `warn`, and that no init-state cabinets remain. Reaching Gate 4 is necessary but not sufficient — all three conditions must hold.
+
+Creates a persistent notification:
 
 > *"ZenOS-AI: System Ready — Everything's looking good. All gates green. Handing off to the real talent."*
 
@@ -243,9 +266,10 @@ Options resolve dynamically at render time. The persona select only shows person
 | `zen_cabinet_health: error/critical` | Gate 2 (hard stop) | Initialize missing cabinets — operator action required |
 | `zen_cabinet_health: warn` (outside warmup) | Gate 2 (non-blocking) | Schema upgrade notification — system continues |
 | `zen_cabinet_health: warn` (warmup/ha_start) | Gate 2 (log only) | Logged, system continues — no notification |
+| Init-state cabs detected (post-warmup) | Gate 2.1 (silent, auto) | Auto-initialize virgin cabinets via `flynn_initialize_cabinets` |
 | `zen_monastery_health: critical` | Gate 3 | Full content bootstrap |
 | `zen_monastery_health: warn` | Gate 3 (partial) | Schema seed only |
-| All green + OOBE complete | Gate 4 | System ready notification |
+| All green + monastery/agent confirmed + OOBE complete | Gate 4 | System ready notification |
 
 ---
 

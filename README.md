@@ -10,15 +10,17 @@ Let's automate everything that isn't nailed down.
 
 And a few things that are.
 
-**Current version: 2026.4.1 'Action Jackson'**
+**Current version: 2026.4.2 'Action Jackson 2'**
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention — if you're already running HA, you already know this clock. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
+
+2026.4.2 'Action Jackson 2' shipped 2026-04-17 — Gate 2.1 virgin cabinet auto-init (fixes new-install deadlock, closes #133), cortex v36 INDEX FIRST (index-first directive elevated to position 2, 5 noise directives removed, pipeline.tiers and knowledge_tree trimmed), `zen_health_report` init-state cabinet awareness, summarizer health `kata_emit` wakeup, Gate 4 monastery+agent confirmation hardening, KFC builder guide.
 
 2026.4.1 'Action Jackson' shipped 2026-04-14 — pipeline reliability overhaul (pressure-aware dispatch, queue drain router, fire-and-forget scheduler, burnout governors, kata TTL + GC self-heal), `zen_dojotools_announce` v0.1.0 (four enforced gates: urgency required, urgency threshold, sleep, dedup), emission push gate, cortex v35 TOOL AUTHORITY, `zen_dojotools_todo` v1.7.0 + `zen_dojotools_calendar` v1.11.0, taskmaster KFC v1.3.4, monastery health cascade, two complete KFC guides, first-notification walkthrough, KF4 1.5.0 schema (full tier table, `staleness_minutes`).
 
 2026.4.0 'Ectoplasm' shipped 2026-04-04 — new `zen_dojotools_ectoplasm` (Spook/HA extended surface: repairs, areas, floors, entity/device lifecycle, labels, integrations), Index 4.6.3 topology seeds + pagination + registry modes, Inspect 4.6.2 registry enum modes, Ninja run governor, Scribe 1.2.0.
 
-Full notes: [Action Jackson Release Notes](zenos_ai/docs/releases/action_jackson.md) | [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md)
+Full notes: [Action Jackson 2 Release Notes](zenos_ai/docs/releases/action_jackson_2.md) | [Action Jackson Release Notes](zenos_ai/docs/releases/action_jackson.md) | [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md)
 
 ---
 
@@ -26,7 +28,7 @@ Full notes: [Action Jackson Release Notes](zenos_ai/docs/releases/action_jackson
 
 New install? → **[Install Guide](zenos_ai/docs/getting_started/install.md)**
 First boot? → **[First Run & OOBE](zenos_ai/docs/getting_started/first_run.md)**
-Adding a component? → **[Understanding KF4](zenos_ai/docs/kung_fu/understanding_kf4.md)**
+Adding a component? → **[Understanding KF4](zenos_ai/docs/kung_fu/understanding_kf4.md)** · **[Building a KFC](zenos_ai/docs/kung_fu/building_a_kfc.md)**
 Full docs → **[Documentation Hub](zenos_ai/docs/readme.md)**
 
 ---

@@ -160,4 +160,15 @@ Six others (`security_manager`, `taskmaster`, `room_manager`, `media_manager`,
 
 ---
 
-*Last updated: 2026-04-14 — KF4 1.5.0*
+---
+
+## Guides
+
+- [`understanding_kf4.md`](understanding_kf4.md) — schema reference, tier table, pressure dispatch
+- [`building_a_kfc.md`](building_a_kfc.md) — how to build a new KFC from scratch (the five decisions)
+- [`alert_manager.md`](alert_manager.md) — reference implementation, safety-critical pattern
+- [`taskmaster.md`](taskmaster.md) — lifecycle/task pattern, conductor model
+
+---
+
+*Last updated: 2026-04-17 — KF4 1.5.0*

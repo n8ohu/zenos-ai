@@ -33,6 +33,7 @@ venv/
 
 # Claude Code local settings (instance-specific, never upstream)
 .claude/
+CLAUDE.md
 
 # System files
 .DS_Store

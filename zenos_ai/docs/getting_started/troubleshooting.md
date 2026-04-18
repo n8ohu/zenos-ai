@@ -1,4 +1,4 @@
-# ZenOS-AI Troubleshooting Guide — 2026.4.0 'Ectoplasm'
+# ZenOS-AI Troubleshooting Guide — 2026.4.2 'Action Jackson 2'
 
 *Gauges → Kill Switches → Repair Tools. Start at the top, work down.*
 
@@ -52,6 +52,7 @@ If any resolver shows `unavailable`, Flynn's Gate 3a will stall. Resolvers evalu
 |---|---|---|
 | `error` / `critical` | Gate 2 (hard stop) | One or more cabinets uninitialized — operator action required |
 | `warn` | Gate 2 (non-blocking) | Legacy schema detected — upgrade available, system fully operational |
+| `ok` but init-state cabs present (post-warmup) | Gate 2.1 (silent, auto) | Virgin cabinets auto-initialized — no action needed |
 | `ok` | Pass | — |
 
 | `zen_monastery_health` | Flynn Gate | What's Needed |
@@ -195,6 +196,7 @@ Flynn handles the full rebuild sequence automatically.
 | Resolver sensors unavailable | Fire `zen_resolver_refresh`. If still stuck → Step 4 (soft label reset) |
 | Labels not assigning | `sensor.zen_label_health` → `missing_label_ids`, `unassigned_label_ids` |
 | Cabinet missing or corrupt | `sensor.zen_cabinet_health` → `missing_cabinets` → Step 6 |
+| New install stuck — cabinets all in `init`, nothing initializing | Flynn Gate 2.1 handles this post-warmup. Wait ~5 min after HA start. If still stuck → Step 6 (single cabinet reset). |
 | Schema missing / Gate 3 keeps firing | Step 2 (`reset_template`) |
 | Full reinstall needed | Step 7 (nuclear sequence) |
 

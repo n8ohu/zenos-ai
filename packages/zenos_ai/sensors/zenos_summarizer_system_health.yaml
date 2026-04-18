@@ -455,6 +455,13 @@ template:
       - trigger: event
         event_type: zen_resolver_refresh
         alias: Manual refire
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: kata_emit
+            component: ninja_summary
+        alias: Ninja summarizer pipeline complete
     sensor:
       - name: Zen Summarizer Health
         unique_id: zen_summarizer_health
@@ -545,6 +552,13 @@ template:
       - trigger: event
         event_type: zen_resolver_refresh
         alias: Manual refire
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: kata_emit
+            component: super_summary
+        alias: SuperSummary pipeline complete
     sensor:
       - name: Zen SuperSummary Health
         unique_id: zen_supersummary_health

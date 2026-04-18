@@ -756,6 +756,15 @@ script:
               {%- endfor -%}
               {{ ns.l | join(', ') if ns.l else '' }}
         - variables:
+            _init_cabinets: >-
+              {%- set _sde = state_attr('sensor.zen_cabinet_health', 'slot_to_default_entity') | default({}) -%}
+              {%- set _sde = _sde if _sde is mapping else (_sde | from_json if _sde is string else {}) -%}
+              {%- set ns = namespace(l=[]) -%}
+              {%- for slot, eid in _sde.items() if states(eid) == 'init' -%}
+                {%- set ns.l = ns.l + [slot] -%}
+              {%- endfor -%}
+              {{ ns.l | join(', ') if ns.l else '' }}
+        - variables:
             _diagnosis: >-
               {%- set _ns = namespace(issues=[]) -%}
               {%- if _dojo in ['unknown','unavailable','none',''] -%}
@@ -847,6 +856,9 @@ script:
                 {%- set _notes = _roster | map(attribute='note') | list | join(', ') if _roster is iterable else '' -%}
                 {%- set _ns.issues = _ns.issues + ['Agent health ' ~ _agent_st ~ ' — Flynn blocking: ' ~ _flynn_blocking ~ (' | agents: ' ~ _notes if _notes else '')] -%}
               {%- endif -%}
+              {%- if _init_cabinets != '' -%}
+                {%- set _ns.issues = _ns.issues + ['Virgin cabinets in init state: ' ~ _init_cabinets ~ ' — Flynn Gate 2.1 will auto-init post-warmup. If stuck >5 min, run cabinetadmin mode: init manually.'] -%}
+              {%- endif -%}
               {%- if _legacy_cabinets != '' -%}
                 {%- set _ns.issues = _ns.issues + ['Cabinet schema upgrade available: ' ~ _legacy_cabinets ~ ' — say "upgrade my cabinets"'] -%}
               {%- endif -%}
@@ -874,6 +886,7 @@ script:
                 supersummary: "{{ states('sensor.zen_supersummary_health') }}"
                 cabinet: "{{ states('sensor.zen_cabinet_health') }}"
                 legacy_schema_cabinets: "{{ _legacy_cabinets }}"
+                init_cabinets: "{{ _init_cabinets }}"
                 agents: "{{ states('sensor.zen_agent_health') }}"
               reasons:
                 monastery: "{{ state_attr('sensor.zen_monastery_health', 'reason') | default('') }}"
