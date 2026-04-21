@@ -223,7 +223,7 @@ ZenOS-AI installs as a **Home Assistant package collection**.
 ## Requirements
 
 • Home Assistant 2024.x+
-• A conversation agent with tool-calling support (models under ~8B parameters or with short context windows are not recommended)
+• A conversation agent with tool-calling support (models under ~4B parameters released before Nov 2025 or ~8B parameters beforehand, or with short context windows are not recommended.  Your CTX must hold the HA live state data, Tools manifest AND the ZenosPrompt. The ZenOS goals is to target a ~64K or smaller context as to be able to run the system locally on a single 16G GPU)
 • Spook integration (installable via HACS)
 
 ---
