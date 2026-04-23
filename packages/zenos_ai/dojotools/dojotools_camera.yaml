@@ -1,9 +1,9 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Camera
-# Version: 1.1.0
+# Version: 1.2.0
 #
 # Scripts:
-#   zen_dojotools_camera — Camera analysis, caching, and scanning (v1.1.0)
+#   zen_dojotools_camera — Camera analysis, caching, and scanning (v1.2.0)
 #
 # SUPERSEDES: analyze_camera_with_llm in scripts.yaml
 #
@@ -11,6 +11,7 @@
 #   look             — analyze a single camera, cache result to household cabinet
 #   read             — return last cached description (no LLM call)
 #   scan             — sweep all cameras matching a label, analyze + cache each
+#   info             — entity attributes + labels + stored _default_ctx, no LLM
 #   set_default_ctx  — validate + store per-camera default context index call
 #   help             — return schema
 #
@@ -35,8 +36,9 @@ script:
 
       MODES: look (analyze + cache single camera) | read (return cached
       description — zero LLM cost) | scan (label-targeted multi-camera sweep,
-      analyze + cache all) | set_default_ctx (store per-camera default context
-      index call, validated before write) | help (schema + examples).
+      analyze + cache all) | info (entity attributes + _default_ctx, no LLM) |
+      set_default_ctx (store per-camera default context index call, validated
+      before write) | help (schema + examples).
 
       CACHING: Results land in the household cabinet keyed by camera entity_id.
       read mode retrieves instantly with cache_age_minutes so the agent knows
@@ -49,6 +51,10 @@ script:
 
       USE read BEFORE look — if cache_age_minutes is acceptable, skip the LLM
       call entirely. Use look to refresh. Use scan to warm the full camera set.
+
+      SENDTO: After look, optionally dispatch to image.zen_image_<slot> (writes
+      to zen slot so Friday can discuss it on the dashboard) or person.* (push
+      notification via postman with snapshot attached).
     icon: mdi:camera-iris
     sequence:
 
@@ -87,9 +93,10 @@ script:
           _has_ctx_call: "{{ _ctx_call is mapping and _ctx_call.keys() | list | length > 0 }}"
           _camera_hint:  "{{ camera_hint | default('') | lower | trim }}"
           _ignore_autocontext: "{{ ignore_autocontext | default(false) | bool }}"
+          _sendto: "{{ sendto | default('', true) | string | trim }}"
 
       # ── 0b. Resolve camera_entity from hint via index ─────────────────────
-      - if: "{{ _camera_entity == '' and _camera_hint != '' and _tool in ['look', 'read', 'set_default_ctx'] }}"
+      - if: "{{ _camera_entity == '' and _camera_hint != '' and _tool in ['look', 'read', 'set_default_ctx', 'info'] }}"
         then:
           - alias: Resolve camera entity from hint
             action: script.zen_dojotools_index
@@ -203,7 +210,7 @@ script:
           - variables:
               _help_response:
                 help: true
-                version: "1.0.0"
+                version: "1.2.0"
                 tool: zen_dojotools_camera
                 description: >-
                   The ZenOS Agent's visual surface. Analyze any camera with LLM
@@ -216,13 +223,16 @@ script:
                   2. look to refresh a specific camera on demand.
                   3. scan to warm the full labeled set (e.g. after away period,
                      on motion event, or on a schedule).
+                  4. info to inspect what a camera is configured to do before
+                     deciding whether to look.
                 modes:
                   look: >-
                     Snapshot + LLM analysis of a single camera. Caches result to
                     household cabinet. Returns: analysis, cached_at, cached (bool).
                     Requires: camera_entity. Auto-loads _default_ctx from cache
                     drawer if no context_index_call is passed (unless
-                    ignore_autocontext: true).
+                    ignore_autocontext: true). Optional sendto dispatches result
+                    to a zen image slot or person after analysis completes.
                   read: >-
                     Returns the last cached scene description instantly — no LLM
                     call, no snapshot. Returns: analysis, cached_at,
@@ -233,6 +243,17 @@ script:
                     security_camera). Analyzes and caches each in sequence.
                     Returns: cameras_scanned, cameras list. Results readable
                     per-camera via read after scan completes.
+                  info: >-
+                    Returns camera entity state, attributes, labels, and stored
+                    _default_ctx from the cache drawer — the full configuration
+                    picture for a camera without triggering any LLM call or
+                    snapshot. Requires: camera_entity or camera_hint. Returns:
+                    state, friendly_name, entity_picture, supported_features,
+                    is_recording, motion_detected, brand, model, labels,
+                    in_scan_scope, in_cache_gate, cache_gate_mode, default_ctx,
+                    cached_at, cache_age_minutes, snapshot_path, has_cache.
+                    Use before look to decide if a refresh is warranted, or to
+                    audit what context is configured.
                   set_default_ctx: >-
                     Validates a context_index_call via dry_run, then writes it as
                     _default_ctx to the camera's cache drawer. Rejected without
@@ -277,8 +298,8 @@ script:
                   stream only — typically the high_resolution_channel. scan sweeps
                   only labeled entities, so labeling IS the de-dupe mechanism.
                 fields:
-                  tool: "look | read | scan | help. Default: look."
-                  camera_entity: "Camera entity_id. Required for look and read."
+                  tool: "look | read | scan | info | set_default_ctx | help. Default: look."
+                  camera_entity: "Camera entity_id. Required for look, read, and info."
                   camera_hint: >-
                     Free-text hint used to resolve camera_entity automatically.
                     Matched against entity_id (slug) of all security_camera-labeled
@@ -308,6 +329,18 @@ script:
                     camera cache drawer. Use for raw looks or when passing an
                     explicit context_index_call you don't want shadowed.
                     Default: false.
+                  sendto: >-
+                    Optional. After look completes, dispatch the result to a
+                    target. Accepts image.zen_image_<slot> or person.*. Ignored
+                    by scan, read, info, and all other modes.
+                    image.zen_image_<slot> — fires zen_event (kind: image_generated)
+                    so the slot entity fetches the current camera frame, then
+                    image.snapshot writes to zen_images/<slot>.jpg (primary,
+                    continue_on_error) and zen_<slot>.jpg (fallback). Same
+                    dual-path pattern as zen_dojotools_generate_image.
+                    person.* — calls postman (resolve_and_dispatch) with the
+                    snapshot path as image_url and the analysis as message at
+                    urgency 1. Respects authority stack (sleep gate, tiers).
                   caller_token: "Opaque correlation token echoed in all responses."
                 getting_cached_analysis: >-
                   Camera analysis is cached in the household cabinet keyed by
@@ -336,10 +369,21 @@ script:
                     instructions: >-
                       Focus on vehicle presence and plate visibility. Note any
                       vehicles that appear unfamiliar or parked unusually.
+                  send_to_dashboard:
+                    tool: look
+                    camera_entity: camera.hot_tub_camera_high_resolution_channel
+                    sendto: image.zen_image_canvas
+                  notify_person:
+                    tool: look
+                    camera_entity: camera.front_doorbell_camera
+                    sendto: person.nathan
+                  audit_camera_config:
+                    tool: info
+                    camera_entity: camera.hot_tub_camera_high_resolution_channel
           - stop: help
             response_variable: _help_response
 
-      # ── 2. Read — cached description, no LLM ─────────────────────────────
+      # ── 2b. Read — cached description, no LLM ────────────────────────────
       - if: "{{ _tool == 'read' }}"
         then:
           - variables:
@@ -369,6 +413,49 @@ script:
                 caller_token: "{{ _caller_token }}"
           - stop: read
             response_variable: _read_response
+
+      # ── 2c. Info — entity attributes + drawer settings ───────────────────
+      - if: "{{ _tool == 'info' }}"
+        then:
+          - variables:
+              _info_cache_key: "{{ _camera_entity | replace('.', '_') | replace('-', '_') }}"
+              _info_labels: "{{ labels(_camera_entity) | list }}"
+              _info_raw: >-
+                {%- set v = (state_attr(_household_cab, 'variables') or {}).get(_info_cache_key, {}) -%}
+                {%- set v1 = v.get('value', v) if v is mapping else {} -%}
+                {{ v1 if v1 is mapping else {} }}
+              _info_cached_at: "{{ (_info_raw.get('cached_at', '') if _info_raw is mapping else '') }}"
+              _info_cache_age: >-
+                {%- if _info_cached_at != '' -%}
+                  {%- set _parsed = _info_cached_at | as_datetime | default(none, true) -%}
+                  {{ ((now() - _parsed).total_seconds() / 60) | round(1) if _parsed is not none else none }}
+                {%- else -%}
+                  {{ none }}
+                {%- endif -%}
+              _info_response:
+                mode: info
+                camera_entity: "{{ _camera_entity }}"
+                state: "{{ states(_camera_entity) }}"
+                friendly_name: "{{ state_attr(_camera_entity, 'friendly_name') | default('') }}"
+                entity_picture: "{{ state_attr(_camera_entity, 'entity_picture') | default('') }}"
+                supported_features: "{{ state_attr(_camera_entity, 'supported_features') | default(0) }}"
+                is_recording: "{{ state_attr(_camera_entity, 'is_recording') | default(none) }}"
+                motion_detected: "{{ state_attr(_camera_entity, 'motion_detected') | default(none) }}"
+                brand: "{{ state_attr(_camera_entity, 'brand') | default('') }}"
+                model: >-
+                  {{ state_attr(_camera_entity, 'model_id') | default(state_attr(_camera_entity, 'model') | default('')) }}
+                labels: "{{ _info_labels }}"
+                in_scan_scope: "{{ 'security_camera' in _info_labels }}"
+                in_cache_gate: "{{ 'camera_cache' in _info_labels }}"
+                cache_gate_mode: "{{ 'explicit' if _cache_scheme_active else 'cache_all' }}"
+                default_ctx: "{{ (_info_raw.get('_default_ctx', {}) if _info_raw is mapping else {}) }}"
+                cached_at: "{{ _info_cached_at }}"
+                cache_age_minutes: "{{ _info_cache_age }}"
+                snapshot_path: "{{ (_info_raw.get('snapshot_path', '') if _info_raw is mapping else '') }}"
+                has_cache: "{{ _info_raw is mapping and _info_raw != {} }}"
+                caller_token: "{{ _caller_token }}"
+          - stop: info
+            response_variable: _info_response
 
       # ── 3. Look — analyze single camera + cache ───────────────────────────
       - if: "{{ _tool == 'look' }}"
@@ -412,6 +499,66 @@ script:
                     {{ {'analysis': _look_analysis, 'cached_at': now().isoformat(), 'camera_entity': _camera_entity, 'snapshot_path': _snapshot_path} | tojson }}
                   label_input: camera, security
                 response_variable: _look_fc_resp
+
+          # ── sendto dispatch ──────────────────────────────────────────────
+          - variables:
+              _sendto_result: {}
+          - if: "{{ _sendto != '' and _sendto.startswith('image.zen_image_') }}"
+            then:
+              - variables:
+                  _sendto_slot: "{{ _sendto | replace('image.zen_image_', '') }}"
+                  _sendto_ep: "{{ state_attr(_camera_entity, 'entity_picture') | default('') }}"
+              - if: "{{ _sendto_ep != '' }}"
+                then:
+                  - event: zen_event
+                    event_data:
+                      event:
+                        kind: image_generated
+                        slot: "{{ _sendto_slot }}"
+                        url: "{{ _sendto_ep }}"
+                  - delay: "00:00:02"
+                  - alias: Write to zen slot (primary)
+                    action: image.snapshot
+                    continue_on_error: true
+                    data:
+                      filename: "/config/www/zen_images/{{ _sendto_slot }}.jpg"
+                    target:
+                      entity_id: "{{ _sendto }}"
+                  - alias: Write to zen slot (fallback)
+                    action: image.snapshot
+                    data:
+                      filename: "/config/www/zen_{{ _sendto_slot }}.jpg"
+                    target:
+                      entity_id: "{{ _sendto }}"
+                  - variables:
+                      _sendto_result:
+                        target: "{{ _sendto }}"
+                        type: image_entity
+                        slot: "{{ _sendto_slot }}"
+                        dispatched: true
+                        paths:
+                          organized: "/config/www/zen_images/{{ _sendto_slot }}.jpg"
+                          fallback: "/config/www/zen_{{ _sendto_slot }}.jpg"
+          - if: "{{ _sendto != '' and _sendto.startswith('person.') }}"
+            then:
+              - variables:
+                  _sendto_local_path: "{{ _snapshot_path | replace('/config/www/', '/local/') }}"
+              - alias: Notify via postman
+                action: script.zen_dojotools_postman
+                data:
+                  mode: resolve_and_dispatch
+                  target: "{{ _sendto }}"
+                  message: "{{ _look_analysis }}"
+                  image_url: "{{ _sendto_local_path }}"
+                  urgency: 1
+                response_variable: _sendto_postman_resp
+              - variables:
+                  _sendto_result:
+                    target: "{{ _sendto }}"
+                    type: person
+                    dispatched: true
+                    postman_status: "{{ _sendto_postman_resp.get('status', '') if _sendto_postman_resp is mapping else '' }}"
+
           - variables:
               _look_response:
                 mode: look
@@ -421,6 +568,7 @@ script:
                 snapshot_path: "{{ _snapshot_path }}"
                 cached: "{{ _do_cache }}"
                 fc_confirmed: "{{ (_look_fc_resp.confirmed | default(false)) | bool if _do_cache else false }}"
+                sendto_result: "{{ _sendto_result if _sendto != '' else none }}"
                 caller_token: "{{ _caller_token }}"
           - stop: look
             response_variable: _look_response
@@ -602,12 +750,13 @@ script:
       tool:
         selector:
           select:
-            options: [look, read, scan, set_default_ctx, help]
+            options: [look, read, scan, info, set_default_ctx, help]
         name: Tool / Mode
         description: >-
           look — snapshot + LLM analysis, result cached to household cabinet.
           read — return last cached description instantly (no LLM, no snapshot).
           scan — sweep all cameras carrying the specified label, analyze + cache each.
+          info — entity attributes, labels, and stored _default_ctx. No LLM call.
           help — return full schema with recommended flow and examples.
         default: look
         required: true
@@ -618,8 +767,8 @@ script:
               domain: camera
         name: Camera Entity
         description: >-
-          Target camera entity_id. Required for look and read. For scan, use
-          the label field instead — scan discovers cameras automatically.
+          Target camera entity_id. Required for look, read, and info. For scan,
+          use the label field instead — scan discovers cameras automatically.
         required: false
       label:
         selector:
@@ -671,6 +820,21 @@ script:
           Default: false.
         default: false
         required: false
+      sendto:
+        selector:
+          text:
+        name: Send To
+        description: >-
+          Optional. After look completes, send the result to a target entity.
+          Accepts image.zen_image_<slot> or person.*. Ignored by all other modes.
+          image.zen_image_<slot> — fires zen_event (kind: image_generated) so
+          the slot entity fetches the current camera frame, then image.snapshot
+          writes to zen_images/<slot>.jpg (primary) and zen_<slot>.jpg (fallback).
+          Same dual-path pattern as zen_dojotools_generate_image.
+          Slots: canvas, portrait, wallpaper, id_pic, dashboard_snap, home_state.
+          person.* — calls postman resolve_and_dispatch with snapshot as image_url
+          and analysis as message at urgency 1. Respects authority stack.
+        required: false
       camera_hint:
         selector:
           text:
@@ -681,7 +845,7 @@ script:
           entities — first match wins. Use this instead of camera_entity when
           you know the location or name but not the exact entity_id. Ignored if
           camera_entity is already set. Examples: 'hot tub', 'front door',
-          'driveway'. Only applies to look and read modes.
+          'driveway'. Only applies to look, read, and info modes.
         required: false
       caller_token:
         selector:
