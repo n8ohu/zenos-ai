@@ -486,6 +486,13 @@ script:
               _look_analysis: "{{ _look_llm_resp.data.analysis | default('') }}"
               _do_cache: >-
                 {{ (not _cache_scheme_active) or (_camera_entity in _cache_list) }}
+          - variables:
+              _look_cache_key: "{{ _camera_entity | replace('.', '_') | replace('-', '_') }}"
+              _look_existing_ctx: >-
+                {%- set v = (state_attr(_household_cab, 'variables') or {}).get(_look_cache_key, {}) -%}
+                {%- set v1 = v.get('value', v) if v is mapping else {} -%}
+                {%- set v1 = v1 if v1 is mapping else (v1 | from_json if v1 is string else {}) -%}
+                {{ v1.get('_default_ctx', {}) if v1 is mapping else {} }}
           - if: "{{ _do_cache }}"
             then:
               - alias: Cache to household cabinet
@@ -496,7 +503,11 @@ script:
                   volume_entity_id: "{{ _household_cab }}"
                   key: "{{ _camera_entity }}"
                   value: >-
-                    {{ {'analysis': _look_analysis, 'cached_at': now().isoformat(), 'camera_entity': _camera_entity, 'snapshot_path': _snapshot_path} | tojson }}
+                    {%- set _w = {'analysis': _look_analysis, 'cached_at': now().isoformat(), 'camera_entity': _camera_entity, 'snapshot_path': _snapshot_path} -%}
+                    {%- if _look_existing_ctx is mapping and _look_existing_ctx.keys() | list | length > 0 -%}
+                      {%- set _w = _w | combine({'_default_ctx': _look_existing_ctx}) -%}
+                    {%- endif -%}
+                    {{ _w | tojson }}
                   label_input: camera, security
                 response_variable: _look_fc_resp
 
@@ -606,6 +617,13 @@ script:
                       media_content_id: "media-source://camera/{{ repeat.item }}"
                       media_content_type: image/jpeg
                   response_variable: _scan_llm_resp
+                - variables:
+                    _scan_cache_key: "{{ repeat.item | replace('.', '_') | replace('-', '_') }}"
+                    _scan_existing_ctx: >-
+                      {%- set v = (state_attr(_household_cab, 'variables') or {}).get(_scan_cache_key, {}) -%}
+                      {%- set v1 = v.get('value', v) if v is mapping else {} -%}
+                      {%- set v1 = v1 if v1 is mapping else (v1 | from_json if v1 is string else {}) -%}
+                      {{ v1.get('_default_ctx', {}) if v1 is mapping else {} }}
                 - if: >-
                     {{ (not _cache_scheme_active) or (repeat.item in _cache_list) }}
                   then:
@@ -617,7 +635,11 @@ script:
                         volume_entity_id: "{{ _household_cab }}"
                         key: "{{ repeat.item }}"
                         value: >-
-                          {{ {'analysis': _scan_llm_resp.data.analysis | default(''), 'cached_at': now().isoformat(), 'camera_entity': repeat.item, 'snapshot_path': _scan_snapshot_path} | tojson }}
+                          {%- set _w = {'analysis': _scan_llm_resp.data.analysis | default(''), 'cached_at': now().isoformat(), 'camera_entity': repeat.item, 'snapshot_path': _scan_snapshot_path} -%}
+                          {%- if _scan_existing_ctx is mapping and _scan_existing_ctx.keys() | list | length > 0 -%}
+                            {%- set _w = _w | combine({'_default_ctx': _scan_existing_ctx}) -%}
+                          {%- endif -%}
+                          {{ _w | tojson }}
                         label_input: camera, security
           - event: zen_event
             event_data:

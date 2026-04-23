@@ -289,7 +289,7 @@ script:
         - variables:
             final_response: >-
               {{ {"status": "blocked_urgency",
-                  "message": "Audio blocked — urgency " ~ _urgency_int ~ " is below voice threshold (minimum 4). Use zen_dojotools_notification_router for push.",
+                  "message": "Audio blocked — urgency " ~ _urgency_int ~ " is below voice threshold (minimum 4). Use zen_dojotools_postman (mode: resolve_and_dispatch) for push.",
                   "urgency": _urgency_int} | tojson }}
         - event: zen_event
           event_data:
@@ -324,7 +324,7 @@ script:
         - variables:
             final_response: >-
               {{ {"status": "blocked_sleep",
-                  "message": "Audio blocked — household in sleep state or quiet hours (11pm–7am). Use zen_dojotools_notification_router for push. Only life-safety urgency >= 9 bypasses this gate (smoke, CO, flood, alarm).",
+                  "message": "Audio blocked — household in sleep state or quiet hours (11pm–7am). Use zen_dojotools_postman (mode: resolve_and_dispatch) for push. Only life-safety urgency >= 9 bypasses this gate (smoke, CO, flood, alarm).",
                   "urgency": _urgency_int,
                   "mode": _zen_mode} | tojson }}
         - event: zen_event
@@ -542,7 +542,7 @@ script:
       GATES (enforced by the tool — all responses are machine-readable status codes):\n\
       \  1. URGENCY REQUIRED: urgency must be passed. Returns status: urgency_required.\n\
       \  2. URGENCY GATE: urgency <= 3 = push only. Returns status: blocked_urgency.\n\
-      \     Use zen_dojotools_notification_router instead.\n\
+      \     Use zen_dojotools_postman (mode: resolve_and_dispatch) instead.\n\
       \  3. SLEEP GATE: zen_home_mode=sleep or 11pm-7am. Returns status: blocked_sleep.\n\
       \     urgency >= 9 bypasses (life-safety only: smoke, CO, flood, alarm).\n\
       \  4. DEDUP GATE: same caller+message within dedup window. Returns status: dedup.\n\n\
@@ -919,22 +919,19 @@ script:
     - stop: done
       response_variable: final_response
 
+  # DEPRECATED — use zen_dojotools_postman (mode: resolve_and_dispatch) instead.
+  # kata_input and breakthrough fields now live in postman. Android notification
+  # fields pass through postman's notification_data dict. This script remains for
+  # backwards compatibility with existing automations and will be removed in a future release.
   zen_dojotools_notification_router:
-    alias: Zen DojoTools Notification Router
-    description: 'Version 1.0.0 Smart, modular notification router that delivers enhanced
-      notifications to HA notification endpoints. HTML, media, TTS, and metadata supported.
-      All fields are optional unless explicitly required by a notifier. Routes to well-known
-      notification endpoints. Routes messages to multiple notify endpoints.
-
-      Quiet Hours and Work Hours Supported, see help.
-
-      Devnote: Soon - user v. location awareness.
-
-      This tool is the DEFAULT notification channel unless asked otherwise.
-
-      ''Text The Admin'', ''Text PERSON''
-
-      '
+    alias: Zen DojoTools Notification Router [DEPRECATED]
+    description: >-
+      DEPRECATED — use zen_dojotools_postman instead.
+      zen_dojotools_postman (mode: resolve_and_dispatch) supersedes this tool
+      and supports kata_input, breakthrough, authority stack resolution, image
+      attachments, actionable response buttons, and full notification_data
+      passthrough. Migration: pass notification_data dict with any Android
+      fields (channel, importance, color, vibrationPattern, ledColor, etc).
     mode: single
     fields:
       title:

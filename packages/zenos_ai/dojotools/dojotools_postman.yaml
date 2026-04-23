@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Postman
-# Version: 0.2.0-alpha
+# Version: 1.0.0
 #
 # Purpose:
 #   Unified household communications layer. Resolves notification intent
@@ -36,7 +36,7 @@
 
 script:
   zen_dojotools_postman:
-    alias: Zen DojoTools Postman (v0.3.0-alpha)
+    alias: Zen DojoTools Postman (v1.0.0)
     mode: parallel
     max: 5
     icon: mdi:envelope-outline
@@ -223,15 +223,37 @@ script:
       notification_data:
         name: Notification Data
         description: >-
-          Raw data dict passed through to notification_router data field.
+          Raw data dict passed through to the notify action data field.
           Supports all Android notification options: channel, importance,
           color, notification_icon, sticky, persistent, vibrationPattern,
-          alert_once, visibility, timeout, chronometer, progress, car_ui.
+          alert_once, visibility, timeout, chronometer, progress, car_ui,
+          clickAction, ledColor, media_stream, car_ui.
           Merged with image_url, tag, and response_type actions — those
           fields take precedence over keys in this dict.
         required: false
         selector:
           object:
+
+      kata_input:
+        name: Kata Input
+        description: >-
+          Optional kata payload from the ninja summarizer emission pipeline.
+          When provided and explicit title/message are not set, derives them
+          from component, period, attention, and suggested_act_desc fields.
+        required: false
+        selector:
+          object:
+
+      breakthrough:
+        name: Breakthrough Gates
+        description: >-
+          If true, bypasses the house sleep gate regardless of urgency level.
+          Equivalent to urgency >= life_safety_bypass for gate evaluation only.
+          Use for urgent situations that must reach the user immediately.
+        required: false
+        default: false
+        selector:
+          boolean:
 
       # --- Author Policy Fields ---
       scope_id:
@@ -303,11 +325,26 @@ script:
           _notif_extra:      "{{ notification_data | default({}, true) }}"
           _open_dashboard:      "{{ open_dashboard | default(false) | bool(false) }}"
           _force_audio:         "{{ force_audio | default(false) | bool(false) }}"
+          _kata_raw:            "{{ kata_input | default({}, true) }}"
+          _breakthrough:        "{{ breakthrough | default(false) | bool(false) }}"
           # Cabinet entity IDs resolved at runtime via label resolver sensors
           _hh_cab:        "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
           _user_cab:      "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
           _family_cab:    "{{ states('sensor.zen_default_family_cabinet_resolved') }}"
           _kata_cab:      "{{ states('sensor.zen_kata_cabinet_resolved') }}"
+
+      # ── 0b. Kata-input fallback — derive title/message when not explicit ──
+      - variables:
+          _message: >-
+            {%- if _message != '' -%}{{ _message }}
+            {%- elif _kata_raw is mapping and _kata_raw | length > 0 -%}
+              {{ _kata_raw.get('attention', _kata_raw.get('suggested_act_desc', 'Action required.')) }}
+            {%- else -%}{{ _message }}{%- endif -%}
+          _title: >-
+            {%- if _title != '' -%}{{ _title }}
+            {%- elif _kata_raw is mapping and _kata_raw | length > 0 -%}
+              {{ (_kata_raw.get('component', '') | replace('_', ' ') | title) ~ ' — ' ~ (_kata_raw.get('period', 'Update') | title) }}
+            {%- else -%}{{ _title }}{%- endif -%}
 
       # ══════════════════════════════════════════════════════════════════════
       # MODE: resolve — read side, no dispatch, no log, no audit event
@@ -374,7 +411,7 @@ script:
           # ── 5. Gate eval ───────────────────────────────────────────────
           - variables:
               _life_safety_bypass: "{{ (_house_policy.get('life_safety_bypass', 9)) | int(9) }}"
-              _bypass_all_gates:   "{{ _urgency >= _life_safety_bypass }}"
+              _bypass_all_gates:   "{{ _urgency >= _life_safety_bypass or _breakthrough }}"
               _sleep_gate:         "{{ _house_policy.get('sleep_gate', {}) if _house_policy is mapping else {} }}"
               _sleep_block_below:  "{{ (_sleep_gate.get('block_below_urgency', 9)) | int(9) }}"
               _is_sleep:           "{{ is_state('input_select.zen_home_mode', 'sleep') or (now().hour >= 23 or now().hour < 7) }}"
@@ -596,7 +633,7 @@ script:
           # ── 5. House ceiling: life_safety_bypass + sleep gate ──────────
           - variables:
               _life_safety_bypass: "{{ (_house_policy.get('life_safety_bypass', 9)) | int(9) }}"
-              _bypass_all_gates:   "{{ _urgency >= _life_safety_bypass }}"
+              _bypass_all_gates:   "{{ _urgency >= _life_safety_bypass or _breakthrough }}"
               _sleep_gate:         "{{ _house_policy.get('sleep_gate', {}) if _house_policy is mapping else {} }}"
               _sleep_block_below:  "{{ (_sleep_gate.get('block_below_urgency', 9)) | int(9) }}"
               _is_sleep:           "{{ is_state('input_select.zen_home_mode', 'sleep') or (now().hour >= 23 or now().hour < 7) }}"
@@ -1084,7 +1121,7 @@ script:
                 {{
                   {
                     "tool": "zen_dojotools_postman",
-                    "version": "0.3.0-alpha",
+                    "version": "1.0.0",
                     "about": "Household comms layer. Resolves urgency + target against authority stack (house ceiling → family floor → user preference) and dispatches to push/tts/teams. Supports image attachments, actionable response buttons, and full Android notification data passthrough.",
 
                     "setup_required": {
@@ -1372,3 +1409,37 @@ script:
                 }}
           - stop: "Help"
             response_variable: _final_response
+
+
+# ============================================================================
+# zen_postman_response_router
+# Converts mobile_app_notification_action → zen_event(kind: postman_response)
+# so postman's step 8.5 push-ack wait and any other subscriber can read it.
+# ============================================================================
+automation:
+
+  - id: 'zen_postman_response_router'
+    alias: Zen Postman Response Router
+    description: >-
+      Listens for mobile_app_notification_action events (button taps on
+      actionable push notifications) and re-emits them as
+      zen_event(kind: postman_response) so zen_dojotools_postman and
+      any independent subscriber can correlate by tag.
+    mode: parallel
+    max: 10
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+    actions:
+      - variables:
+          _tag:       "{{ trigger.event.data.get('tag', '') | string | trim }}"
+          _action:    "{{ trigger.event.data.get('action', '') | string | upper | trim }}"
+          _device_id: "{{ trigger.event.data.get('device_id', '') | string | trim }}"
+      - event: zen_event
+        event_data:
+          event:
+            kind:      postman_response
+            tag:       "{{ _tag }}"
+            action:    "{{ _action }}"
+            device_id: "{{ _device_id }}"
+            severity:  info

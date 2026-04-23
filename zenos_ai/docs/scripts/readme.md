@@ -91,7 +91,7 @@ Recorder statistics query engine. Time-bucketed historical data (5min/hour/day/w
 ## 11. Zen DojoTools Utilities — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_utilities_readme.md`
 
-General-purpose collection: `calculator`, `dice_roller`, `announce` (TTS by area label), `music_search`, `notification_router`, `wait`, `volume_auditor`, `help`.
+General-purpose collection: `calculator`, `dice_roller`, `announce` (TTS by area label), `music_search`, `wait`, `volume_auditor`, `help`. `notification_router` is deprecated — use `zen_dojotools_postman` instead.
 
 ---
 
@@ -165,10 +165,10 @@ Friday's visual surface. Wraps HA camera entities with LLM vision analysis, hous
 
 ---
 
-## 22. Zen DojoTools Postman — v0.3.0-alpha 'Lights, Camera, Action'
+## 22. Zen DojoTools Postman — v1.0.0 'Lights, Camera, Action'
 **File:** `zen_dojotools_postman_readme.md`
 
-Unified household communications layer. Resolves urgency + target against the authority stack (house ceiling → family floor → user preference) and dispatches to push/TTS/Teams. Supports image attachments (camera, zen_image slots, any image entity), actionable response buttons with wait-and-ack, phone TTS audio attachment, Android notification data passthrough, and `open_dashboard` tap navigation. `author_policy` mode seeds `postman_profile` drawers in any cabinet. Full `resolve` mode for dry-run audit before sending.
+Unified household communications layer. Supersedes `zen_dojotools_notification_router` (now deprecated). Resolves urgency + target against the authority stack (house ceiling → family floor → user preference) and dispatches to push/TTS/Teams. Supports image attachments, actionable response buttons with push-ack wait, phone TTS audio attachment, `kata_input` pipeline derivation, `breakthrough` gate bypass, full Android `notification_data` passthrough, and `open_dashboard` tap navigation. `zen_postman_response_router` automation bridges `mobile_app_notification_action` → `zen_event(kind: postman_response)` for ack correlation. `author_policy` seeds `postman_profile` drawers. Full `resolve` dry-run audit before sending.
 
 ---
 

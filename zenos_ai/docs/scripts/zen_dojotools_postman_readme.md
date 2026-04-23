@@ -1,4 +1,4 @@
-# Zen DojoTools Postman — v0.3.0-alpha
+# Zen DojoTools Postman — v1.0.0 'Lights, Camera, Action'
 
 **File:** `packages/zenos_ai/dojotools/dojotools_postman.yaml`
 **Script:** `zen_dojotools_postman`
@@ -8,9 +8,9 @@
 
 ## Overview
 
-Postman is the household communications layer. It resolves notification intent against the authority stack (house ceiling → family floor → user preference) and dispatches to the appropriate channel(s) with full gate enforcement.
+Postman is the canonical household communications layer and supersedes `zen_dojotools_notification_router` (deprecated). It resolves notification intent against the authority stack (house ceiling → family floor → user preference) and dispatches to the appropriate channel(s) with full gate enforcement.
 
-Every send goes through the same pipeline: sleep gate check → urgency tier → channel selection → away policy → dispatch. `resolve` mode runs the whole evaluation read-only so Friday can predict what would happen before committing to a send.
+Every send goes through the same pipeline: sleep gate check → urgency tier → channel selection → away policy → dispatch. `resolve` mode runs the whole evaluation read-only so Friday can predict what would happen before committing to a send. `zen_postman_response_router` automation bridges push notification taps into `zen_event(kind: postman_response)` for ack correlation.
 
 ---
 
@@ -35,7 +35,7 @@ family cabinet → postman_profile  (floor: escalation — SP1, not yet active)
 user cabinet   → postman_profile  (preference: urgency_tiers, push_targets, away_policy)
 ```
 
-**Life safety bypass:** urgency >= `life_safety_bypass` (default 9) bypasses all gates including sleep. Use for fire/smoke/CO notifications.
+**Life safety bypass:** urgency >= `life_safety_bypass` (default 9) bypasses all gates including sleep. Use for fire/smoke/CO notifications. Setting `breakthrough: true` has the same effect for gate evaluation without requiring a high urgency level.
 
 **Sleep gate:** When `input_select.zen_home_mode == 'sleep'` or hour >= 23 or < 7, notifications below `block_below_urgency` (default 9) are blocked. Bypassed by life_safety threshold.
 
@@ -142,6 +142,8 @@ Other automations can also listen for `zen_event(kind: postman_response)` filter
 | `force_audio` | resolve_and_dispatch | `false` | Bypass urgency >= 9 gate for phone TTS audio attachment. |
 | `open_dashboard` | resolve_and_dispatch | `false` | Navigate to `assist_path` from user profile on tap. |
 | `notification_data` | resolve_and_dispatch | — | Raw dict passed to notification data field. See Android fields below. |
+| `kata_input` | resolve_and_dispatch | — | Kata payload dict from ninja pipeline. Derives `title`/`message` from `component`, `period`, `attention`, `suggested_act_desc` when explicit values are not set. |
+| `breakthrough` | resolve_and_dispatch | `false` | If true, bypasses house sleep gate regardless of urgency. Equivalent to urgency >= life_safety_bypass for gate evaluation only. |
 | `response_required` | resolve_and_dispatch | `false` | Flag delivery record for ack. SP1: ack watch not yet implemented. |
 | `scope_id` | author_policy | — | Resolver sensor or cabinet entity to write policy into. |
 | `policy_key` | author_policy | `postman_profile` | Drawer key to write. |
@@ -151,18 +153,27 @@ Other automations can also listen for `zen_event(kind: postman_response)` filter
 
 ### `notification_data` passthrough — Android fields
 
-Field | Description
-`channel` | Android notification channel name
-`importance` | min / low / default / high / max
-`color` | Hex color e.g. `#f44336`
-`notification_icon` | MDI icon e.g. `mdi:cctv`
-`sticky` | bool — stays after tap
-`persistent` | bool — non-dismissible (requires tag)
-`alert_once` | bool — alert on first delivery only (requires tag)
-`vibrationPattern` | e.g. `100, 1000, 100, 1000`
-`visibility` | public / private / secret
-`timeout` | int seconds — auto-dismiss
-`ttl` | `0` for high-priority delivery
+These replace the per-field parameters from the deprecated `notification_router`. Pass them as a dict to `notification_data`.
+
+| Field | Description |
+|---|---|
+| `channel` | Android notification channel name — configure sound/vibration in app settings |
+| `importance` | `min` / `low` / `default` / `high` / `max` |
+| `color` | Hex color e.g. `#f44336` |
+| `notification_icon` | MDI icon e.g. `mdi:cctv` |
+| `sticky` | bool — stays after tap |
+| `persistent` | bool — non-dismissible (requires tag) |
+| `alert_once` | bool — alert on first delivery only (requires tag) |
+| `vibrationPattern` | e.g. `100, 1000, 100, 1000` |
+| `ledColor` | RGB LED color (Android only) |
+| `visibility` | `public` / `private` / `secret` |
+| `timeout` | int seconds — auto-dismiss |
+| `clickAction` | URL or Lovelace path to open on tap |
+| `group` | Notification group key for override/update |
+| `tts_text` | Handset TTS text (Android system voice fallback) |
+| `media_stream` | Media stream to start with notification |
+| `car_ui` | bool — Android Auto / CarPlay visibility |
+| `ttl` | `0` for high-priority delivery |
 
 Merge order: `notification_data` < `image_url` < `audio_url` < `tag` < `response_type` actions (later wins).
 
@@ -303,6 +314,64 @@ Run three calls on first install to seed the authority stack. Safe to re-run wit
 
 ---
 
+## `zen_postman_response_router` Automation
+
+Bridges `mobile_app_notification_action` events (push notification button taps) into `zen_event(kind: postman_response)` so Postman's push-ack wait and any independent subscriber can correlate by tag.
+
+**What it fires:**
+```yaml
+event_type: zen_event
+event_data:
+  event:
+    kind: postman_response
+    tag: "{{ tag from notification }}"
+    action: "YES"       # or NO, OK, CANCEL, ACK, IGNORE, etc.
+    device_id: "{{ source device }}"
+    severity: info
+```
+
+Ships in `dojotools_postman.yaml`. Runs `mode: parallel, max: 10` — concurrent taps from multiple household members are handled independently.
+
+---
+
+## `kata_input` Pipeline Integration
+
+When the ninja summarizer pipeline emits a component, it can call Postman directly by passing the kata dict as `kata_input`. Postman derives `title` and `message` from the kata payload automatically if explicit values are not provided.
+
+**Derivation logic:**
+- `title` → `{component | title} — {period | title}` (e.g. `Security Manager — Morning`)
+- `message` → `attention` field, falling back to `suggested_act_desc`, then `'Action required.'`
+
+**Example — pipeline emission:**
+```yaml
+- action: script.zen_dojotools_postman
+  data:
+    mode: resolve_and_dispatch
+    target: person.nathan
+    urgency: 6
+    kata_input: "{{ monk.data }}"   # full kata dict from ninja output
+    notification_data:
+      channel: ZenOS
+```
+
+---
+
+## Migration from `notification_router`
+
+`zen_dojotools_notification_router` is deprecated. Map its fields to Postman as follows:
+
+| `notification_router` field | Postman equivalent |
+|---|---|
+| `title` / `message` | `title` / `message` (unchanged) |
+| `notification_targets` | `notification_data` → `push_targets` in user `postman_profile` |
+| `breakthrough` | `breakthrough: true` field |
+| `kata_input` | `kata_input` field (same dict shape) |
+| `importance` | `notification_data: {importance: high}` |
+| `color` / `sticky` / `channel` / etc. | `notification_data: {color: ..., sticky: ..., ...}` |
+| `quiet_hours` / `work_hours` gates | Replaced by postman authority stack (house `sleep_gate`, `work_gate`) |
+
+---
+
 ## Examples
 
 ```yaml
@@ -368,6 +437,26 @@ Run three calls on first install to seed the authority stack. Safe to re-run wit
       channel: Security
       color: "#f44336"
       alert_once: true
+
+# 6. Kata pipeline — title/message derived from ninja output
+- action: script.zen_dojotools_postman
+  data:
+    mode: resolve_and_dispatch
+    target: person.nathan
+    urgency: 6
+    kata_input: "{{ monk.data }}"
+    notification_data:
+      channel: ZenOS
+
+# 7. Breakthrough gate bypass — send during sleep regardless of urgency
+- action: script.zen_dojotools_postman
+  data:
+    mode: resolve_and_dispatch
+    target: person.nathan
+    urgency: 5
+    breakthrough: true
+    title: "Package delivered"
+    message: "UPS left a package at the front door."
 ```
 
 ---
