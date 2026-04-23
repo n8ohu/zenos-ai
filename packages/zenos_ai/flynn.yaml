@@ -249,6 +249,14 @@ automation:
           event:
             kind: warmup_expired
         id: warmup_expired
+      # Triggered by label install/create/delete/reset — forces stepgate to
+      # re-evaluate and assign tags to cabinet entities. Without this trigger,
+      # the stepgate never re-evaluates after label mutations, leaving cabinets
+      # untagged until the next 5-minute time_pattern poll (and even then the
+      # early-exit check may skip Gate 1 if label_health already shows "ok").
+      - trigger: event
+        event_type: zen_resolver_refresh
+        id: resolver_refresh
     conditions: []
     actions:
       # Capture green state + OOBE state BEFORE delay

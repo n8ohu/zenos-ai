@@ -125,6 +125,7 @@ rest_command:
     headers:
       authorization: !secret ha_bearer
       content-type: 'application/json'
+    payload: "{{ payload | default('{}') }}"
 
 script:
 

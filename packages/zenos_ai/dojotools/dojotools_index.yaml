@@ -303,8 +303,8 @@ script:
               {{-
                 {
                   "tool": "Zen DojoTools Inspect",
-                  "version": "4.6.2",
-                  "intent": "Deep entity inspection + area/floor/device read modes. Returns state, labels, device metadata (incl. floor_id, device_labels, area_labels), cabinet volume info, and optional recorder statistics. Called directly or via Index when expand_entities=true.",
+                  "version": "4.7.0",
+                  "intent": "Deep entity inspection + area/floor/device read modes. Returns state, labels, device metadata (incl. floor_id, device_labels, area_labels), cabinet volume info, and optional recorder statistics. Called directly or via Index when expand_entities=true. Camera entities: camera_cache merged inline into each result entry — {analysis, cached_at, cache_age_minutes, snapshot_path, found}.",
                   "inputs": {
                     "entity_id": "Required for mode=inspect. Single entity_id or list. Not required for help/area_info/floor_info/device_info.",
                     "output_fields": "Field selector. Comma-separated string or list. Controls which blocks appear per entity. See output_fields_reference.",
@@ -363,8 +363,9 @@ script:
                     "_note": "aliases and level dropped — no HA Jinja read path. config_entry_list blocked — config entries not in Jinja, needs REST. Use /api/config/config_entries/entry via REST API."
                   },
                   "top_level_output": {
-                    "results": "Array of per-entity result objects.",
+                    "results": "Array of per-entity result objects. Camera entities include camera_cache: {analysis, cached_at, cache_age_minutes, snapshot_path, found} merged inline.",
                     "drawers": "Drawer blurbs from Dojo cabinet keyed by label. Empty dict if no label_targets.",
+                    "domain_context": "Auto-enriched domain data: todo (list), calendar (read), camera (cache map keyed by entity_id — {analysis, cached_at, cache_age_minutes, snapshot_path, found}).",
                     "inputs": "Echo of entity_id, extended, infer, timeout.",
                     "error": "null on success."
                   },
@@ -384,7 +385,8 @@ script:
                     "History data is at results[N].history.last_24h — hourly array. There is NO history.mean at the root.",
                     "+statistics is a cheap eligibility check. +history fetches actual recorder data. They are independent.",
                     "Inspect is called automatically by Index when expand_entities=true — output_fields passes through.",
-                    "Cabinet sensors suppress attributes. Use FileCabinet tools for drawer data."
+                    "Cabinet sensors suppress attributes. Use FileCabinet tools for drawer data.",
+                    "Camera entities: camera_cache is merged inline into each result entry — {analysis, cached_at, cache_age_minutes, snapshot_path, found}. Check found=true before using analysis. cache_age_minutes tells you how fresh the cached analysis is."
                   ]
                 }
               -}}
@@ -1232,6 +1234,59 @@ script:
                wait.trigger.event.data.event.get('result', {})
                if wait.trigger is not none else {}}) }}
 
+    # ── Domain context supplement — camera cache ──────────────────────────
+    # Reads household cabinet cache for any camera.* entities in results.
+    # No event bus — cabinet variables are live in the template engine.
+    # Attaches to domain_context.camera keyed by entity_id.
+    - variables:
+        _dc_cam_ids: >-
+          {{ results | selectattr('domain', 'defined')
+             | selectattr('domain', 'equalto', 'camera')
+             | map(attribute='entity_id') | list }}
+
+    - if:
+      - condition: template
+        value_template: "{{ _dc_cam_ids | length > 0 }}"
+      then:
+      - variables:
+          _household_cab_ent: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+          _cam_cache_map: >-
+            {%- set _hvars = (state_attr(_household_cab_ent, 'variables') or {}) -%}
+            {%- set ns = namespace(out={}) -%}
+            {%- for eid in _dc_cam_ids -%}
+              {%- set _ck = eid | replace('.', '_') | replace('-', '_') -%}
+              {%- set _raw = _hvars.get(_ck, {}) -%}
+              {%- set _v = _raw.get('value', _raw) if _raw is mapping else {} -%}
+              {%- set _v1 = _v if _v is mapping else {} -%}
+              {%- set _cat = _v1.get('cached_at', '') -%}
+              {%- set _age_ns = namespace(v=none) -%}
+              {%- if _cat != '' -%}
+                {%- set _age_ns.v = ((now() - as_datetime(_cat)).total_seconds() / 60) | round(1) -%}
+              {%- endif -%}
+              {%- set ns.out = ns.out | combine({eid: {
+                'analysis': _v1.get('analysis', ''),
+                'cached_at': _cat,
+                'cache_age_minutes': _age_ns.v,
+                'snapshot_path': _v1.get('snapshot_path', ''),
+                'found': _v1 != {}
+              }}) -%}
+            {%- endfor -%}
+            {{ ns.out }}
+          _domain_context: >-
+            {{ _domain_context | combine({'camera': _cam_cache_map}) }}
+      - variables:
+          results: >-
+            {%- set ns = namespace(out=[]) -%}
+            {%- for item in results -%}
+              {%- set eid = item.get('entity_id', '') if item is mapping else '' -%}
+              {%- if eid in _cam_cache_map -%}
+                {%- set ns.out = ns.out + [item | combine({'camera_cache': _cam_cache_map[eid]})] -%}
+              {%- else -%}
+                {%- set ns.out = ns.out + [item] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ ns.out }}
+
     - variables:
         inspect_result:
           results: "{{- results -}}"
@@ -1249,12 +1304,14 @@ script:
     alias: Zen DojoTOOLS Inspect
     mode: parallel
     description: >-
-      Inspect (4.6.0). Entity deep-dive + area/floor/device read modes.
+      Inspect (4.7.0). Entity deep-dive + area/floor/device read modes.
       inspect (default) — entity deep-dive. area_info/floor_info/device_info —
       single-object drill-down (id required). area_list/floor_list/label_list/
       zone_list/person_list — full registry enum (no input). device_list —
       tooling primitive only, large response. integration_entities — by domain.
-      help — schema. (v4.6.2)
+      Camera entities: camera_cache merged inline into each result
+      (analysis, cached_at, cache_age_minutes, snapshot_path, found).
+      help — schema. (v4.7.0)
     fields:
       entity_id:
         required: true
@@ -1592,7 +1649,9 @@ script:
             event_data:
               correlation_id: "{{- correlation_id -}}"
           timeout:
-            seconds: "{{- timeout_seconds -}}"
+            seconds: >-
+              {%- set _is_recursive = 'index_1' in index_command or 'index_2' in index_command -%}
+              {{ [timeout_seconds | int * 3, 15] | min if _is_recursive else timeout_seconds }}
         - choose:
           - conditions:
             - condition: template
@@ -2215,10 +2274,30 @@ automation:
               -}}
     - alias: Dispatch Zen Index Command
       data:
-        entities_1: "{{- entities_1 if entities_1 is defined else [] -}}"
-        label_1: "{{- parsed_cmd.label_1 -}}"
-        entities_2: "{{- entities_2 if entities_2 is defined else [] -}}"
-        label_2: "{{- parsed_cmd.label_2 -}}"
+        entities_1: >-
+          {%- if parsed_cmd.index_1 is defined -%}
+            {{- parsed_cmd.index_1 | default([]) -}}
+          {%- elif parsed_cmd.entities_1 is defined -%}
+            {{- parsed_cmd.entities_1 | default([]) -}}
+          {%- else -%}
+            {{- entities_1 if entities_1 is defined else [] -}}
+          {%- endif -%}
+        label_1: >-
+          {%- if parsed_cmd.index_1 is not defined -%}
+            {{- parsed_cmd.label_1 | default('') -}}
+          {%- else -%}{{- '' -}}{%- endif -%}
+        entities_2: >-
+          {%- if parsed_cmd.index_2 is defined -%}
+            {{- parsed_cmd.index_2 | default([]) -}}
+          {%- elif parsed_cmd.entities_2 is defined -%}
+            {{- parsed_cmd.entities_2 | default([]) -}}
+          {%- else -%}
+            {{- entities_2 if entities_2 is defined else [] -}}
+          {%- endif -%}
+        label_2: >-
+          {%- if parsed_cmd.index_2 is not defined -%}
+            {{- parsed_cmd.label_2 | default(none) -}}
+          {%- else -%}{{- none -}}{%- endif -%}
         operator: "{{- parsed_cmd.operator -}}"
         expand_entities: "{{- parsed_cmd.expand_entities -}}"
       response_variable: zen_index_response
@@ -2228,4 +2307,4 @@ automation:
       event_data:
         correlation_id: "{{- correlation_id -}}"
         response: "{{- zen_index_response -}}"
-    mode: queued
+    mode: parallel
