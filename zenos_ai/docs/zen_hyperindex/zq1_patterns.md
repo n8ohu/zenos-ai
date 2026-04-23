@@ -234,7 +234,32 @@ that fell through the cracks.
 
 ---
 
-## 10. The Hint — What If History Fed Into Inspect?
+## 10. The ACL Stripper — "Show me the context, but keep the private stuff out"
+
+The camera tool needs to inject entity state as context into a vision prompt — but it shouldn't include *itself* in its own context block. Five new exclusion fields in ZQ-1 handle this cleanly.
+
+```json
+{
+  "label_1": "hot_tub_manager",
+  "label_2": "weather",
+  "operator": "OR",
+  "filter_json": {
+    "exclude_entity_ids": ["camera.hot_tub_camera_high_resolution_channel"],
+    "exclude_domain": ["media_player", "update"],
+    "exclude_label": "private"
+  }
+}
+```
+
+Gets everything labeled `hot_tub_manager` OR `weather`, then strips the camera itself (structural self-exclusion), noisy domains, and anything the household has labeled `private`.
+
+**Why the exclusions run last:** All five exclusion stages (8b–8f) run after all inclusion filters. They can only remove — never add. This means a caller can safely inject ACL constraints without worrying about the inclusion logic accidentally putting things back.
+
+**Combine them freely.** `exclude_entity_ids` for precision removal, `exclude_domain` for category sweeps, `exclude_label` for policy gates, `exclude_integration` to silence a noisy integration, `exclude_device` to suppress an entire physical device.
+
+---
+
+## 11. The Hint — What If History Fed Into Inspect?
 
 *Nathan's thinking out loud here. No promises. But the plumbing is interesting.*
 
@@ -300,3 +325,8 @@ feed is the missing third leg.
 | `shortcuts.power` | bool | Keep only power-class sensors |
 | `sort` | object | Sort results (`by`, `order`) |
 | `strict` | bool | Empty result = confirmed zero, not fallback |
+| `exclude_entity_ids` | string or list | Drop specific entity_ids. Stages 8b. Primary use: ACL / self-exclusion. |
+| `exclude_domain` | string or list | Drop all entities of one or more domains. Stage 8c. |
+| `exclude_label` | string or list | Drop all entities carrying an HA label. Stage 8d. Slug-normalized. |
+| `exclude_integration` | string or list | Drop all entities from an integration. Stage 8e. Uses `integration_entities()`. |
+| `exclude_device` | string or list | Drop all entities on specific device_ids. Stage 8f. |

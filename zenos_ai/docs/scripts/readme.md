@@ -1,497 +1,177 @@
-# **📘 ZenOS-AI Script Modules**
+# **ZenOS-AI Script Modules**
 
-Welcome to the **Script Modules** section of the ZenOS-AI documentation.
-This directory contains formal documentation for all **DojoTools** and operational scripts that drive Friday's real-time automation, reasoning, telemetry, observability, storage access, and system reflexes.
-
-These modules form Friday's **hands, nerves, forensics, and breadcrumbs** — the tools that speak directly to:
-
-* Home Assistant services
-* Cabinet storage
-* Calendar providers
-* Inspectors
-* The Zen Index
-* The Manifest
-* The FileCabinet
-* And the Monastery's internal reasoning pathways
-
-Each module is fully documented with:
-
-* Technical behavior
-* Expected inputs & outputs
-* Provider constraints
-* Safety rules & failure modes
-* Integration flows for LLM agents (Friday, Veronica, Kronk, High Priestess)
-
-If Friday performs an action, reads something, correlates entities, inspects a device, updates a drawer, or leaves a breadcrumb —
-**it probably came from here.**
+DojoTools and operational scripts that drive Friday's real-time automation, reasoning, telemetry, storage access, and system reflexes. Each module is fully documented in its own readme.
 
 ---
 
-# 📂 Included Script Documentation
-
-Below is the official documentation index for all ZenOS-AI DojoTools modules.
-
----
-
-## **0. Zen DojoTools Scribe — 4.6.0 'Ectoplasm'**
-
+## 0. Zen DojoTools Scribe — 4.6.0 'Ectoplasm'
 **File:** `zen_dojotools_scribe_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Guided authoring and lifecycle management for KF4 artifacts. Fully MCP-exposed — Friday can use it directly.
-
-* Three artifact classes: `thought` (mutable draft), `scroll` (formal, read-only), `kfc` (published, live in Dojo)
-* Full lifecycle: `new_thought` → `patch` → `formalize_scroll` → `publish_kfc`
-* `enable` / `disable` — shorthand mode aliases to patch `meta.enabled` without a full rewrite
-* `repair` — detect and flatten wrapper-accumulated drawer corruption
-* Scope discovery built in — `new_thought` calls Index automatically to capture a live entity snapshot before the first line is written
-* `domain_inspect_domains` / `domain_inspect_limit` — constrain step-4b domain inspect by HA domain and entity count
-* Emission fields (`drift_threshold`, `emission_cooldown_minutes`, `suggested_act_event`) now wired through all payload paths
-* `dry_run` — preview scope and guidance without committing
-* `list_triggers` — return all available scheduler trigger IDs
-* Non-destructive by default — `patch` preserves existing content; `replace`, `clear`, `delete`, and `publish_kfc` all require explicit confirmation
-* Component group model — one corpus, multiple component views, shared clock and labelset
-* Self-indexing and drawer feedback loop guards built in
-* `read` response includes `schedules_summary` — `{count, kata_keys}` for KFCs with sub-schedule entries; avoids raw JSON trawl to inspect schedule structure
-* `patch` merges `schedules[]` by `kata_key` (upsert) — add or update individual schedule entries without overwriting the full array
-* `publish_kfc` preserves the `schedules` array — was silently dropped before v1.3.0
-
-A capable LLM can run the full authoring loop — scope a domain, draft the component, refine iteratively, formalize, and publish to the Dojo — without operator intervention beyond initial label design. `zen_dojotools_kungfu_writer` is retired; Scribe is the replacement.
+Guided authoring and lifecycle management for KF4 artifacts. Full lifecycle: `new_thought` → `patch` → `formalize_scroll` → `publish_kfc`. MCP-exposed — Friday can run the full authoring loop without operator intervention. `zen_dojotools_kungfu_writer` is retired; Scribe is the replacement.
 
 ---
 
-## **1. Zen DojoTools AdminTools — 4.6.0 'Ectoplasm'**
-
+## 1. Zen DojoTools AdminTools — 4.6.0 'Ectoplasm'
 **File:** `zen_dojotools_admintools_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Ring-2 administrative tools for component registration, cabinet repair, template management, and AI identity loading.
-
-* `zen_admintools_reset_template` — Press zen_template and kfc_template into cabinets (Flynn gate-3)
-* `zen_admintools_reset_labels` — **Nuclear.** Delete all `zen_` labels and assignments; Flynn auto-rebuilds via Gate 0/1
-* `zen_admintools_cabinetadmin` — Inspect, restore, reset, hammer, init, or `reset_all` Ring-0 cabinets
-* `zen_admintools_cabinetadmin_factory` — Factory-stamp or repair a cabinet's VolumeInfo header
-* `zen_admintools_kfc_migration_press` — One-time migration: seed KF4 scheduling fields into existing drawers
-* `zen_admintools_zenos_prompt_loader` — Load versioned Cortex, Directives, and Purpose. Chains `zen_admintools_kungfu_loader` in factory mode. (v34/latest = Ambient Aware)
-* `zen_admintools_kungfu_loader` — Factory KFC deployer. Modes: `status` (report), `factory` (deploys zen_system v1.1.0, alert_manager v1.4.0, taskmaster v1.3.1, trapper_keeper v2.4.0), `deploy` (boolean-selected). Extracted from prompt_loader so KFC deployment can run independently.
-* `zen_admintools_run_repair` — Human-confirmed passthrough to versioned maint/ repair scripts (operator use only)
-
-All tools in this module are admin-only. For KFC component registration, use `zen_dojotools_scribe` (DojoTools namespace, fully MCP-exposed).
+Ring-2 administrative tools: cabinet repair, template management, label reset, prompt loading, KFC factory deployment, and human-confirmed maint script passthrough. Not MCP-exposed — operator use only.
 
 ---
 
-## **2. Flynn — Stepgate Sentinel & Bootstrap Engine — 4.5.5 'Ready Player Two'**
-
+## 2. Flynn — Stepgate Sentinel & Bootstrap Engine — 4.5.5 'Ready Player Two'
 **File:** `zen_flynn_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-ZenOS-AI's boot guard, initializer, OOBE driver, and prompt fallback.
-
-* Gates 0–4: labels, cabinet init, schema seed, content bootstrap, system ready
-* Early exit when system is clean and stable
-* OOBE flow: names the AI, seeds household profile, flags completion
-* Agent Builder (MCP-exposed): interactive config through conversation
-* Auto-resolves reasoning task and AI task entity at bootstrap
-* Four companion `template: select` entities for persona, primary user, conversation agent, AI task
-* Prompt fallback: `render_prompt()` routes to `prompt_system_flynn()` when system not ready — zero cabinet dependencies, always answers
-
-If the system isn't coming up clean, Flynn is why — and where to look first.
+Boot guard, initializer, OOBE driver, and prompt fallback. Gates 0–4 drive the full bootstrap sequence. Prompt fallback routes to `prompt_system_flynn()` with zero cabinet dependencies when the system isn't ready. If the system isn't coming up clean, Flynn is why — and where to look first.
 
 ---
 
-## **3. Zen DojoTools Profile Editor — 4.5.5 'Ready Player Two'**
-
+## 3. Zen DojoTools Profile Editor — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_profile_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Universal read/write interface for ZenOS-AI identity profiles.
-
-* `mode: read` — inspect current ai_user, household, user, or family profile
-* `mode: write` — patch fields non-destructively (skips existing values unless `force: true`)
-* `mode: help` — full field reference with examples
-
-Expose this to your conversation agent — Friday can then help you configure your household, update persona details, and fill in profile fields conversationally. Four cabinet types: `ai_user` (persona essence), `household` (location/contact), `user` (household members), `family` (extended family).
+Universal read/write interface for ZenOS-AI identity profiles. Four cabinet types: `ai_user`, `household`, `user`, `family`. Expose to your conversation agent — Friday can configure household details conversationally.
 
 ---
 
-## **4. Zen DojoTools Labels — 4.6.0**
-
+## 4. Zen DojoTools Labels — 4.6.0
 **File:** `zen_dojotools_labels_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Core primitive for label CRUD and entity tagging. Backbone of the label index that powers HyperIndex, KFC components, and cabinet resolution. MCP-exposed — write operations are gated behind `confirm: true`.
-
-* `create` / `update` / `delete` — manage labels (confirm required)
-* `update` — delete→recreate→retag with new metadata; entity assignments preserved automatically
-* `read` — full index or filtered by label/entity
-* `tag` / `untag` — assign or remove labels from entities
-* `reset` — soft reset: wipe all entity assignments from every `zen_` label (labels survive); fires `zen_resolver_refresh`
-* All 7 mutating actions emit `zen_event(kind: label_mutation)` on success — triggers `zen_label_mutation_router` to rebuild `_compact_index` in the household cabinet automatically
-
-`new_description`, `new_icon`, `new_color` params available on `create` and `update`. Label descriptions travel inline in every Inspect call as `{slug: description}` — annotate labels at creation time.
-
-Includes label design guidance: cross-entity labels outperform single-use labels; layer broad domain labels with specific sub-labels for richer HyperIndex traversal.
+Core primitive for label CRUD and entity tagging. Backbone of the label index that powers HyperIndex, KFC components, and cabinet resolution. MCP-exposed — write operations are confirm-gated. All mutating actions emit `zen_event(kind: label_mutation)` and auto-rebuild the compact index.
 
 ---
 
-## **5. Zen DojoTools Identity — 4.5.5 'Ready Player Two'**
-
+## 5. Zen DojoTools Identity — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_identity_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Identity resolver for ZenOS-AI household members and AI constructs. MCP-exposed.
-
-* No target → full household roster (all valid cabinet-backed identities)
-* Target (label, person entity, cabinet entity, or GUID) → single identity record
-* `mode: build_identity_manifest` — write cached `zen_identity_manifest` to household cabinet
-* Normalizes and validates all input forms before lookup
-* Delegates resolution to `identity_resolve_source()` in `zen_os_1.jinja` — same path the prompt uses
-
-Current scope is resolution only. Privilege enforcement, session tokens, and security masking are planned post-GA.
+Identity resolver for household members and AI constructs. MCP-exposed. Resolves by label, person entity, cabinet entity, or GUID. Delegates to the same path the prompt uses.
 
 ---
 
-## **6. Zen DojoTools Scheduler — 4.5.5 'Ready Player Two'**
-
+## 6. Zen DojoTools Scheduler — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_scheduler_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Trigger orchestrator for the ZenOS-AI pipeline. Dojo-driven — components declare which triggers they care about; the scheduler routes automatically.
-
-* 20+ trigger IDs: time patterns, home mode changes, occupancy, door/lock/window events, force events
-* `summary_force` / `ninja_force` / `supersummary_force` / `gc_force` / `identity_manifest_rebuild` — manual force events
-* Component subscription via `trigger_subscriptions` in Dojo drawer
-* Heartbeat drawer (`zen_scheduler`) written after every run — staleness detected by `sensor.zen_summarizer_health`
-* Hardware triggers: strip hardware entity IDs from core, use local `zen_dojotools_scheduler_custom.yaml`
-* Protected drawers: `zen_summary`, `zen_library_manifest`, `zen_identity_manifest` — never summarized
+Trigger orchestrator. 20+ trigger IDs, component subscription via Dojo drawer, heartbeat drawer, and manual force events (`summary_force`, `ninja_force`, `supersummary_force`). Hardware triggers strip to `zen_dojotools_scheduler_custom.yaml`.
 
 ---
 
-## **6b. Pipeline Trigger Pattern — Act on the Monk After Kata Is Written**
-
+## 6b. Pipeline Trigger Pattern
 **File:** `zen_pipeline_trigger_pattern.md`
-**Type:** Guide
 
-**Summary:**
-How to wire an HA automation that fires a component summarizer run on a real-world trigger and acts on the monk's output.
-
-* Fire `zen_event → summary_force` for a specific component from any automation trigger
-* Wait for the kata write (fixed delay or `wait_template`), then read the kata drawer and branch on urgency/summary
-* Direct MCP path: call Ninja Summarizer inline if the agent is the caller — synchronous response, no wait needed
-* Full working example: flow sensor → force summarize → announce if high urgency
-* Forward reference: post-pipeline event emission (kata-written signal) is a direction being explored — no ETA
+Guide: fire a component summarizer run from a real-world trigger and act on the monk's output. Covers `zen_event → summary_force`, wait-and-read patterns, and direct MCP path.
 
 ---
 
-## **7. Zen DojoTools Summarizers — 4.6.0 'Ectoplasm'**
-
+## 7. Zen DojoTools Summarizers — 4.7.0 'Lights, Camera, Action'
 **File:** `zen_dojotools_summarizers_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-The KF4 action pipeline — Ninja Summarizer and SuperSummary. Both MCP-exposed.
-
-* **Ninja Summarizer** (`zen_dojotools_ninja_summarizer`) — per-component kata writer. Reads one KFC component's Dojo drawer, runs HyperIndex + library command, sends to AI monk, writes kata drawer.
-* **SuperSummary** (`zen_dojotools_supersummary`) — whole-home synthesizer. `direct`-tier components load into `component_data`; `ambient`-tier components are excluded and flow via Trapper Keeper pre-digest into `ambient_context`. Sends to AI monk, writes `zen_summary`.
-* **Run governor** — dedup burnout window prevents duplicate runs within a configurable window (`zen_ninja_config.burnout_seconds`, default 300s). Bypass with `force: true`.
-* Three kill switches: master (`zen_summarizers_enabled`), ninja, supersummary — **all default off** (ship disabled; enable after verifying AI task entity points at a local model — cost risk if pointed at a paid API)
-* Auto-refire on re-enable via `zen_pipeline_autofire_on_enable`
-* `index_call_override` — optional JSON string; replaces the dojo drawer's `index_call` for one run. Used by the Scheduler for per-schedule sub-runs where each schedule entry defines its own HyperIndex query.
-* `parent_component_id` — optional; when running as a sub-schedule, load dojo drawer + component instructions from the parent KFC instead of the sub-schedule's own slug.
-
-> **Warning:** Do not point the AI task entity at a paid inference API — the pipeline fires multiple times per hour. Use a local model.
+The KF4 action pipeline — Ninja Summarizer (per-component kata writer) and SuperSummary (whole-home synthesizer). Both MCP-exposed. Run governor prevents duplicate runs within a configurable burnout window. Ninja now routes `index_command` dict fields to the compound/recursive indexer for multi-label component context queries. Three kill switches — default off; enable only after pointing at a local inference model.
 
 ---
 
-## **8. Zen DojoTools Library — 4.5.5 'Ready Player Two'**
-
+## 8. Zen DojoTools Library — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_library_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Friday's unified system utility runner. MCP-exposed. Dispatches to library command interpreters and utility functions.
-
-* `library` — routes query through `command_interpreter.jinja` (retiring at GA — migrating to index-supported constructs); returns `{query, output}`
-* `hash_md5` — MD5 hash of input string
-* `slugify` — applies HA slugify filter to input
-
-The `library` tool is the engine the Ninja Summarizer uses for component `command` field dispatch. KFC components register their library command in the Dojo drawer; the Ninja calls it automatically before building the monk prompt.
+Unified system utility runner. Routes queries through `command_interpreter.jinja`. Also provides `hash_md5`, `slugify`. The engine the Ninja Summarizer uses for component `command` field dispatch.
 
 ---
 
-## **9. Zen Home Mode — 4.5.5 'Ready Player Two'**
-
+## 9. Zen Home Mode — 4.5.5 'Ready Player Two'
 **File:** `zen_home_mode_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Eight-state home presence and time-of-day state machine. Ambient context layer for Friday, the Scheduler, and Kung Fu components.
-
-* 8 modes: Home-Wake, Home-Morning, Home, Home-Evening, Night, Night-Late, Away, Paused
-* Time-based transitions via 6 configurable `input_datetime` anchors (no code changes required)
-* Presence-driven: Away auto-triggers when `zone.home` drops to 0; releases on return
-* Quiet hours (midnight-wrap safe) + Work hours — both configurable, fail-open
-* Scheduler trigger IDs: `home_mode_updates`, `start_home_wake`, `start_home_evening`, `home_occupancy_change`
-* Vacation mode: apply `zen_vacation_mode` label to your calendar entity — resolved by label, no hardcoded ID
+Eight-state home presence and time-of-day state machine. Presence-driven transitions, six configurable `input_datetime` anchors, quiet hours, work hours, vacation mode via label. Feeds the Scheduler and Postman sleep gate.
 
 ---
 
-## **10. Zen DojoTools History — 4.5.5 'Ready Player Two'**
-
+## 10. Zen DojoTools History — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_history_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Recorder statistics query engine. Time-bucketed historical data for sensors with a valid state_class.
-
-* `read` — query by entity, time range, period (5min/hour/day/week/month), and stat type
-* Stat types: change (cumulative), mean/min/max, state, sum, last_reset
-* Sensors must have statistics enabled in HA Recorder
-* Never creates, updates, or deletes history (intentional, permanent)
+Recorder statistics query engine. Time-bucketed historical data (5min/hour/day/week/month) for sensors with a valid state_class. Read-only — never modifies history.
 
 ---
 
-## **11. Zen DojoTools Utilities — 4.5.5 'Ready Player Two'**
-
+## 11. Zen DojoTools Utilities — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_utilities_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-General-purpose utility collection.
-
-* `calculator` — arithmetic, trig, conversions, GUID generation
-* `dice_roller` — D&D dice notation, coin flip, random integer/float
-* `announce` — TTS router to HA areas (label-resolved)
-* `music_search` — Music Assistant library + internet search
-* `notification_router` — multi-target notify with quiet hours and breakthrough override
-* `help` — live system overview and script inventory
-* `wait` — timed delay (1–120s)
-* `volume_auditor` — cabinet accessibility scanner
+General-purpose collection: `calculator`, `dice_roller`, `announce` (TTS by area label), `music_search`, `notification_router`, `wait`, `volume_auditor`, `help`.
 
 ---
 
-## **12. Zen DojoTools Core (FileCabinet GC) — 4.5.5 'Ready Player Two'**
-
+## 12. Zen DojoTools Core (FileCabinet GC) — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_core_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-FileCabinet garbage collector — enforces the drawer hide/delete/recycle lifecycle across all AI Data Storage cabinets.
-
-* `gc` — full daily scan (scheduled at midnight via Scheduler)
-* `recycle` — hide a drawer + set 24h expiry
-* `hide` / `unhide` — manual visibility control
-* `dry_run` — preview what would be evicted
-
-Protected drawers (`_prefix`, VolumeInfo, schema keys) are never touched. Post-eviction SuperSummary trigger built in.
+FileCabinet garbage collector. Enforces drawer hide/delete/recycle lifecycle. `gc`, `recycle`, `hide`, `unhide`, `dry_run`. Protected drawers (`_prefix`, VolumeInfo, schema keys) are never touched.
 
 ---
 
-## **13. Zen DojoTools SystemTools — 4.5.5 'Ready Player Two'**
-
+## 13. Zen DojoTools SystemTools — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_systemtools_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-HA lifecycle management, log reading, and event emission.
-
-* `zen_dojotools_systemtools` — Config check, safe restart (auto-validates before restarting), update install/skip
-* `zen_dojotools_ha_log_viewer` — Five log modes + HA 2025.11+ journal detection
-* `zen_dojotools_event_emitter` — Structured zen_event emission (see also dedicated emitter readme)
-* `zen_dojotools_ha_api` — Internal API wrapper (do NOT expose)
-
-Requires a long-lived HA token in `secrets.yaml` (ha_bearer).
+HA lifecycle management: config check, safe restart, update install/skip. Log viewer (five modes). Structured `zen_event` emission. Internal HA API wrapper (do NOT expose). Requires long-lived HA token in `secrets.yaml`.
 
 ---
 
-## **14. Zen DojoTools Office — 4.5.5 'Ready Player Two'**
-
+## 14. Zen DojoTools Office — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_office_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Provides unified, deterministic access to all Home Assistant calendar entities:
-
-* Multi-calendar read aggregation
-* Timestamp normalization
-* Deep event inspection
-* Safe event creation
-* Provider-verified update/delete
-* Label-based calendar targeting
-* Strict ambiguity prevention
-* Fully structured JSON response envelopes
-
-This is Friday's and Veronica's primary tool for anything date-, event-, or schedule-related.
+Unified, deterministic access to all HA calendar entities. Multi-calendar reads, event creation, update/delete, label-based targeting, strict ambiguity prevention.
 
 ---
 
-## **15. Zen DojoTools Event Emitter — 4.5.5 'Ready Player Two'**
-
+## 15. Zen DojoTools Event Emitter — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_event_emitter_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-A universal, contract-safe telemetry tool for emitting structured ZenOS-AI events onto the Home Assistant EventBus.
-
-Supports the canonical ZenOS event shape:
-
-```
-{
-  "timestamp": "ISO-8601",
-  "component": "string",
-  "severity": "debug|info|warn|error",
-  "kind": "classifier",
-  "summary": "single-sentence explanation",
-  "metadata": {},
-  "kata": {},
-  "monk": {}
-}
-```
-
-This is how Friday, Veronica, Kronk, and the High Priestess leave traceable breadcrumbs, emit summaries, and coordinate system-awareness.
+Universal, contract-safe telemetry tool for emitting structured ZenOS-AI events onto the HA EventBus. Canonical event shape: `{timestamp, component, severity, kind, summary, metadata, kata, monk}`.
 
 ---
 
-## **16. Zen DojoTools FileCabinet — 4.5.5 'Ready Player Two'**
-
+## 16. Zen DojoTools FileCabinet — 4.5.5 'Ready Player Two'
 **File:** `zen_dojotools_filecabinet_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-The authoritative, health-aware read/write controller for all Cabinet Volumes.
-
-Supports:
-
-* Drawer create/update/delete
-* Cross-volume move/copy
-* Label indexing & label-based lookup
-* Directory listings
-* Volume-wide reads
-* Manifest passthrough
-* JSON-safe parsing
-* Concurrency protection
-* Health validation (schema, flags, GUID, storage thresholds)
-
-If any drawer changes anywhere in ZenOS-AI, it happened through FileCabinet.
+Authoritative, health-aware read/write controller for all Cabinet Volumes. Supports create/update/delete, cross-volume move/copy, label indexing, directory listings, JSON-safe parsing, concurrency protection, and health validation. If a drawer changed anywhere in ZenOS-AI, it happened through FileCabinet.
 
 ---
 
-## **17. Zen DojoTools Manifest — 4.5.8**
-
+## 17. Zen DojoTools Manifest — 4.5.8
 **File:** `zen_dojotools_manifest_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-The runtime-only Cabinet manifest scanner.
-Builds a complete, zero-persistence health and metadata model for every Cabinet Volume.
-`mode: queued, max: 20` — burst-safe for provision/deprovision sequences. Write path migrated to `script.zen_dojotools_filecabinet`.
-
-Provides:
-
-* GUID checks
-* Schema compatibility
-* Drawer discovery
-* Label index extraction
-* Capacity analysis
-* Access flags
-* ACL expansion
-* Health classification
-
-If Friday trusts a Cabinet, it's because the Manifest told her it's safe.
+Runtime-only Cabinet manifest scanner. Builds a complete, zero-persistence health and metadata model for every Cabinet Volume — GUID checks, schema compatibility, drawer discovery, capacity analysis, ACL expansion.
 
 ---
 
-## **18. Zen DojoTools Index — 4.6.3 'Ectoplasm'**
-
+## 18. Zen DojoTools Index — 4.7.1 'Lights, Camera, Action'
 **File:** `zen_dojotools_index_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-The entity-and-label correlation engine of ZenOS-AI.
-
-Supports:
-
-* Entity & label set logic (AND/OR/NOT/XOR/`*`)
-* Full topology seed chain per operand: `entities > label > device > integration > area > floor`
-* Pagination via `limit` / `offset`; `dry_run` returns `total_count`
-* Auto-cap at 50 on topology/wildcard seeds with `expand_entities: true` and no explicit limit
-* `+history` flag for 24h recorder stats (requires explicit limit)
-* Index Command DSL mode
-* Integration with Zen Inspect
-* Inspect registry modes: `area_info`, `floor_info`, `device_info`, `area/floor/label/zone/person/device_list`, `integration_entities`
-* Adjacency label discovery
-* Drawer-level correlation
-* JSON-safe structured outputs
-
-The Zen Index is Friday's "graph engine," letting her understand relationships between entities, labels, and volumes.
+Entity-and-label correlation engine. Full topology seed chain per operand (`entities > label > device > integration > area > floor`), four set operators, ZQ-1 post-filter, pagination, and Inspect expansion. Index Command now accepts compound/recursive dict DSL (`{operator, index_1, index_2}`) with automatic timeout scaling for nested round-trips. Camera entities return `{analysis, cached_at, cache_age_minutes, snapshot_path, found}` inline and in `domain_context.camera`. Friday's graph engine.
 
 ---
 
-## **19. Zen DojoTools Inspect — 4.6.2 'Ectoplasm'**
-
+## 19. Zen DojoTools Inspect — 4.6.2 'Ectoplasm'
 **File:** `zen_dojotools_inspect_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-A safe, deterministic deep-inspection tool for entities — Friday's x-ray machine.
-
-Provides:
-
-* Entity snapshots (default `mode: inspect`)
-* Labels as `{slug: description}` dict — inline semantic context, no secondary lookup needed
-* Fully sanitized attributes
-* Cabinet sensor header detection
-* Statistics eligibility detection
-* Optional extended device forensics
-* HA registry modes: `area_info`, `floor_info`, `device_info`, `area_list`, `floor_list`, `label_list`, `zone_list`, `person_list`, `device_list`, `integration_entities`
-* JSON-stable output for LLM use
-
-Inspect shows Friday "what something is" without ever exposing dangerous internals.
+Deep-inspection tool for entities. Labels as `{slug: description}` dict, sanitized attributes, statistics eligibility, optional device forensics, and HA registry modes (`area_info`, `floor_info`, `device_info`, `area/floor/label/zone/person/device_list`, `integration_entities`).
 
 ---
 
-## **20. Zen DojoTools Ectoplasm — 4.6.0 'Ectoplasm'**
-
+## 20. Zen DojoTools Ectoplasm — 4.6.0 'Ectoplasm'
 **File:** `zen_dojotools_ectoplasm_readme.md`
-**Type:** Technical Documentation
 
-**Summary:**
-Spook/HA extended surface wrapper. Manages structural HA state that the standard service layer does not expose. Fully MCP-exposed. Requires Spook integration.
-
-Covers:
-
-* **Repairs** — create, remove, ignore/unignore HA repair issues; list active repairs and ghost entities
-* **Areas** — create, delete, assign/unassign devices and entities to areas
-* **Floors** — create, delete, assign/unassign areas to floors
-* **Entity lifecycle** — hide/unhide, disable/enable, rename
-* **Device lifecycle** — disable/enable
-* **Label assignment** — assign/unassign labels to areas and devices (entity label ops remain in `zen_dojotools_labels`)
-* **Integration config entries** — disable/enable
-* **Housekeeping** — orphan entity cleanup
-
-All write actions are confirm-gated: omit `confirm_action` for a preview; set `true` to execute. Read actions (`repair_list`, `ghost_list`) execute immediately.
+Spook/HA extended surface wrapper. Repairs, areas, floors, entity/device lifecycle, label assignment to areas and devices, integration config entries, orphan cleanup. All write actions confirm-gated. Requires Spook integration.
 
 ---
 
-# ✔️ Summary
+## 21. Zen DojoTools Camera — v1.2.0 'Lights, Camera, Action'
+**File:** `zen_dojotools_camera_readme.md`
 
-This directory represents the **core operational toolkit** of ZenOS-AI.
-Together, these modules form the backbone of:
+Friday's visual surface. Wraps HA camera entities with LLM vision analysis, household-cabinet caching, and label-driven sweep. Modes: `look` (analyze + cache), `read` (cached result), `scan` (sweep all `security_camera`-labeled cameras), `info` (entity attributes + stored `_default_ctx` + cache status), `set_default_ctx` (store per-camera default context call), `help`. `camera_hint` resolves entity from free-text. `sendto` dispatches look results to `image.zen_image_<slot>` (dashboard snapshot) or `person.*` (postman with image).
 
-* storage
-* introspection
-* indexing
-* scheduling
-* telemetry
-* safe state mutation
-* reasoning pipelines
-* agent support
+---
 
-They are the **foundation** upon which Friday, Veronica, Kronk, and the High Priestess express intelligence inside Home Assistant.
+## 22. Zen DojoTools Postman — v0.3.0-alpha 'Lights, Camera, Action'
+**File:** `zen_dojotools_postman_readme.md`
+
+Unified household communications layer. Resolves urgency + target against the authority stack (house ceiling → family floor → user preference) and dispatches to push/TTS/Teams. Supports image attachments (camera, zen_image slots, any image entity), actionable response buttons with wait-and-ack, phone TTS audio attachment, Android notification data passthrough, and `open_dashboard` tap navigation. `author_policy` mode seeds `postman_profile` drawers in any cabinet. Full `resolve` mode for dry-run audit before sending.
+
+---
+
+# Summary
+
+If Friday performs an action, reads something, correlates entities, inspects a device, updates a drawer, or leaves a breadcrumb — it came from here.

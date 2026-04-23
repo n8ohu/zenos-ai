@@ -1,5 +1,5 @@
 ZenOS-AI Template Engine: Zen Query Engine (ZQ-1) Technical Specification  
-Version: 4.5.5 'Ready Player Two'  
+Version: 4.5.7 'Lights, Camera, Action'  
 Status: Stable and required for all Zen DojoTools Query flows  
 
 ---
@@ -97,6 +97,7 @@ ZQ-1 is strictly sequential and deterministic.
 
    * Selection fields: `domain`, `label`, `area`, `device_id`, `device_class`
    * State filters: `state_equals`, `include_states`, `exclude_states`
+   * Exclusion suite (ZQ-1 ACL filters): `exclude_entity_ids`, `exclude_domain`, `exclude_label`, `exclude_integration`, `exclude_device`
    * Numeric filters: `numeric_above`, `numeric_below`
    * Regex filter: `regex`
    * Sort configuration: `sort` (mapping)
@@ -136,10 +137,15 @@ ZQ-1 is strictly sequential and deterministic.
    6. `state_equals`
    7. `include_states`
    8. `exclude_states`
+   8b. `exclude_entity_ids`
+   8c. `exclude_domain`
+   8d. `exclude_label`
+   8e. `exclude_integration`
+   8f. `exclude_device`
    9. Numeric filters
    10. Regex filter
 
-   Each step builds a new list and replaces `pipe.ids`. If any step produces an empty list, later steps still run but have no effect.
+   Each step builds a new list and replaces `pipe.ids`. If any step produces an empty list, later steps still run but have no effect. Exclusion stages (8b–8f) run after all inclusion filters — they cannot bring entities back in, making them safe for ACL injection.
 
 6. **Shortcut stages**
 
@@ -257,6 +263,52 @@ Example:
 
 ```json
 {"exclude_states": ["unavailable", "unknown"]}
+```
+
+---
+
+### ZQ-1 Exclusion Suite (stages 8b–8f)
+
+Five ACL-oriented exclusion fields applied after all inclusion filters. Each accepts a string or a list of strings. Multiple exclusion fields may be combined.
+
+#### `exclude_entity_ids` (string or list)
+
+Remove specific entity_ids from the result set. Primary use: caller-injected ACL or structural self-exclusion (e.g., camera tool excluding itself from its own context block).
+
+```json
+{"exclude_entity_ids": ["camera.front_doorbell_camera", "sensor.private"]}
+```
+
+#### `exclude_domain` (string or list)
+
+Remove all entities of one or more HA domains.
+
+```json
+{"exclude_domain": ["camera", "media_player"]}
+```
+
+#### `exclude_label` (string or list)
+
+Remove all entities carrying an HA label. Label matching is slug-normalized (spaces → underscores, lowercase). Primary ACL use: policy layer injects `exclude_label: adult_content` when audience rating is below threshold.
+
+```json
+{"exclude_label": "adult_content"}
+```
+
+#### `exclude_integration` (string or list)
+
+Remove all entities belonging to an integration. Uses `integration_entities()` — same as the integration seed, inverted.
+
+```json
+{"exclude_integration": "nest"}
+```
+
+#### `exclude_device` (string or list of device_ids)
+
+Remove all entities on one or more devices.
+
+```json
+{"exclude_device": ["abc123def456"]}
 ```
 
 ---
