@@ -165,7 +165,7 @@ script:
                     {%- set _base = _base if _base is mapping else {} -%}
                     {%- set _existing_excl = _base.get('exclude_entity_ids', []) -%}
                     {%- set _existing_excl = [_existing_excl] if _existing_excl is string else _existing_excl -%}
-                    {{ _base | combine({'exclude_entity_ids': ([_camera_entity] + _existing_excl) | unique | list}) | tojson }}
+                    {{ _base | combine({'exclude_entity_ids': ([_camera_entity] + _existing_excl) | unique | list}) }}
                   timeout: 2
                   mode: hypergraph
                 response_variable: _ctx_index_result
@@ -715,7 +715,7 @@ script:
                   label_1:    "{{ _sdc_ctx.get('label_1', '') }}"
                   label_2:    "{{ _sdc_ctx.get('label_2', none) }}"
                   operator:   "{{ _sdc_ctx.get('operator', 'AND') }}"
-                  filter_json: "{{ _sdc_ctx.get('filter_json', {}) | tojson }}"
+                  filter_json: "{{ _sdc_ctx.get('filter_json', {}) }}"
                   dry_run: true
                   timeout: 5
                 response_variable: _sdc_index_result

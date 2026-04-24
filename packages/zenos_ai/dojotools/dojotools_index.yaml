@@ -67,10 +67,11 @@ script:
         description: Optional starter list of entities to be filtered. If omitted starts
           from all entities of domain in filter.
       filter_json:
+        # MUST be object: — text: causes MCP to type this as string and reject dict args
+        # DO NOT change back to text:
         selector:
-          text:
-            multiline: true
-        default: '{} '
+          object:
+        default: {}
         description: 'Optional filter_json json dict containing a valid ZenQuery filter
           dictionary - MUST see help for schema and use. Default {} '
       output_fields:
@@ -1643,7 +1644,7 @@ script:
         sequence:
         - event: zen_indexer_request
           event_data:
-            index_command: "{{- index_command -}}"
+            index_command: "{{- index_command | tojson if index_command is mapping else index_command -}}"
             correlation_id: "{{- correlation_id -}}"
         - wait_for_trigger:
           - trigger: event
@@ -1968,8 +1969,10 @@ script:
           entity_ids, filter_json. Nesting supported (each child can itself be compound).
           Top-level ZQ-1 post-filtering: use the filter_json field, not inside index_command.
         required: false
+        # MUST be object: — text: causes MCP to type this as string and reject dict args
+        # DO NOT change back to text:
         selector:
-          text:
+          object:
       entities_1:
         name: Entities 1
         description: one of Entities 1 or Label 1 must be passed.
@@ -2105,10 +2108,11 @@ script:
             max: 5
             step: 0.25
       filter_json:
+        # MUST be object: — text: causes MCP to type this as string and reject dict args
+        # DO NOT change back to text:
         selector:
-          text:
-            multiline: true
-        default: '{} '
+          object:
+        default: {}
         description: Optional filter_json json dict containing a valid ZenQuery filter
           dictionary - MUST see zen_query help for ZQ1 schema and use. Default {}
       strict:

@@ -207,14 +207,18 @@ automation:
               - action: script.zen_dojotools_index
                 data:
                   mode:            "{{ _payload.get('mode', 'normal') }}"
-                  index_command:   "{{ _payload.get('index_command', '') }}"
+                  index_command: >-
+                    {%- set _v = _payload.get('index_command', {}) -%}
+                    {{- _v | from_json if _v is string else (_v if _v is mapping else {}) -}}
                   entities_1:      "{{ _payload.get('entities_1', []) }}"
                   label_1:         "{{ _payload.get('label_1', '') }}"
                   entities_2:      "{{ _payload.get('entities_2', []) }}"
                   label_2:         "{{ _payload.get('label_2', '') }}"
                   operator:        "{{ _payload.get('operator', 'AND') }}"
                   timeout:         "{{ _payload.get('timeout', 2) }}"
-                  filter_json:     "{{ _payload.get('filter_json', '{}') }}"
+                  filter_json: >-
+                    {%- set _v = _payload.get('filter_json', {}) -%}
+                    {{- _v | from_json if _v is string else (_v if _v is mapping else {}) -}}
                   strict:          "{{ _payload.get('strict', false) }}"
                   expand_entities: "{{ _payload.get('expand_entities', false) }}"
                   output_fields:   "{{ _payload.get('output_fields', []) }}"
