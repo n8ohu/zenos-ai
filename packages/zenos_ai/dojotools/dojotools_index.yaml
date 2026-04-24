@@ -1746,7 +1746,16 @@ script:
       - variables:
           response_entities: "{{- (response_zen_query.result | from_json) if response_zen_query.result is string else response_zen_query.result | default([]) -}}"
           fallback_entities_base: "{{- entities_base | default([]) -}}"
-          strict_mode: "{{- strict | default(false) -}}"
+          strict_mode: >-
+            {{- strict | default(false) or (
+              parsed_filter is mapping and (
+                parsed_filter.get('exclude_entity_ids') or
+                parsed_filter.get('exclude_domain') or
+                parsed_filter.get('exclude_label') or
+                parsed_filter.get('exclude_integration') or
+                parsed_filter.get('exclude_device')
+              )
+            ) -}}
           entities_base: >
             {%- if strict_mode -%}
               {{- response_entities -}}
