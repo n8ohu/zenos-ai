@@ -185,10 +185,10 @@
   {# 8d — exclude_label ------------------------------------------------ #}
   {%- if _excl_lbl | length > 0 %}
     {%- set ns2 = namespace(out=[]) %}
+    {%- set excl_slugs = _excl_lbl | map('lower') | map('replace', ' ', '_') | list %}
     {%- for eid in pipe.ids %}
       {%- set ent_labels = labels(eid) | list %}
       {%- set ent_label_slugs = ent_labels | map('lower') | map('replace', ' ', '_') | list %}
-      {%- set excl_slugs = _excl_lbl | map('lower') | map('replace', ' ', '_') | list %}
       {%- set hit = namespace(found=false) %}
       {%- for lslug in excl_slugs %}
         {%- if lslug in ent_label_slugs %}

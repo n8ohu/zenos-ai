@@ -2275,31 +2275,31 @@ automation:
     - alias: Dispatch Zen Index Command
       data:
         entities_1: >-
-          {%- if parsed_cmd.index_1 is defined -%}
+          {%- if parsed_cmd.index_1 is defined and parsed_cmd.index_1 is iterable and parsed_cmd.index_1 is not string -%}
             {{- parsed_cmd.index_1 | default([]) -}}
-          {%- elif parsed_cmd.entities_1 is defined -%}
+          {%- elif parsed_cmd.entities_1 is defined and parsed_cmd.entities_1 is iterable -%}
             {{- parsed_cmd.entities_1 | default([]) -}}
           {%- else -%}
             {{- entities_1 if entities_1 is defined else [] -}}
           {%- endif -%}
         label_1: >-
-          {%- if parsed_cmd.index_1 is not defined -%}
+          {%- if not (parsed_cmd.index_1 is defined and parsed_cmd.index_1 is iterable and parsed_cmd.index_1 is not string) -%}
             {{- parsed_cmd.label_1 | default('') -}}
           {%- else -%}{{- '' -}}{%- endif -%}
         entities_2: >-
-          {%- if parsed_cmd.index_2 is defined -%}
+          {%- if parsed_cmd.index_2 is defined and parsed_cmd.index_2 is iterable and parsed_cmd.index_2 is not string -%}
             {{- parsed_cmd.index_2 | default([]) -}}
-          {%- elif parsed_cmd.entities_2 is defined -%}
+          {%- elif parsed_cmd.entities_2 is defined and parsed_cmd.entities_2 is iterable -%}
             {{- parsed_cmd.entities_2 | default([]) -}}
           {%- else -%}
             {{- entities_2 if entities_2 is defined else [] -}}
           {%- endif -%}
         label_2: >-
-          {%- if parsed_cmd.index_2 is not defined -%}
+          {%- if not (parsed_cmd.index_2 is defined and parsed_cmd.index_2 is iterable and parsed_cmd.index_2 is not string) -%}
             {{- parsed_cmd.label_2 | default(none) -}}
           {%- else -%}{{- none -}}{%- endif -%}
-        operator: "{{- parsed_cmd.operator -}}"
-        expand_entities: "{{- parsed_cmd.expand_entities -}}"
+        operator: "{{- parsed_cmd.operator | default('OR') -}}"
+        expand_entities: "{{- parsed_cmd.expand_entities | default(false) -}}"
       response_variable: zen_index_response
       action: script.zen_dojotools_index
     - alias: Return Result
