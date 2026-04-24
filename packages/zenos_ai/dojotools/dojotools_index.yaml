@@ -1420,6 +1420,8 @@ script:
     icon: mdi:magnify
 
   zen_dojotools_index:
+    mode: parallel
+    max: 10
     sequence:
 
     # --------------------------------------------------------------
@@ -2293,7 +2295,7 @@ automation:
           {%- endif -%}
         label_1: >-
           {%- if not (parsed_cmd.index_1 is defined and parsed_cmd.index_1 is iterable and parsed_cmd.index_1 is not string) -%}
-            {{- parsed_cmd.label_1 | default('') -}}
+            {{- parsed_cmd.label_1 | default(parsed_cmd.label | default('')) -}}
           {%- else -%}{{- '' -}}{%- endif -%}
         entities_2: >-
           {%- if parsed_cmd.index_2 is defined and parsed_cmd.index_2 is iterable and parsed_cmd.index_2 is not string -%}
