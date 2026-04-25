@@ -67,10 +67,11 @@ script:
         description: Optional starter list of entities to be filtered. If omitted starts
           from all entities of domain in filter.
       filter_json:
+        # MUST be object: — text: causes MCP to type this as string and reject dict args
+        # DO NOT change back to text:
         selector:
-          text:
-            multiline: true
-        default: '{} '
+          object:
+        default: {}
         description: 'Optional filter_json json dict containing a valid ZenQuery filter
           dictionary - MUST see help for schema and use. Default {} '
       output_fields:
@@ -303,8 +304,8 @@ script:
               {{-
                 {
                   "tool": "Zen DojoTools Inspect",
-                  "version": "4.6.2",
-                  "intent": "Deep entity inspection + area/floor/device read modes. Returns state, labels, device metadata (incl. floor_id, device_labels, area_labels), cabinet volume info, and optional recorder statistics. Called directly or via Index when expand_entities=true.",
+                  "version": "4.7.0",
+                  "intent": "Deep entity inspection + area/floor/device read modes. Returns state, labels, device metadata (incl. floor_id, device_labels, area_labels), cabinet volume info, and optional recorder statistics. Called directly or via Index when expand_entities=true. Camera entities: camera_cache merged inline into each result entry — {analysis, cached_at, cache_age_minutes, snapshot_path, found}.",
                   "inputs": {
                     "entity_id": "Required for mode=inspect. Single entity_id or list. Not required for help/area_info/floor_info/device_info.",
                     "output_fields": "Field selector. Comma-separated string or list. Controls which blocks appear per entity. See output_fields_reference.",
@@ -363,8 +364,9 @@ script:
                     "_note": "aliases and level dropped — no HA Jinja read path. config_entry_list blocked — config entries not in Jinja, needs REST. Use /api/config/config_entries/entry via REST API."
                   },
                   "top_level_output": {
-                    "results": "Array of per-entity result objects.",
+                    "results": "Array of per-entity result objects. Camera entities include camera_cache: {analysis, cached_at, cache_age_minutes, snapshot_path, found} merged inline.",
                     "drawers": "Drawer blurbs from Dojo cabinet keyed by label. Empty dict if no label_targets.",
+                    "domain_context": "Auto-enriched domain data: todo (list), calendar (read), camera (cache map keyed by entity_id — {analysis, cached_at, cache_age_minutes, snapshot_path, found}).",
                     "inputs": "Echo of entity_id, extended, infer, timeout.",
                     "error": "null on success."
                   },
@@ -384,7 +386,8 @@ script:
                     "History data is at results[N].history.last_24h — hourly array. There is NO history.mean at the root.",
                     "+statistics is a cheap eligibility check. +history fetches actual recorder data. They are independent.",
                     "Inspect is called automatically by Index when expand_entities=true — output_fields passes through.",
-                    "Cabinet sensors suppress attributes. Use FileCabinet tools for drawer data."
+                    "Cabinet sensors suppress attributes. Use FileCabinet tools for drawer data.",
+                    "Camera entities: camera_cache is merged inline into each result entry — {analysis, cached_at, cache_age_minutes, snapshot_path, found}. Check found=true before using analysis. cache_age_minutes tells you how fresh the cached analysis is."
                   ]
                 }
               -}}
@@ -1232,6 +1235,59 @@ script:
                wait.trigger.event.data.event.get('result', {})
                if wait.trigger is not none else {}}) }}
 
+    # ── Domain context supplement — camera cache ──────────────────────────
+    # Reads household cabinet cache for any camera.* entities in results.
+    # No event bus — cabinet variables are live in the template engine.
+    # Attaches to domain_context.camera keyed by entity_id.
+    - variables:
+        _dc_cam_ids: >-
+          {{ results | selectattr('domain', 'defined')
+             | selectattr('domain', 'equalto', 'camera')
+             | map(attribute='entity_id') | list }}
+
+    - if:
+      - condition: template
+        value_template: "{{ _dc_cam_ids | length > 0 }}"
+      then:
+      - variables:
+          _household_cab_ent: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+          _cam_cache_map: >-
+            {%- set _hvars = (state_attr(_household_cab_ent, 'variables') or {}) -%}
+            {%- set ns = namespace(out={}) -%}
+            {%- for eid in _dc_cam_ids -%}
+              {%- set _ck = eid | replace('.', '_') | replace('-', '_') -%}
+              {%- set _raw = _hvars.get(_ck, {}) -%}
+              {%- set _v = _raw.get('value', _raw) if _raw is mapping else {} -%}
+              {%- set _v1 = _v if _v is mapping else {} -%}
+              {%- set _cat = _v1.get('cached_at', '') -%}
+              {%- set _age_ns = namespace(v=none) -%}
+              {%- if _cat != '' -%}
+                {%- set _age_ns.v = ((now() - as_datetime(_cat)).total_seconds() / 60) | round(1) -%}
+              {%- endif -%}
+              {%- set ns.out = ns.out | combine({eid: {
+                'analysis': _v1.get('analysis', ''),
+                'cached_at': _cat,
+                'cache_age_minutes': _age_ns.v,
+                'snapshot_path': _v1.get('snapshot_path', ''),
+                'found': _v1 != {}
+              }}) -%}
+            {%- endfor -%}
+            {{ ns.out }}
+          _domain_context: >-
+            {{ _domain_context | combine({'camera': _cam_cache_map}) }}
+      - variables:
+          results: >-
+            {%- set ns = namespace(out=[]) -%}
+            {%- for item in results -%}
+              {%- set eid = item.get('entity_id', '') if item is mapping else '' -%}
+              {%- if eid in _cam_cache_map -%}
+                {%- set ns.out = ns.out + [item | combine({'camera_cache': _cam_cache_map[eid]})] -%}
+              {%- else -%}
+                {%- set ns.out = ns.out + [item] -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ ns.out }}
+
     - variables:
         inspect_result:
           results: "{{- results -}}"
@@ -1249,12 +1305,14 @@ script:
     alias: Zen DojoTOOLS Inspect
     mode: parallel
     description: >-
-      Inspect (4.6.0). Entity deep-dive + area/floor/device read modes.
+      Inspect (4.7.0). Entity deep-dive + area/floor/device read modes.
       inspect (default) — entity deep-dive. area_info/floor_info/device_info —
       single-object drill-down (id required). area_list/floor_list/label_list/
       zone_list/person_list — full registry enum (no input). device_list —
       tooling primitive only, large response. integration_entities — by domain.
-      help — schema. (v4.6.2)
+      Camera entities: camera_cache merged inline into each result
+      (analysis, cached_at, cache_age_minutes, snapshot_path, found).
+      help — schema. (v4.7.0)
     fields:
       entity_id:
         required: true
@@ -1363,6 +1421,8 @@ script:
     icon: mdi:magnify
 
   zen_dojotools_index:
+    mode: parallel
+    max: 10
     sequence:
 
     # --------------------------------------------------------------
@@ -1423,7 +1483,7 @@ script:
               \     \"output_fields\": \"Passed to Inspect when expand_entities=true. Defaults on: timestamps, device, volume. Opt-in: +history (24h recorder stats per entity). Suppress: -timestamps, -device, -volume. Example: '+history,-device,-volume,-timestamps'. Has no effect if expand_entities=false.\",\n
               \     \"filter_json\": \"Optional dict following ZenQuery schema.\",\n
               \     \"mode\": \"normal | hypergraph\",\n      \"timeout\": \"Indexer
-              callback timeout in seconds.\"\n    },\n    \"filter_json\": {\n      \"overview\":
+              callback timeout in seconds.\",\n      \"index_command\": \"JSON DSL — overrides all discrete fields. SIMPLE: flat dict with label/domain/operator/entity_ids keys. COMPOUND (recursive): {operator: OR, index_1: {child_spec}, index_2: {child_spec}} — resolves children async via event bus, merged with operator. Child keys: label, domain, entity_ids, filter_json. Nesting supported. Child key is 'label' not 'label_1'. Top-level filter_json post-filters the merged result.\"\n    },\n    \"filter_json\": {\n      \"overview\":
               \"ZenQuery-style dict applied after primary set resolution. Ideal for
               trimming results before fusion.\",\n      \"query_help\": query_help,\n
               \     \"simple_examples\": {\n        \"domain\": {\"domain\": \"light\"},\n
@@ -1460,7 +1520,7 @@ script:
               \">\", \"state_value\": 60}\n      },\n      \"Example 5 — Build a root
               graph for Summarizer or Fusion\": {\n        \"label_1\": \"climate\",\n
               \       \"expand_entities\": true,\n        \"mode\": \"hypergraph\"\n
-              \     },\n      \"Example 6 — 24h recorder stats for energy entities\": {\n        \"label_1\": \"energy_manager\",\n        \"expand_entities\": true,\n        \"filter_json\": {\"shortcuts\": {\"stats_eligible\": true}},\n        \"output_fields\": \"+history,-device,-volume,-timestamps\",\n        \"_note\": \"History data at result.expanded[N].history.last_24h — array of hourly buckets {start,end,min,max,mean}. Run stats_eligible filter first to skip ineligible entities.\"\n      }\n    },\n    \"quick_recipes\": {\n      \"history_stats\": {\n        \"label_1\": \"<your_label>\",\n        \"expand_entities\": true,\n        \"filter_json\": {\"shortcuts\": {\"stats_eligible\": true}},\n        \"output_fields\": \"+history,-device,-volume,-timestamps\",\n        \"_NOTE\": \"expand_entities MUST be true or output_fields is ignored.\",\n        \"_result_path\": \"result.expanded[N].history.last_24h → [{start, end, min, max, mean}]\",\n        \"_trap\": \"stats_eligible filter BEFORE +history — avoids fetching stats for sensors with no recorder data.\"\n      }\n    },\n    \"best_practices\": [\n      \"Use (Hyper)Index before
+              \     },\n      \"Example 6 — 24h recorder stats for energy entities\": {\n        \"label_1\": \"energy_manager\",\n        \"expand_entities\": true,\n        \"filter_json\": {\"shortcuts\": {\"stats_eligible\": true}},\n        \"output_fields\": \"+history,-device,-volume,-timestamps\",\n        \"_note\": \"History data at result.expanded[N].history.last_24h — array of hourly buckets {start,end,min,max,mean}. Run stats_eligible filter first to skip ineligible entities.\"\n      },\n      \"Example 7 — Compound OR: two label sets merged\": {\n        \"index_command\": \"{\\\"operator\\\": \\\"OR\\\", \\\"index_1\\\": {\\\"label\\\": \\\"security_camera\\\"}, \\\"index_2\\\": {\\\"label\\\": \\\"motion_sensor\\\"}}\",\n        \"_note\": \"Child key is 'label' (not 'label_1'). Each child resolved async via event bus, merged with OR.\"\n      },\n      \"Example 8 — Compound AND: intersection of two label sets\": {\n        \"index_command\": \"{\\\"operator\\\": \\\"AND\\\", \\\"index_1\\\": {\\\"label\\\": \\\"climate\\\"}, \\\"index_2\\\": {\\\"label\\\": \\\"priority\\\"}}\",\n        \"_note\": \"Both children must resolve non-empty for AND to return results. Use dry_run: true to preview entity_count.\"\n      },\n      \"Example 9 — Compound with domain filter scoped to child\": {\n        \"index_command\": \"{\\\"operator\\\": \\\"OR\\\", \\\"index_1\\\": {\\\"label\\\": \\\"office\\\", \\\"domain\\\": \\\"light\\\"}, \\\"index_2\\\": {\\\"label\\\": \\\"office\\\", \\\"domain\\\": \\\"switch\\\"}}\",\n        \"_note\": \"Domain filter inside child spec narrows that child only. Top-level filter_json applies after merge.\"\n      }\n    },\n    \"quick_recipes\": {\n      \"history_stats\": {\n        \"label_1\": \"<your_label>\",\n        \"expand_entities\": true,\n        \"filter_json\": {\"shortcuts\": {\"stats_eligible\": true}},\n        \"output_fields\": \"+history,-device,-volume,-timestamps\",\n        \"_NOTE\": \"expand_entities MUST be true or output_fields is ignored.\",\n        \"_result_path\": \"result.expanded[N].history.last_24h → [{start, end, min, max, mean}]\",\n        \"_trap\": \"stats_eligible filter BEFORE +history — avoids fetching stats for sensors with no recorder data.\"\n      }\n    },\n    \"compound_index_dsl\": {\n      \"overview\": \"index_command accepts a recursive compound DSL. Top-level operator merges two child specs, each resolved async via zen_indexer_request event bus before merge.\",\n      \"syntax\": {\n        \"operator\": \"OR|AND|XOR|NOT\",\n        \"index_1\": {\"label\": \"...\", \"domain\": \"...\", \"entity_ids\": []},\n        \"index_2\": {\"label\": \"...\"}\n      },\n      \"child_keys\": [\"label\", \"domain\", \"entity_ids\", \"filter_json\", \"operator\"],\n      \"nesting\": \"Supported — index_1 or index_2 can themselves be compound specs. Depth bounded by script max: 10 parallel instances.\",\n      \"critical\": \"Child spec key is 'label' (not 'label_1'). label_1/label_2 are top-level discrete fields only.\",\n      \"filter_note\": \"filter_json field post-filters the final merged result. filter_json inside a child spec filters that child's result before merge.\",\n      \"dry_run\": \"Pass dry_run: true to preview entity_count without full expansion.\"\n    },\n    \"best_practices\": [\n      \"Use (Hyper)Index before
               any fusion or summarization to avoid bloated context.\",\n      \"Prefer
               labels as the primary driver, entities only when needed.\",\n      \"Use
               expand_entities sparingly — hypergraph mode is already powerful.\",\n
@@ -1584,7 +1644,7 @@ script:
         sequence:
         - event: zen_indexer_request
           event_data:
-            index_command: "{{- index_command -}}"
+            index_command: "{{- index_command | tojson if index_command is mapping else index_command -}}"
             correlation_id: "{{- correlation_id -}}"
         - wait_for_trigger:
           - trigger: event
@@ -1592,7 +1652,9 @@ script:
             event_data:
               correlation_id: "{{- correlation_id -}}"
           timeout:
-            seconds: "{{- timeout_seconds -}}"
+            seconds: >-
+              {%- set _is_recursive = 'index_1' in index_command or 'index_2' in index_command -%}
+              {{ [timeout_seconds | int * 3, 15] | min if _is_recursive else timeout_seconds }}
         - choose:
           - conditions:
             - condition: template
@@ -1687,7 +1749,16 @@ script:
       - variables:
           response_entities: "{{- (response_zen_query.result | from_json) if response_zen_query.result is string else response_zen_query.result | default([]) -}}"
           fallback_entities_base: "{{- entities_base | default([]) -}}"
-          strict_mode: "{{- strict | default(false) -}}"
+          strict_mode: >-
+            {{- strict | default(false) or (
+              parsed_filter is mapping and (
+                parsed_filter.get('exclude_entity_ids') or
+                parsed_filter.get('exclude_domain') or
+                parsed_filter.get('exclude_label') or
+                parsed_filter.get('exclude_integration') or
+                parsed_filter.get('exclude_device')
+              )
+            ) -}}
           entities_base: >
             {%- if strict_mode -%}
               {{- response_entities -}}
@@ -1865,6 +1936,13 @@ script:
       Hypergraph mode outputs a structured graph (nodes, edges, adjacency, expanded)
       ideal for fusion, summarizers, drift checks, and reasoning tasks. Run with
       mode: help to view the full ZQ-1 schema.
+
+      Compound index_command: pass {"operator": "OR|AND|XOR|NOT", "index_1":
+      {child_spec}, "index_2": {child_spec}} to resolve two independent entity/label
+      sets async via the event bus and merge them with operator in a single call.
+      Child specs support label, domain, entity_ids, filter_json. Each child can
+      itself be compound (recursive). Depth bounded by script max: 10 parallel
+      instances. Child key is "label" (not "label_1").
     fields:
       mode:
         selector:
@@ -1881,12 +1959,20 @@ script:
           — full ZQ-1 schema.'
       index_command:
         name: Zen Index Command
-        description: Structured query string for parser. Overrides all other fields.
-          Prefer discrete fields to the index command. Currently does not pass through
-          filter input - use filter_json.
+        description: >-
+          JSON DSL — overrides all discrete fields. Two forms:
+          SIMPLE (flat dict: {"label": "...", "operator": "OR", "domain": "..."}) or
+          COMPOUND (recursive multi-set: {"operator": "OR|AND|XOR|NOT",
+          "index_1": {child_spec}, "index_2": {child_spec}}).
+          Compound resolves each child async via the zen_indexer_request event bus and
+          merges results with the top-level operator. Child spec keys: label, domain,
+          entity_ids, filter_json. Nesting supported (each child can itself be compound).
+          Top-level ZQ-1 post-filtering: use the filter_json field, not inside index_command.
         required: false
+        # MUST be object: — text: causes MCP to type this as string and reject dict args
+        # DO NOT change back to text:
         selector:
-          text:
+          object:
       entities_1:
         name: Entities 1
         description: one of Entities 1 or Label 1 must be passed.
@@ -2022,10 +2108,11 @@ script:
             max: 5
             step: 0.25
       filter_json:
+        # MUST be object: — text: causes MCP to type this as string and reject dict args
+        # DO NOT change back to text:
         selector:
-          text:
-            multiline: true
-        default: '{} '
+          object:
+        default: {}
         description: Optional filter_json json dict containing a valid ZenQuery filter
           dictionary - MUST see zen_query help for ZQ1 schema and use. Default {}
       strict:
@@ -2070,8 +2157,6 @@ script:
           text:
         description: 'Reserved. Governance stub — passed through to Query and Inspect.
           SP1 enforcement not yet active.'
-    mode: parallel
-    max: 10
     icon: mdi:graphql
 
 
@@ -2215,12 +2300,32 @@ automation:
               -}}
     - alias: Dispatch Zen Index Command
       data:
-        entities_1: "{{- entities_1 if entities_1 is defined else [] -}}"
-        label_1: "{{- parsed_cmd.label_1 -}}"
-        entities_2: "{{- entities_2 if entities_2 is defined else [] -}}"
-        label_2: "{{- parsed_cmd.label_2 -}}"
-        operator: "{{- parsed_cmd.operator -}}"
-        expand_entities: "{{- parsed_cmd.expand_entities -}}"
+        entities_1: >-
+          {%- if parsed_cmd.index_1 is defined and parsed_cmd.index_1 is iterable and parsed_cmd.index_1 is not string -%}
+            {{- parsed_cmd.index_1 | default([]) -}}
+          {%- elif parsed_cmd.entities_1 is defined and parsed_cmd.entities_1 is iterable -%}
+            {{- parsed_cmd.entities_1 | default([]) -}}
+          {%- else -%}
+            {{- entities_1 if entities_1 is defined else [] -}}
+          {%- endif -%}
+        label_1: >-
+          {%- if not (parsed_cmd.index_1 is defined and parsed_cmd.index_1 is iterable and parsed_cmd.index_1 is not string) -%}
+            {{- parsed_cmd.label_1 | default(parsed_cmd.label | default('')) -}}
+          {%- else -%}{{- '' -}}{%- endif -%}
+        entities_2: >-
+          {%- if parsed_cmd.index_2 is defined and parsed_cmd.index_2 is iterable and parsed_cmd.index_2 is not string -%}
+            {{- parsed_cmd.index_2 | default([]) -}}
+          {%- elif parsed_cmd.entities_2 is defined and parsed_cmd.entities_2 is iterable -%}
+            {{- parsed_cmd.entities_2 | default([]) -}}
+          {%- else -%}
+            {{- entities_2 if entities_2 is defined else [] -}}
+          {%- endif -%}
+        label_2: >-
+          {%- if not (parsed_cmd.index_2 is defined and parsed_cmd.index_2 is iterable and parsed_cmd.index_2 is not string) -%}
+            {{- parsed_cmd.label_2 | default(none) -}}
+          {%- else -%}{{- none -}}{%- endif -%}
+        operator: "{{- parsed_cmd.operator | default('OR') -}}"
+        expand_entities: "{{- parsed_cmd.expand_entities | default(false) -}}"
       response_variable: zen_index_response
       action: script.zen_dojotools_index
     - alias: Return Result
@@ -2228,4 +2333,4 @@ automation:
       event_data:
         correlation_id: "{{- correlation_id -}}"
         response: "{{- zen_index_response -}}"
-    mode: queued
+    mode: parallel

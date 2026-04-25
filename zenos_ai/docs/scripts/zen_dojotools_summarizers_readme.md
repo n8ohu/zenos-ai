@@ -1,4 +1,4 @@
-# Zen DojoTools Summarizers — 4.6.0 'Ectoplasm'
+# Zen DojoTools Summarizers — 4.7.0 'Lights, Camera, Action'
 
 *Ninja Summarizer + SuperSummary — the KF4 action pipeline*
 
@@ -64,7 +64,10 @@ Summarizes a single Kung Fu Component. Called by the Scheduler for each componen
 4. **Read Dojo drawer** — loads the component's KFC metadata (friendly name, label, command, tool, kata_key)
 5. **`meta.enabled` check** — exits with `reason: meta_disabled` if the component's `meta.enabled` is `false`
 6. **Run governor** — dedup burnout window check (see below). Exits with `reason: dedup_window` if blocked.
-7. **Run HyperIndex** — if the component has a `label` field, queries the index with that label in hypergraph mode
+7. **Run HyperIndex** — queries the index using the component's configured index call. Routing:
+   - If the Dojo drawer has an `index_command` dict field: emits compound/recursive index call via `zen_indexer_request` event. Supports the full nested DSL: `{operator, index_1: {...}, index_2: {...}}`. Use for components whose context spans multiple independent label sets.
+   - If the drawer has a `label` field: standard label-based index call in hypergraph mode.
+   - If neither is present: HyperIndex step is skipped.
 8. **Run library command** — if the component has a `command` field, dispatches it through `command_interpreter.jinja`
 9. **Build monk prompt** — assembles query, kata template (structure), example, review data (index + library output + dojo drawer), and supplemental instructions
 10. **Call ai_task.generate_data** — sends prompt to the configured AI task entity (the local LLM monk)

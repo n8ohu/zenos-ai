@@ -125,6 +125,7 @@ rest_command:
     headers:
       authorization: !secret ha_bearer
       content-type: 'application/json'
+    payload: "{{ payload | default('{}') }}"
 
 script:
 
@@ -1007,7 +1008,7 @@ script:
       lines:
         selector:
           number:
-            min: 50
+            min: 25
             max: 20000
         default: 5000
       start:
@@ -1037,11 +1038,15 @@ script:
 
     - variables:
         m: '{{ mode }}'
-        p: '{{ pattern | default('''') }}'
         n: '{{ lines }}'
         s: '{{ start | default(1) }}'
         c: '{{ count | default(500) }}'
         limit: 240000
+    - variables:
+        p: >-
+          {%- set _raw = pattern | default('', true) | string | trim -%}
+          {%- set _safe = _raw | replace("'", "") | replace('"', "") | replace(';', "") | replace('`', "") -%}
+          {{ _safe }}
     # ===== LOG GUARD (Veronica/ZenOS-AI spec, HA 2025.11+ journal behavior) =====
     - action: shell_command.zen_log_check
       response_variable: log_check

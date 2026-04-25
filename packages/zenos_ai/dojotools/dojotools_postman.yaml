@@ -1,0 +1,1445 @@
+###############################################################################
+# ZenOS-AI DojoTools: Postman
+# Version: 1.0.0
+#
+# Purpose:
+#   Unified household communications layer. Resolves notification intent
+#   against the authority stack (house ceiling → family floor → user
+#   preference) and dispatches to appropriate channels.
+#
+# Modes:
+#   resolve              — read side: resolve authority stack, return what
+#                          would happen. No dispatch. No log. Browse/debug.
+#   resolve_and_dispatch — resolve + dispatch + log. Full send.
+#   author_policy        — write/update a postman_profile in a cabinet
+#   help                 — return drawer schemas, seeds, example calls
+#
+# Authority stack (resolve / resolve_and_dispatch):
+#   house  = ceiling: sleep gate, work gate, life_safety_bypass (9)
+#   family = floor:   escalation requirements (SP1)
+#   user   = preference: urgency_tiers, away_policy, tts_policy
+#
+# Cabinet drawers:
+#   household cabinet  → postman_profile
+#   family cabinet     → postman_profile
+#   user cabinet       → postman_profile
+#   kata cabinet       → zen_postman_log (delivery record)
+#
+# SP1 queue:
+#   - Per-target user cabinet resolution (multi-user routing)
+#   - Ack watch / response_required escalation
+#   - Family escalation loop
+#   - zen_postman_log capping (currently last-write-wins)
+#   - Work gate activation condition (currently checks postman_profile only)
+#   - content_policy per channel
+###############################################################################
+
+script:
+  zen_dojotools_postman:
+    alias: Zen DojoTools Postman (v1.0.0)
+    mode: parallel
+    max: 5
+    icon: mdi:envelope-outline
+    description: >-
+      Unified household communications layer. Resolves intent against the
+      authority stack (house ceiling → family floor → user preference) and
+      dispatches to the appropriate channel(s).
+
+    fields:
+      mode:
+        name: Operation Mode
+        description: >-
+          resolve — read side: resolve authority stack, return what would
+          happen. No dispatch, no log write. Use for browse and debug.
+          resolve_and_dispatch — resolve + dispatch + log. Full send.
+          author_policy — write/update a postman_profile in a cabinet drawer.
+          help — return drawer schemas and example calls for setup.
+        required: true
+        selector:
+          select:
+            options:
+              - resolve
+              - resolve_and_dispatch
+              - author_policy
+              - help
+
+      target:
+        name: Target Identity
+        description: >-
+          person.* entity for the notification target.
+          SP1: resolves to that person's user cabinet. For now: default user cabinet.
+        required: false
+        selector:
+          text:
+
+      urgency:
+        name: Urgency Level
+        description: "1–10. Maps to tier: 1-3=low, 4-6=medium, 7-8=high, 9-10=critical."
+        required: false
+        default: 1
+        selector:
+          number:
+            min: 1
+            max: 10
+            step: 1
+
+      message:
+        name: Message Content
+        description: The text to deliver.
+        required: false
+        selector:
+          text:
+            multiline: true
+
+      title:
+        name: Title
+        description: Optional notification title.
+        required: false
+        selector:
+          text:
+
+      channel_hint:
+        name: Channel Hint
+        description: >-
+          Preferred channel (push, tts, teams). Postman may override per policy.
+          Prepended to the tier's channel list if provided — still subject to
+          house gates and away policy.
+        required: false
+        selector:
+          text:
+
+      response_required:
+        name: Response Required
+        description: "If true, delivery record is flagged for ack. SP1: ack watch not yet implemented."
+        required: false
+        default: false
+        selector:
+          boolean:
+
+      image_entity:
+        name: Image / Camera Entity
+        description: >-
+          Any HA image or camera entity to attach to the push notification.
+          image.zen_image_* slots  → /local/zen_<slot>.jpg
+          Other image.*            → entity_picture attribute URL
+          camera.*                 → /api/camera_proxy/<entity_id> (current frame)
+          Takes precedence over image_url. Ignored if image_prompt is set.
+        required: false
+        selector:
+          entity:
+            domain:
+              - image
+              - camera
+
+      image_url:
+        name: Image URL
+        description: >-
+          URL or local path for an image to attach to the push notification.
+          Local HA media: /media/local/snapshots/camera/last_motion.jpg
+          Local www (unsecured): /local/snapshots/camera/last_motion.jpg
+          Use image_entity instead for zen_dojotools_generate_image slots.
+        required: false
+        selector:
+          text:
+
+      audio_url:
+        name: Audio URL
+        description: >-
+          URL or local path for an audio file to attach to the push notification.
+          Supported: AIFF, WAV, MP3, MPEG4 Audio (max 5 MB).
+          Local HA media: /media/local/audio/briefing.mp3
+          Companion app only — ignored on non-mobile targets.
+        required: false
+        selector:
+          text:
+
+      tag:
+        name: Notification Tag
+        description: >-
+          Tag for replace/update/clear behavior. Notifications with the same
+          tag replace each other. Required for alert_once, persistent, sticky
+          update patterns. Passed as data.tag.
+        required: false
+        selector:
+          text:
+
+      response_type:
+        name: Response Type
+        description: >-
+          Predefined action button set appended to the notification.
+          none       — no buttons (default)
+          yes_no     — Yes / No
+          yes_no_ignore — Yes / No / Ignore
+          ok_cancel  — Ok / Cancel
+          acknowledge — Got it (single dismiss button)
+          Fires mobile_app_notification_action event with action: YES/NO/etc.
+          when tapped. Postman waits for the response up to response_timeout_s.
+        required: false
+        default: none
+        selector:
+          select:
+            options:
+              - none
+              - yes_no
+              - yes_no_ignore
+              - ok_cancel
+              - acknowledge
+
+      response_timeout_s:
+        name: Response Timeout (seconds)
+        description: >-
+          How long to wait for a button tap before timing out.
+          Only active when response_type is set. Default 60s.
+        required: false
+        default: 60
+        selector:
+          number:
+            min: 10
+            max: 300
+            step: 10
+
+      force_audio:
+        name: Force Audio on Push
+        description: >-
+          Bypasses the urgency >= 7 gate for TTS audio attachment. Use for
+          testing or when a low-urgency notification genuinely needs the
+          handset to speak regardless of tier.
+        required: false
+        default: false
+        selector:
+          boolean:
+
+      open_dashboard:
+        name: Open Dashboard on Tap
+        description: >-
+          If true, tapping the push notification navigates to the dashboard
+          path defined in the user's postman_profile assist_path field
+          (clickAction + url). No-op if assist_path is not set in the profile.
+        required: false
+        default: false
+        selector:
+          boolean:
+
+      notification_data:
+        name: Notification Data
+        description: >-
+          Raw data dict passed through to the notify action data field.
+          Supports all Android notification options: channel, importance,
+          color, notification_icon, sticky, persistent, vibrationPattern,
+          alert_once, visibility, timeout, chronometer, progress, car_ui,
+          clickAction, ledColor, media_stream, car_ui.
+          Merged with image_url, tag, and response_type actions — those
+          fields take precedence over keys in this dict.
+        required: false
+        selector:
+          object:
+
+      kata_input:
+        name: Kata Input
+        description: >-
+          Optional kata payload from the ninja summarizer emission pipeline.
+          When provided and explicit title/message are not set, derives them
+          from component, period, attention, and suggested_act_desc fields.
+        required: false
+        selector:
+          object:
+
+      breakthrough:
+        name: Breakthrough Gates
+        description: >-
+          If true, bypasses the house sleep gate regardless of urgency level.
+          Equivalent to urgency >= life_safety_bypass for gate evaluation only.
+          Use for urgent situations that must reach the user immediately.
+        required: false
+        default: false
+        selector:
+          boolean:
+
+      # --- Author Policy Fields ---
+      scope_id:
+        name: Scope Cabinet Entity
+        description: >-
+          Resolved cabinet entity to write policy into.
+          e.g. sensor.zen_default_user_cabinet_resolved
+        required: false
+        selector:
+          text:
+
+      policy_key:
+        name: Policy Drawer Key
+        description: >-
+          Drawer key to write. Always postman_profile — same key in all cabinets.
+        required: false
+        default: postman_profile
+        selector:
+          text:
+
+      policy_type:
+        name: Policy Type
+        description: >-
+          new_channel — add a named channel entry (channel_definition must include 'name').
+          update_existing — deep-merge channel_definition into existing policy.
+        required: false
+        selector:
+          select:
+            options:
+              - new_channel
+              - update_existing
+
+      channel_definition:
+        name: Channel Definition
+        description: Structured dict defining the new or updated channel/policy fields.
+        required: false
+        selector:
+          object:
+
+      caller_token:
+        name: Caller Token
+        description: Opaque correlation token.
+        required: false
+        selector:
+          text:
+
+    sequence:
+
+      # ── 0. Normalize inputs ────────────────────────────────────────────────
+      - variables:
+          _mode:          "{{ mode | string | trim }}"
+          _target:        "{{ target | default('', true) | string | trim }}"
+          _urgency:       "{{ urgency | default(1) | int }}"
+          _message:       "{{ message | default('', true) | string | trim }}"
+          _title:         "{{ title | default('', true) | string | trim }}"
+          _channel_hint:  "{{ channel_hint | default('', true) | string | trim }}"
+          _response_req:  "{{ response_required | default(false) | bool }}"
+          _scope_id:      "{{ scope_id | default('', true) | string | trim }}"
+          _policy_key:    "{{ policy_key | default('postman_profile', true) | string | trim }}"
+          _policy_type:   "{{ policy_type | default('new_channel', true) }}"
+          _channel_def:   "{{ channel_definition | default({}, true) }}"
+          _caller_token:  "{{ caller_token | default('', true) | string | trim }}"
+          _image_entity:    "{{ image_entity | default('', true) | string | trim }}"
+          _image_url:       "{{ image_url | default('', true) | string | trim }}"
+          _audio_url:       "{{ audio_url | default('', true) | string | trim }}"
+          _tag:           "{{ tag | default('', true) | string | trim }}"
+          _response_type:    "{{ response_type | default('none', true) | string | trim }}"
+          _response_timeout: "{{ response_timeout_s | default(60) | int }}"
+          _notif_extra:      "{{ notification_data | default({}, true) }}"
+          _open_dashboard:      "{{ open_dashboard | default(false) | bool(false) }}"
+          _force_audio:         "{{ force_audio | default(false) | bool(false) }}"
+          _kata_raw:            "{{ kata_input | default({}, true) }}"
+          _breakthrough:        "{{ breakthrough | default(false) | bool(false) }}"
+          # Cabinet entity IDs resolved at runtime via label resolver sensors
+          _hh_cab:        "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+          _user_cab:      "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
+          _family_cab:    "{{ states('sensor.zen_default_family_cabinet_resolved') }}"
+          _kata_cab:      "{{ states('sensor.zen_kata_cabinet_resolved') }}"
+
+      # ── 0b. Kata-input fallback — derive title/message when not explicit ──
+      - variables:
+          _message: >-
+            {%- if _message != '' -%}{{ _message }}
+            {%- elif _kata_raw is mapping and _kata_raw | length > 0 -%}
+              {{ _kata_raw.get('attention', _kata_raw.get('suggested_act_desc', 'Action required.')) }}
+            {%- else -%}{{ _message }}{%- endif -%}
+          _title: >-
+            {%- if _title != '' -%}{{ _title }}
+            {%- elif _kata_raw is mapping and _kata_raw | length > 0 -%}
+              {{ (_kata_raw.get('component', '') | replace('_', ' ') | title) ~ ' — ' ~ (_kata_raw.get('period', 'Update') | title) }}
+            {%- else -%}{{ _title }}{%- endif -%}
+
+      # ══════════════════════════════════════════════════════════════════════
+      # MODE: resolve — read side, no dispatch, no log, no audit event
+      # Stop is directly inside this block (level 2) — no nested ifs.
+      # Sleep_blocked handled via conditional template, not nested if/stop.
+      # ══════════════════════════════════════════════════════════════════════
+      - if: "{{ _mode == 'resolve' }}"
+        then:
+
+          # ── 1. Read postman_profile from household cabinet ─────────────
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: read
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _hh_cab }}"
+              key: postman_profile
+              caller_token: "{{ _caller_token }}"
+            response_variable: _house_fc_res
+
+          # ── 2. Read postman_profile from user cabinet ──────────────────
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: read
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _user_cab }}"
+              key: postman_profile
+              caller_token: "{{ _caller_token }}"
+            response_variable: _user_fc_res
+
+          # ── 3. Read postman_profile from family cabinet ────────────────
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: read
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _family_cab }}"
+              key: postman_profile
+              caller_token: "{{ _caller_token }}"
+            response_variable: _family_fc_res
+
+          # ── 4. Normalize reads (FG-38) ─────────────────────────────────
+          - variables:
+              _house_policy: >-
+                {%- set r = _house_fc_res.get('result', {}) if _house_fc_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {%- set v = r.get('postman_profile', {}) -%}
+                {%- set v = v.get('value', v) if v is mapping else {} -%}
+                {{ v if v is mapping else (v | from_json if v is string else {}) }}
+              _user_profile: >-
+                {%- set r = _user_fc_res.get('result', {}) if _user_fc_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {%- set v = r.get('postman_profile', {}) -%}
+                {%- set v = v.get('value', v) if v is mapping else {} -%}
+                {{ v if v is mapping else (v | from_json if v is string else {}) }}
+              _family_policy: >-
+                {%- set r = _family_fc_res.get('result', {}) if _family_fc_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {%- set v = r.get('postman_profile', {}) -%}
+                {%- set v = v.get('value', v) if v is mapping else {} -%}
+                {{ v if v is mapping else (v | from_json if v is string else {}) }}
+
+          # ── 5. Gate eval ───────────────────────────────────────────────
+          - variables:
+              _life_safety_bypass: "{{ (_house_policy.get('life_safety_bypass', 9)) | int(9) }}"
+              _bypass_all_gates:   "{{ _urgency >= _life_safety_bypass or _breakthrough }}"
+              _sleep_gate:         "{{ _house_policy.get('sleep_gate', {}) if _house_policy is mapping else {} }}"
+              _sleep_block_below:  "{{ (_sleep_gate.get('block_below_urgency', 9)) | int(9) }}"
+              _is_sleep:           "{{ is_state('input_select.zen_home_mode', 'sleep') or (now().hour >= 23 or now().hour < 7) }}"
+              _sleep_blocked:      "{{ not _bypass_all_gates and _is_sleep and _urgency < _sleep_block_below }}"
+              _work_gate:          "{{ _house_policy.get('work_gate', {}) if _house_policy is mapping else {} }}"
+              _work_block_tts:     "{{ (_work_gate.get('block_tts', false) | bool) if not _bypass_all_gates else false }}"
+
+          # ── 6. Tier + channels (always — sleep_blocked handled in response) ─
+          - variables:
+              _urgency_tier: >-
+                {%- if _urgency >= 9 -%}critical
+                {%- elif _urgency >= 7 -%}high
+                {%- elif _urgency >= 4 -%}medium
+                {%- else -%}low{%- endif -%}
+              _tier_cfg: >-
+                {%- set tiers = _user_profile.get('urgency_tiers', {}) if _user_profile is mapping else {} -%}
+                {%- set t = tiers.get(_urgency_tier, {}) -%}
+                {{ t if t is mapping else {} }}
+              _base_channels: >-
+                {%- set tier_chans = _tier_cfg.get('channels', ['push']) -%}
+                {%- if _channel_hint != '' and _channel_hint not in tier_chans -%}
+                  {{ ([_channel_hint] + tier_chans) | tojson }}
+                {%- else -%}
+                  {{ tier_chans | tojson }}
+                {%- endif -%}
+              _person_state: >-
+                {%- if _target.startswith('person.') -%}
+                  {{ states(_target) | default('home', true) }}
+                {%- else -%}home{%- endif -%}
+              _is_away:     "{{ _person_state not in ['home', 'unknown', 'unavailable'] }}"
+              _away_policy: >-
+                {%- set ap = _user_profile.get('away_policy', {}) if _user_profile is mapping else {} -%}
+                {{ ap if ap is mapping else {} }}
+              _final_channels: >-
+                {%- set chans = _base_channels if _base_channels is iterable and _base_channels is not string
+                    else (_base_channels | from_json if _base_channels is string else ['push']) -%}
+                {%- set ns = namespace(chans=[]) -%}
+                {%- for ch in chans -%}
+                  {%- if _bypass_all_gates -%}
+                    {%- set ns.chans = ns.chans + [ch] -%}
+                  {%- elif _work_block_tts and ch == 'tts' -%}
+                    {# blocked by house work_gate.block_tts #}
+                  {%- elif _is_away and (_away_policy.get(ch, 'allow') == 'block') -%}
+                    {# blocked by user away_policy #}
+                  {%- else -%}
+                    {%- set ns.chans = ns.chans + [ch] -%}
+                  {%- endif -%}
+                {%- endfor -%}
+                {{ (ns.chans if ns.chans | length > 0 else ['push']) | tojson }}
+              _pm_tag: >-
+                {%- if _response_type not in ['', 'none'] and _tag == '' -%}
+                  pm_{{ as_timestamp(now()) | int }}
+                {%- else -%}
+                  {{ _tag }}
+                {%- endif -%}
+              _notif_data: >-
+                {%- set d = _notif_extra if _notif_extra is mapping else {} -%}
+                {%- set _img = '' -%}
+                {%- if _image_entity.startswith('camera.') -%}
+                  {%- set _img = '/api/camera_proxy/' + _image_entity -%}
+                {%- elif _image_entity.startswith('image.zen_image_') -%}
+                  {%- set _img = '/local/zen_' + (_image_entity | replace('image.zen_image_', '')) + '.jpg' -%}
+                {%- elif _image_entity.startswith('image.') -%}
+                  {%- set _ep = state_attr(_image_entity, 'entity_picture') | default('', true) | string -%}
+                  {%- if _ep not in ['', 'None', 'none'] -%}{%- set _img = _ep -%}{%- endif -%}
+                {%- endif -%}
+                {%- if _img == '' and _image_url != '' -%}{%- set _img = _image_url -%}{%- endif -%}
+                {%- if _img != '' -%}{%- set d = d | combine({'image': _img}) -%}{%- endif -%}
+                {%- if _audio_url != '' -%}{%- set d = d | combine({'audio': _audio_url}) -%}{%- endif -%}
+                {%- if _open_dashboard -%}
+                  {%- set _ap = (_user_profile.get('assist_path', '') if _user_profile is mapping else '') | string | trim -%}
+                  {%- if _ap != '' -%}{%- set d = d | combine({'clickAction': _ap, 'url': _ap}) -%}{%- endif -%}
+                {%- endif -%}
+                {%- if _pm_tag != '' -%}{%- set d = d | combine({'tag': _pm_tag}) -%}{%- endif -%}
+                {%- if _response_type not in ['', 'none'] -%}
+                  {%- set _sets = {
+                    'yes_no':         [{'action': 'YES',    'title': 'Yes'}, {'action': 'NO',     'title': 'No'}],
+                    'yes_no_ignore':  [{'action': 'YES',    'title': 'Yes'}, {'action': 'NO',     'title': 'No'}, {'action': 'IGNORE', 'title': 'Ignore'}],
+                    'ok_cancel':      [{'action': 'OK',     'title': 'Ok'},  {'action': 'CANCEL', 'title': 'Cancel'}],
+                    'acknowledge':    [{'action': 'ACK',    'title': 'Got it'}]
+                  } -%}
+                  {%- set _acts = _sets.get(_response_type, []) -%}
+                  {%- if _acts | length > 0 -%}{%- set d = d | combine({'actions': _acts}) -%}{%- endif -%}
+                {%- endif -%}
+                {{ d if d is mapping else {} }}
+
+          # ── 7. Build response — conditional on sleep_blocked ───────────
+          # No nested if/stop — sleep_blocked handled inline via template.
+          # NOTE: no | tojson — HA variables: stores native Python objects.
+          # MCP requires a dict, not a JSON string, at response_variable.
+          - variables:
+              _final_response: >-
+                {%- if _sleep_blocked -%}
+                {{
+                  {
+                    "status":         "resolved",
+                    "would_dispatch": false,
+                    "blocked_by":     "house_sleep_gate",
+                    "urgency":        _urgency | int,
+                    "tier":           _urgency_tier,
+                    "target":         _target,
+                    "person_state":   _person_state,
+                    "is_away":        _is_away,
+                    "channels":       [],
+                    "notification_data": _notif_data if _notif_data is mapping else {},
+                    "gates": {
+                      "bypass_all_gates":   _bypass_all_gates,
+                      "sleep_blocked":      true,
+                      "sleep_block_below":  _sleep_block_below | int,
+                      "is_sleep":           _is_sleep,
+                      "work_block_tts":     _work_block_tts,
+                      "life_safety_bypass": _life_safety_bypass | int
+                    },
+                    "policy_sources": {
+                      "house_profile_present": _house_policy | length > 0,
+                      "user_profile_present":  _user_profile | length > 0,
+                      "family_policy_present": _family_policy | length > 0
+                    },
+                    "caller_token":   _caller_token
+                  }
+                }}
+                {%- else -%}
+                {{
+                  {
+                    "status":         "resolved",
+                    "would_dispatch": true,
+                    "urgency":        _urgency | int,
+                    "tier":           _urgency_tier,
+                    "target":         _target,
+                    "person_state":   _person_state,
+                    "is_away":        _is_away,
+                    "channel_hint":   _channel_hint,
+                    "channels":       _final_channels | from_json if _final_channels is string else _final_channels,
+                    "notification_data": _notif_data if _notif_data is mapping else {},
+                    "gates": {
+                      "bypass_all_gates":   _bypass_all_gates,
+                      "sleep_blocked":      false,
+                      "is_sleep":           _is_sleep,
+                      "work_block_tts":     _work_block_tts,
+                      "life_safety_bypass": _life_safety_bypass | int,
+                      "sleep_block_below":  _sleep_block_below | int
+                    },
+                    "policy_sources": {
+                      "house_profile_present": _house_policy | length > 0,
+                      "user_profile_present":  _user_profile | length > 0,
+                      "family_policy_present": _family_policy | length > 0
+                    },
+                    "caller_token":   _caller_token
+                  }
+                }}
+                {%- endif -%}
+
+          - stop: "Resolved"
+            response_variable: _final_response
+
+
+      # ══════════════════════════════════════════════════════════════════════
+      # MODE: resolve_and_dispatch
+      # ══════════════════════════════════════════════════════════════════════
+      - if: "{{ _mode == 'resolve_and_dispatch' }}"
+        then:
+
+          # ── 1. Read postman_profile from household cabinet ─────────────
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: read
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _hh_cab }}"
+              key: postman_profile
+              caller_token: "{{ _caller_token }}"
+            response_variable: _house_fc_res
+
+          # ── 2. Read postman_profile from user cabinet ──────────────────
+          # SP1: resolve _target person → their own user cabinet entity.
+          # For now: default user cabinet for all targets.
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: read
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _user_cab }}"
+              key: postman_profile
+              caller_token: "{{ _caller_token }}"
+            response_variable: _user_fc_res
+
+          # ── 3. Read postman_profile from family cabinet ────────────────
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: read
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _family_cab }}"
+              key: postman_profile
+              caller_token: "{{ _caller_token }}"
+            response_variable: _family_fc_res
+
+          # ── 4. Normalize reads (FG-38) ─────────────────────────────────
+          - variables:
+              _house_policy: >-
+                {%- set r = _house_fc_res.get('result', {}) if _house_fc_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {%- set v = r.get('postman_profile', {}) -%}
+                {%- set v = v.get('value', v) if v is mapping else {} -%}
+                {{ v if v is mapping else (v | from_json if v is string else {}) }}
+              _user_profile: >-
+                {%- set r = _user_fc_res.get('result', {}) if _user_fc_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {%- set v = r.get('postman_profile', {}) -%}
+                {%- set v = v.get('value', v) if v is mapping else {} -%}
+                {{ v if v is mapping else (v | from_json if v is string else {}) }}
+              _family_policy: >-
+                {%- set r = _family_fc_res.get('result', {}) if _family_fc_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {%- set v = r.get('postman_profile', {}) -%}
+                {%- set v = v.get('value', v) if v is mapping else {} -%}
+                {{ v if v is mapping else (v | from_json if v is string else {}) }}
+
+          # ── 5. House ceiling: life_safety_bypass + sleep gate ──────────
+          - variables:
+              _life_safety_bypass: "{{ (_house_policy.get('life_safety_bypass', 9)) | int(9) }}"
+              _bypass_all_gates:   "{{ _urgency >= _life_safety_bypass or _breakthrough }}"
+              _sleep_gate:         "{{ _house_policy.get('sleep_gate', {}) if _house_policy is mapping else {} }}"
+              _sleep_block_below:  "{{ (_sleep_gate.get('block_below_urgency', 9)) | int(9) }}"
+              _is_sleep:           "{{ is_state('input_select.zen_home_mode', 'sleep') or (now().hour >= 23 or now().hour < 7) }}"
+              _sleep_blocked:      "{{ not _bypass_all_gates and _is_sleep and _urgency < _sleep_block_below }}"
+              _work_gate:          "{{ _house_policy.get('work_gate', {}) if _house_policy is mapping else {} }}"
+              _work_block_tts:     "{{ (_work_gate.get('block_tts', false) | bool) if not _bypass_all_gates else false }}"
+
+          - if: "{{ _sleep_blocked }}"
+            then:
+              - variables:
+                  _final_response: >-
+                    {{
+                      {
+                        "status":       "blocked_sleep",
+                        "urgency":       _urgency | int,
+                        "block_below":   _sleep_block_below | int,
+                        "caller_token":  _caller_token
+                      }
+                    }}
+              - stop: "Blocked by house sleep gate"
+                response_variable: _final_response
+
+          # ── 6. Map urgency → tier ──────────────────────────────────────
+          - variables:
+              _urgency_tier: >-
+                {%- if _urgency >= 9 -%}critical
+                {%- elif _urgency >= 7 -%}high
+                {%- elif _urgency >= 4 -%}medium
+                {%- else -%}low{%- endif -%}
+              _gen_image_path: ''
+
+          # ── 7. Build channel list: user preference → house + away gates ─
+          - variables:
+              _tier_cfg: >-
+                {%- set tiers = _user_profile.get('urgency_tiers', {}) if _user_profile is mapping else {} -%}
+                {%- set t = tiers.get(_urgency_tier, {}) -%}
+                {{ t if t is mapping else {} }}
+              _base_channels: >-
+                {%- set tier_chans = _tier_cfg.get('channels', ['push']) -%}
+                {%- if _channel_hint != '' and _channel_hint not in tier_chans -%}
+                  {{ ([_channel_hint] + tier_chans) | tojson }}
+                {%- else -%}
+                  {{ tier_chans | tojson }}
+                {%- endif -%}
+              _person_state: >-
+                {%- if _target.startswith('person.') -%}
+                  {{ states(_target) | default('home', true) }}
+                {%- else -%}home{%- endif -%}
+              _is_away:      "{{ _person_state not in ['home', 'unknown', 'unavailable'] }}"
+              _away_policy:  >-
+                {%- set ap = _user_profile.get('away_policy', {}) if _user_profile is mapping else {} -%}
+                {{ ap if ap is mapping else {} }}
+              _final_channels: >-
+                {%- set chans = _base_channels if _base_channels is iterable and _base_channels is not string
+                    else (_base_channels | from_json if _base_channels is string else ['push']) -%}
+                {%- set ns = namespace(chans=[]) -%}
+                {%- for ch in chans -%}
+                  {%- if _bypass_all_gates -%}
+                    {%- set ns.chans = ns.chans + [ch] -%}
+                  {%- elif _work_block_tts and ch == 'tts' -%}
+                    {# blocked by house work_gate.block_tts #}
+                  {%- elif _is_away and (_away_policy.get(ch, 'allow') == 'block') -%}
+                    {# blocked by user away_policy #}
+                  {%- else -%}
+                    {%- set ns.chans = ns.chans + [ch] -%}
+                  {%- endif -%}
+                {%- endfor -%}
+                {{ (ns.chans if ns.chans | length > 0 else ['push']) | tojson }}
+              # Push targets: read from postman_profile.push_targets.
+              # Default: Admin Devices (notify.admin_devices via notification_router).
+              # Override: set push_targets in user postman_profile drawer — list of
+              # notification_router target names ("Default User Phone", "Family Devices", etc).
+              # SP2: when zen_postman + zen_channel_push + person labels are applied to
+              # device_tracker.* entities, set push_device_labels: true to use label
+              # intersection instead of target names.
+              _push_targets: >-
+                {%- set pt = _user_profile.get('push_targets', []) if _user_profile is mapping else [] -%}
+                {%- set pt = pt if pt is iterable and pt is not string else [] -%}
+                {{ (pt if pt | length > 0 else ['Admin Devices']) | tojson }}
+              _pm_tag: >-
+                {%- if _response_type not in ['', 'none'] and _tag == '' -%}
+                  pm_{{ as_timestamp(now()) | int }}
+                {%- else -%}
+                  {{ _tag }}
+                {%- endif -%}
+              _notif_data: >-
+                {%- set d = _notif_extra if _notif_extra is mapping else {} -%}
+                {%- set _img = '' -%}
+                {%- if _image_entity.startswith('camera.') -%}
+                  {%- set _img = '/api/camera_proxy/' + _image_entity -%}
+                {%- elif _image_entity.startswith('image.zen_image_') -%}
+                  {%- set _img = '/local/zen_' + (_image_entity | replace('image.zen_image_', '')) + '.jpg' -%}
+                {%- elif _image_entity.startswith('image.') -%}
+                  {%- set _ep = state_attr(_image_entity, 'entity_picture') | default('', true) | string -%}
+                  {%- if _ep not in ['', 'None', 'none'] -%}{%- set _img = _ep -%}{%- endif -%}
+                {%- endif -%}
+                {%- if _img == '' and _image_url != '' -%}{%- set _img = _image_url -%}{%- endif -%}
+                {%- if _img != '' -%}{%- set d = d | combine({'image': _img}) -%}{%- endif -%}
+                {%- if _audio_url != '' -%}{%- set d = d | combine({'audio': _audio_url}) -%}{%- endif -%}
+                {%- if _open_dashboard -%}
+                  {%- set _ap = (_user_profile.get('assist_path', '') if _user_profile is mapping else '') | string | trim -%}
+                  {%- if _ap != '' -%}{%- set d = d | combine({'clickAction': _ap, 'url': _ap}) -%}{%- endif -%}
+                {%- endif -%}
+                {%- if _pm_tag != '' -%}{%- set d = d | combine({'tag': _pm_tag}) -%}{%- endif -%}
+                {%- if _response_type not in ['', 'none'] -%}
+                  {%- set _sets = {
+                    'yes_no':         [{'action': 'YES',    'title': 'Yes'}, {'action': 'NO',     'title': 'No'}],
+                    'yes_no_ignore':  [{'action': 'YES',    'title': 'Yes'}, {'action': 'NO',     'title': 'No'}, {'action': 'IGNORE', 'title': 'Ignore'}],
+                    'ok_cancel':      [{'action': 'OK',     'title': 'Ok'},  {'action': 'CANCEL', 'title': 'Cancel'}],
+                    'acknowledge':    [{'action': 'ACK',    'title': 'Got it'}]
+                  } -%}
+                  {%- set _acts = _sets.get(_response_type, []) -%}
+                  {%- if _acts | length > 0 -%}{%- set d = d | combine({'actions': _acts}) -%}{%- endif -%}
+                {%- endif -%}
+                {{ d if d is mapping else {} }}
+              _tts_satellite: >-
+                {%- set ts = _user_profile.get('tts_satellite', {}) if _user_profile is mapping else {} -%}
+                {{ ts.get('preferred', '') if ts is mapping else '' }}
+              _tts_engine: >-
+                {%- set p = _user_profile if _user_profile is mapping else {} -%}
+                {%- set lbl = p.get('tts_engine_label', '') | string | trim -%}
+                {%- if lbl != '' -%}
+                  {%- set candidates = label_entities(lbl) | select('match', 'tts\\.') | list -%}
+                  {%- if candidates | length > 0 -%}
+                    {{ candidates | first }}
+                  {%- else -%}
+                    {{ p.get('tts_engine', 'tts.home_assistant_cloud') }}
+                  {%- endif -%}
+                {%- else -%}
+                  {{ p.get('tts_engine', 'tts.home_assistant_cloud') }}
+                {%- endif -%}
+              _final_channels_list: >-
+                {{ _final_channels if _final_channels is iterable and _final_channels is not string
+                   else (_final_channels | from_json if _final_channels is string else ['push']) }}
+              _voice_answer_sets: >-
+                {{
+                  {
+                    'yes_no':        [{'id': 'YES', 'sentences': ['yes', 'yeah', 'sure', 'do it', 'go ahead']},
+                                      {'id': 'NO',  'sentences': ['no', 'nope', 'cancel', 'stop']}],
+                    'yes_no_ignore': [{'id': 'YES',    'sentences': ['yes', 'yeah', 'sure']},
+                                      {'id': 'NO',     'sentences': ['no', 'nope', 'cancel']},
+                                      {'id': 'IGNORE', 'sentences': ['ignore', 'skip', 'later']}],
+                    'ok_cancel':     [{'id': 'OK',     'sentences': ['ok', 'okay', 'confirm', 'do it']},
+                                      {'id': 'CANCEL', 'sentences': ['cancel', 'stop', 'nevermind']}],
+                    'acknowledge':   [{'id': 'ACK',    'sentences': ['got it', 'okay', 'ok', 'understood', 'acknowledge']}]
+                  }
+                }}
+
+          # ── 8.1. Phone TTS — speak notification on handset ──────────────
+          # High-priority channel — only fires at urgency >= 7 or force_audio.
+          # Preferred path: generate audio from _tts_engine via tts_get_url and
+          # attach as audio notification (plays as alert sound = Wyoming/OAI voice).
+          # Fallback: message: TTS (Android system voice) if REST call fails.
+          - if: >-
+              {{ 'push' in _final_channels_list and (_force_audio or _urgency >= 9) }}
+            then:
+              - variables:
+                  _tts_push_targets: >-
+                    {%- set p = _user_profile if _user_profile is mapping else {} -%}
+                    {%- set t = p.get('tts_push_targets', none) -%}
+                    {%- if t is iterable and t is not string and t | length > 0 -%}
+                      {{ t }}
+                    {%- else -%}
+                      {{ _push_targets if _push_targets is iterable and _push_targets is not string
+                         else (_push_targets | from_json if _push_targets is string else []) }}
+                    {%- endif -%}
+              - action: rest_command.ha_api_post
+                data:
+                  path: "tts_get_url"
+                  payload: >-
+                    {{ {"engine_id": _tts_engine, "message": _message, "language": "en-US"} | tojson }}
+                response_variable: _tts_url_resp
+              - variables:
+                  _phone_audio_url: >-
+                    {%- if _tts_url_resp is mapping
+                           and (_tts_url_resp.get('status', 0) | int) in [200, 201] -%}
+                      {%- set c = _tts_url_resp.get('content', {}) -%}
+                      {{ c.get('url', '') if c is mapping else '' }}
+                    {%- else -%}
+                      {{ '' }}
+                    {%- endif -%}
+              - repeat:
+                  for_each: "{{ _tts_push_targets }}"
+                  sequence:
+                    - if: "{{ _phone_audio_url != '' }}"
+                      then:
+                        - action: "notify.{{ repeat.item }}"
+                          data:
+                            message: "{{ _message }}"
+                            data:
+                              audio: "{{ _phone_audio_url }}"
+                      else:
+                        - action: "notify.{{ repeat.item }}"
+                          data:
+                            message: TTS
+                            data:
+                              tts_text: "{{ _message }}"
+
+          # ── 8. Dispatch per channel (push + teams) ──────────────────────
+          # TTS handled separately in step 8.3 — pulled out of loop so voice
+          # ack result is accessible to the step 8.5 push-ack wait.
+          - repeat:
+              for_each: "{{ _final_channels_list | reject('equalto', 'tts') | list }}"
+              sequence:
+                - choose:
+                    - conditions: "{{ repeat.item == 'push' }}"
+                      sequence:
+                        - repeat:
+                            for_each: >-
+                              {{ _push_targets if _push_targets is iterable and _push_targets is not string
+                                 else (_push_targets | from_json if _push_targets is string else ['Admin Devices']) }}
+                            sequence:
+                              - variables:
+                                  _notify_slug: >-
+                                    {%- set m = {
+                                      'Admin Devices':              'admin_devices',
+                                      'Family Devices':             'family_devices',
+                                      'Family Devices (Verbose)':   'family_devices_verbose',
+                                      'Default User Phone':         'default_user',
+                                      'Secondary User Phone':       'secondary_user'
+                                    } -%}
+                                    {{- m.get(repeat.item, repeat.item | lower | replace(' ', '_')) -}}
+                              - action: "notify.{{ _notify_slug }}"
+                                data: >-
+                                  {%- set nd = _notif_data if _notif_data is mapping and _notif_data | length > 0 else {} -%}
+                                  {%- set base = {'message': _message} -%}
+                                  {%- if _title != '' -%}{%- set base = base | combine({'title': _title}) -%}{%- endif -%}
+                                  {%- if nd | length > 0 -%}{%- set base = base | combine({'data': nd}) -%}{%- endif -%}
+                                  {{ base }}
+                    - conditions: "{{ repeat.item == 'teams' }}"
+                      sequence:
+                        - action: script.zen_dojotools_teams
+                          data:
+                            action:       send
+                            message:      "{{ _message }}"
+                            caller_token: "{{ _caller_token }}"
+                  default:
+                    - event: zen_event
+                      event_data:
+                        event:
+                          kind:         postman_unknown_channel
+                          channel:      "{{ repeat.item }}"
+                          urgency:      "{{ _urgency }}"
+                          caller_token: "{{ _caller_token }}"
+
+          # ── 8.3. TTS channel — announce or ask_question ─────────────────
+          # Pulled out of loop so voice ack is accessible to step 8.5.
+          # ask_question: blocks until voice response or satellite timeout.
+          # announce: fire-and-forget, no ack.
+          - variables:
+              _ack_action:    ''
+              _ack_device_id: ''
+              _ack_timed_out: false
+
+          - if: "{{ 'tts' in _final_channels_list }}"
+            then:
+              - if: "{{ _response_type not in ['', 'none'] and _tts_satellite != '' }}"
+                then:
+                  - action: assist_satellite.ask_question
+                    data:
+                      entity_id: "{{ _tts_satellite }}"
+                      question:  "{{ _message }}"
+                      answers:   "{{ _voice_answer_sets.get(_response_type, []) }}"
+                    response_variable: _voice_result
+                  - variables:
+                      _ack_action:    "{{ _voice_result.id | upper if _voice_result is mapping and _voice_result.id is not none else '' }}"
+                      _ack_timed_out: "{{ not (_voice_result is mapping and _voice_result.id is not none) }}"
+                else:
+                  - if: "{{ _tts_satellite != '' }}"
+                    then:
+                      - action: assist_satellite.announce
+                        data:
+                          entity_id: "{{ _tts_satellite }}"
+                          message:   "{{ _message }}"
+                    else:
+                      - action: script.zen_dojotools_announce
+                        data:
+                          message:      "{{ _message }}"
+                          urgency:      "{{ _urgency }}"
+                          caller_token: "{{ _caller_token }}"
+
+          # ── 8.5. Wait for push ack ──────────────────────────────────────
+          # Skipped if voice already captured an ack in step 8.3.
+          # Only fires when response_type set, push was dispatched, and
+          # voice didn't already resolve the ack.
+          - if: "{{ _response_type not in ['', 'none'] and _pm_tag != '' and _ack_action == '' and not _ack_timed_out }}"
+            then:
+              - wait_for_trigger:
+                  - trigger: event
+                    event_type: zen_event
+                    event_data:
+                      event:
+                        kind: postman_response
+                        tag:  "{{ _pm_tag }}"
+                timeout: "{{ timedelta(seconds=_response_timeout) }}"
+                continue_on_timeout: true
+              - variables:
+                  _ack_action:    "{{ wait.trigger.event.data.event.action    if wait.trigger is not none else '' }}"
+                  _ack_device_id: "{{ wait.trigger.event.data.event.device_id if wait.trigger is not none else '' }}"
+                  _ack_timed_out: "{{ wait.trigger is none }}"
+
+          # ── 9. Write delivery record ────────────────────────────────────
+          # SP1: cap log at N entries (currently last-write-wins)
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: create
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _kata_cab }}"
+              key: zen_postman_log
+              value: >-
+                {{
+                  {
+                    "timestamp":         now().isoformat(),
+                    "target":            _target,
+                    "urgency":           _urgency | int,
+                    "tier":              _urgency_tier,
+                    "channels":          _final_channels,
+                    "bypass_all_gates":  _bypass_all_gates,
+                    "response_required": _response_req,
+                    "pm_tag":            _pm_tag,
+                    "ack_action":        _ack_action,
+                    "ack_timed_out":     _ack_timed_out,
+                    "ack_device_id":     _ack_device_id,
+                    "caller_token":      _caller_token
+                  } | tojson
+                }}
+            response_variable: _log_result
+
+          # ── 10. Audit event ─────────────────────────────────────────────
+          - event: zen_event
+            event_data:
+              event:
+                kind:         postman_dispatched
+                target:       "{{ _target }}"
+                urgency:      "{{ _urgency }}"
+                tier:         "{{ _urgency_tier }}"
+                channels:     "{{ _final_channels }}"
+                caller_token: "{{ _caller_token }}"
+
+          - variables:
+              _final_response: >-
+                {{
+                  {
+                    "status":       "dispatched",
+                    "tier":         _urgency_tier,
+                    "channels":     _final_channels | from_json if _final_channels is string else _final_channels,
+                    "pm_tag":       _pm_tag,
+                    "ack_action":   _ack_action,
+                    "ack_timed_out": _ack_timed_out,
+                    "audio_url":    _audio_url,
+                    "caller_token": _caller_token
+                  }
+                }}
+          - stop: "Dispatched"
+            response_variable: _final_response
+
+
+      # ══════════════════════════════════════════════════════════════════════
+      # MODE: author_policy
+      # ══════════════════════════════════════════════════════════════════════
+      - if: "{{ _mode == 'author_policy' }}"
+        then:
+
+          # Validate required fields
+          - if: "{{ _scope_id == '' or not (_channel_def is mapping and _channel_def | length > 0) }}"
+            then:
+              - variables:
+                  _final_response: >-
+                    {{
+                      {
+                        "status":       "error",
+                        "reason":       "missing_required_fields",
+                        "detail":       "scope_id and channel_definition (non-empty mapping) are required",
+                        "caller_token": _caller_token
+                      }
+                    }}
+              - stop: "Error: scope_id and channel_definition required"
+                response_variable: _final_response
+
+          # ── 1. Resolve scope_id — if it's a resolver sensor, read its state
+          #        to get the actual cabinet entity. Resolver sensors have state
+          #        = the entity_id of the active cabinet (e.g. sensor.zenos_*).
+          - variables:
+              _resolved_scope: >-
+                {%- set s = states(_scope_id) | default('', true) | string | trim -%}
+                {%- if s.startswith('sensor.') and s not in ['unavailable', 'unknown', ''] -%}
+                  {{ s }}
+                {%- else -%}
+                  {{ _scope_id }}
+                {%- endif -%}
+
+          # ── 2. Read existing policy ─────────────────────────────────────
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: read
+              show_hidden_volumes: false
+              volume_entity_id:
+                - "{{ _resolved_scope }}"
+              key: "{{ _policy_key }}"
+              caller_token: "{{ _caller_token }}"
+            response_variable: _policy_read_res
+
+          # ── 3. Normalize (FG-38) ────────────────────────────────────────
+          - variables:
+              _existing_policy: >-
+                {%- set r = _policy_read_res.get('result', {}) if _policy_read_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {%- set v = r.get(_policy_key, {}) -%}
+                {%- set v = v.get('value', v) if v is mapping else {} -%}
+                {{ v if v is mapping else (v | from_json if v is string else {}) }}
+              _drawer_exists: >-
+                {%- set r = _policy_read_res.get('result', {}) if _policy_read_res is mapping else {} -%}
+                {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                {{ _policy_key in r }}
+
+          # ── 4. Validate channel name for new_channel ────────────────────
+          - variables:
+              _ch_name: "{{ _channel_def.get('name', '') if _channel_def is mapping else '' }}"
+
+          - if: "{{ _policy_type == 'new_channel' and _ch_name == '' }}"
+            then:
+              - variables:
+                  _final_response: >-
+                    {{
+                      {
+                        "status":       "error",
+                        "reason":       "missing_channel_name",
+                        "detail":       "channel_definition must include a 'name' field for new_channel",
+                        "caller_token": _caller_token
+                      }
+                    }}
+              - stop: "Error: channel_definition missing 'name'"
+                response_variable: _final_response
+
+          # ── 5. Build new payload ────────────────────────────────────────
+          - variables:
+              _new_payload: >-
+                {%- if _policy_type == 'new_channel' -%}
+                  {%- set existing_channels = _existing_policy.get('channels', {}) if _existing_policy is mapping else {} -%}
+                  {%- set existing_channels = existing_channels if existing_channels is mapping else {} -%}
+                  {{ _existing_policy | combine({'channels': existing_channels | combine({_ch_name: _channel_def})}, recursive=true) }}
+                {%- else -%}
+                  {{ _existing_policy | combine(_channel_def, recursive=true) }}
+                {%- endif -%}
+
+          # ── 6. Write back — create if new, update if exists ────────────
+          - action: script.zen_dojotools_filecabinet
+            data:
+              action_type: "{{ 'update' if _drawer_exists else 'create' }}"
+              show_hidden_volumes: false
+              force_action: true
+              set_timestamp: true
+              volume_entity_id:
+                - "{{ _resolved_scope }}"
+              key: "{{ _policy_key }}"
+              value: "{{ _new_payload | tojson }}"
+              caller_token: "{{ _caller_token }}"
+            response_variable: _write_res
+
+          - variables:
+              _final_response: >-
+                {{
+                  {
+                    "status":       "authored",
+                    "policy_key":   _policy_key,
+                    "policy_type":  _policy_type,
+                    "scope":        _resolved_scope,
+                    "drawer_was":   "updated" if _drawer_exists else "created",
+                    "confirmed":    (_write_res.get('confirmed', false) if _write_res is mapping else false),
+                    "caller_token": _caller_token
+                  }
+                }}
+          - stop: "Policy authored"
+            response_variable: _final_response
+
+
+      # ══════════════════════════════════════════════════════════════════════
+      # MODE: help
+      # ══════════════════════════════════════════════════════════════════════
+      - if: "{{ _mode == 'help' }}"
+        then:
+          - variables:
+              _final_response: >-
+                {{
+                  {
+                    "tool": "zen_dojotools_postman",
+                    "version": "1.0.0",
+                    "about": "Household comms layer. Resolves urgency + target against authority stack (house ceiling → family floor → user preference) and dispatches to push/tts/teams. Supports image attachments, actionable response buttons, and full Android notification data passthrough.",
+
+                    "setup_required": {
+                      "step_1": "Seed postman_profile in household cabinet",
+                      "step_2": "Seed postman_profile in user cabinet",
+                      "step_3": "Seed postman_profile in family cabinet (can be empty for alpha)"
+                    },
+
+                    "drawer_key": "postman_profile — same key in all three cabinets",
+
+                    "drawer_schemas": {
+                      "household_cabinet": {
+                        "cabinet": "sensor.zen_default_household_cabinet_resolved",
+                        "key": "postman_profile",
+                        "fields": {
+                          "life_safety_bypass": "int — urgency >= this bypasses all gates (default 9)",
+                          "sleep_gate": {
+                            "block_below_urgency": "int — block audio below this urgency during sleep (default 9)"
+                          },
+                          "work_gate": {
+                            "block_tts": "bool — suppress TTS during work mode (default false)",
+                            "allowed_channels": "list — channels allowed during work mode"
+                          }
+                        },
+                        "minimal_seed": {
+                          "life_safety_bypass": 9,
+                          "sleep_gate": {"block_below_urgency": 9}
+                        }
+                      },
+                      "user_cabinet": {
+                        "cabinet": "sensor.zen_default_user_cabinet_resolved",
+                        "key": "postman_profile",
+                        "fields": {
+                          "push_targets": "list — notification_router target names to use for push channel. Default: ['Admin Devices']. Options: 'Admin Devices', 'Family Devices', 'Default User Phone', 'Secondary User Phone'. Set this to control which devices receive push for this person.",
+                          "push_device_labels": "bool — SP2: when true, ignores push_targets and uses label intersection (zen_postman + zen_channel_push + person label on device_tracker entities) instead of notify groups. Requires device labeling. Default false.",
+                          "urgency_tiers": {
+                            "low":      {"channels": "list — urgency 1-3"},
+                            "medium":   {"channels": "list — urgency 4-6"},
+                            "high":     {"channels": "list — urgency 7-8"},
+                            "critical": {"channels": "list — urgency 9-10"}
+                          },
+                          "away_policy": {
+                            "<channel>": "allow or block — e.g. push: allow, tts: block"
+                          }
+                        },
+                        "minimal_seed": {
+                          "push_targets": ["Default User Phone"],
+                          "urgency_tiers": {
+                            "low":      {"channels": ["push"]},
+                            "medium":   {"channels": ["push"]},
+                            "high":     {"channels": ["push", "tts"]},
+                            "critical": {"channels": ["push", "tts"]}
+                          },
+                          "away_policy": {"push": "allow", "tts": "block"}
+                        }
+                      },
+                      "family_cabinet": {
+                        "cabinet": "sensor.zen_default_family_cabinet_resolved",
+                        "key": "postman_profile",
+                        "fields": {
+                          "urgency_floor": {
+                            "response_required_at": "int — urgency >= this requires ack (SP1)",
+                            "escalation_window_minutes": "int — no ack in window → escalate (SP1)",
+                            "escalation_targets": "all or list of person.* (SP1)"
+                          }
+                        },
+                        "minimal_seed": {}
+                      }
+                    },
+
+                    "channels": {
+                      "push":  "Dispatches directly to notify.<slug> — slug derived from postman_profile.push_targets name. Bypasses notification_router to preserve native dict types (required for action buttons and image data).",
+                      "tts":   "Dispatches to zen_dojotools_announce",
+                      "teams": "Dispatches to zen_dojotools_teams action=send"
+                    },
+
+                    "urgency_tiers": {
+                      "low":      "1-3",
+                      "medium":   "4-6",
+                      "high":     "7-8",
+                      "critical": "9-10 — bypasses all gates if >= life_safety_bypass"
+                    },
+
+                    "image_notifications": {
+                      "image_entity_field": "image_entity — preferred. Accepts any image.* or camera.* entity.",
+                      "image_url_field": "image_url — raw path fallback. image_entity takes precedence if both set.",
+                      "resolution": {
+                        "image.zen_image_<slot>": "/local/zen_<slot>.jpg — generate_image slots (canvas, portrait, wallpaper, id_pic, dashboard_snap, home_state)",
+                        "image.<other>":          "state_attr(entity, entity_picture) — any other HA image entity",
+                        "camera.<entity>":        "/api/camera_proxy/<entity_id> — live camera frame at dispatch time"
+                      },
+                      "two_step_pattern": "Call zen_dojotools_generate_image first → get slot back → pass image.zen_image_<slot> as image_entity to Postman. Both calls return fast with no timeout risk.",
+                      "note": "companion app fetches data.image lazily (on notification open) so camera/generated images do not need to be pre-fetched before dispatch"
+                    },
+
+                    "actionable_notifications": {
+                      "field": "response_type",
+                      "presets": {
+                        "yes_no":        "Yes / No buttons",
+                        "yes_no_ignore": "Yes / No / Ignore buttons",
+                        "ok_cancel":     "Ok / Cancel buttons",
+                        "acknowledge":   "Got it (single dismiss)",
+                        "none":          "No buttons (default)"
+                      },
+                      "timeout_field":  "response_timeout_s — seconds to wait for tap. Default 60. Range 10-300.",
+                      "how_it_works": [
+                        "1. Postman auto-generates pm_tag (pm_<epoch_s>) and injects it into the notification",
+                        "2. After push dispatch, Postman waits for zen_event(kind: postman_response, tag: pm_tag)",
+                        "3. zen_postman_response_router converts mobile_app_notification_action → zen_event",
+                        "4. Postman resumes with ack_action set to the tapped button (YES/NO/etc)",
+                        "5. On timeout: ack_timed_out=true, ack_action=''"
+                      ],
+                      "caller_response_fields": {
+                        "pm_tag":       "Correlation tag stamped on the notification and postman log",
+                        "ack_action":   "Button tapped: YES | NO | IGNORE | OK | CANCEL | ACK | '' (timeout)",
+                        "ack_timed_out": "true if no tap received within response_timeout_s"
+                      },
+                      "subscribe_independently": "Other automations can also listen for zen_event(kind: postman_response) and filter by tag without blocking the caller."
+                    },
+
+                    "notification_data_passthrough": {
+                      "field": "notification_data",
+                      "android_fields": {
+                        "channel":            "Android notification channel name — configure sound/vibration in app settings",
+                        "importance":         "min | low | default | high | max",
+                        "color":              "Hex color e.g. #2DF56D",
+                        "notification_icon":  "MDI icon e.g. mdi:cctv",
+                        "sticky":             "bool — stays after tap",
+                        "persistent":         "bool — non-dismissible (requires tag)",
+                        "alert_once":         "bool — only alert on first delivery (requires tag)",
+                        "vibrationPattern":   "e.g. 100, 1000, 100, 1000",
+                        "visibility":         "public | private | secret",
+                        "timeout":            "int seconds — auto-dismiss",
+                        "chronometer":        "bool — show timer",
+                        "progress":           "int — progress bar value",
+                        "progress_max":       "int — progress bar max (default 1)",
+                        "progress_indeterminate": "bool — animated progress bar",
+                        "car_ui":             "bool — Android Auto visibility",
+                        "clickAction":        "URL to open on tap",
+                        "ttl":                "0 for high priority delivery"
+                      },
+                      "audio_url_field": "audio_url — AIFF/WAV/MP3/MPEG4 Audio up to 5 MB. Companion app only.",
+                      "merge_order": "notification_data < image_url < audio_url < tag < response_type actions (later wins)"
+                    },
+
+                    "example_resolve": {
+                      "mode": "resolve",
+                      "target": "person.user",
+                      "urgency": 5
+                    },
+                    "example_dispatch": {
+                      "mode": "resolve_and_dispatch",
+                      "target": "person.user",
+                      "urgency": 5,
+                      "message": "Test notification from Postman.",
+                      "title": "Postman Test"
+                    },
+                    "example_camera_question": {
+                      "_comment": "Send live camera frame with a yes/no question. Returns ack_action when button tapped.",
+                      "step_1_postman": {
+                        "mode": "resolve_and_dispatch",
+                        "target": "person.user",
+                        "urgency": 7,
+                        "title": "Motion at front door",
+                        "message": "Someone is at the front door. Let them in?",
+                        "image_entity": "camera.front_door",
+                        "response_type": "yes_no",
+                        "response_timeout_s": 60,
+                        "notification_data": {"channel": "Security", "color": "#f44336"},
+                        "caller_token": "front_door_motion"
+                      },
+                      "_response_shape": {
+                        "status": "dispatched",
+                        "pm_tag": "pm_1744000000",
+                        "ack_action": "YES",
+                        "ack_timed_out": false
+                      }
+                    },
+                    "example_generated_image_question": {
+                      "_comment": "Generate an image first, then send it with a question. Two fast calls — no timeout risk.",
+                      "step_1_generate": {
+                        "tool": "zen_dojotools_generate_image",
+                        "image_prompt": "A stormy sky over the house, dramatic lighting",
+                        "slot": "canvas"
+                      },
+                      "step_2_postman": {
+                        "mode": "resolve_and_dispatch",
+                        "target": "person.user",
+                        "urgency": 5,
+                        "title": "Weather Check",
+                        "message": "Storm rolling in. Close the windows?",
+                        "image_entity": "image.zen_image_canvas",
+                        "response_type": "yes_no",
+                        "response_timeout_s": 60,
+                        "caller_token": "weather_check"
+                      }
+                    },
+                    "example_image_alert": {
+                      "_comment": "Security alert with camera frame, sticky notification, no response required.",
+                      "mode": "resolve_and_dispatch",
+                      "target": "person.user",
+                      "urgency": 8,
+                      "title": "Security Alert",
+                      "message": "Motion detected in the back yard.",
+                      "image_entity": "camera.back_yard",
+                      "tag": "security_backyard",
+                      "notification_data": {"sticky": true, "channel": "Security", "color": "#f44336", "alert_once": true}
+                    },
+                    "example_actionable": {
+                      "_comment": "Simple question with no image.",
+                      "mode": "resolve_and_dispatch",
+                      "target": "person.user",
+                      "urgency": 6,
+                      "title": "Door unlocked",
+                      "message": "Front door was unlocked. Lock it?",
+                      "response_type": "yes_no",
+                      "response_timeout_s": 60,
+                      "caller_token": "door_lock_prompt",
+                      "_response_shape": {
+                        "status": "dispatched",
+                        "pm_tag": "pm_1744000000",
+                        "ack_action": "YES",
+                        "ack_timed_out": false,
+                        "tier": "medium",
+                        "channels": ["push"]
+                      }
+                    },
+
+                    "example_author_policy": {
+                      "_comment": "Seed postman_profile in all three cabinets. Run these three calls once during setup. scope_id must be the RESOLVED cabinet entity (the sensor that holds the active cabinet state, not the cabinet selector). Use update_existing for all three — safe to re-run to update.",
+                      "_step_1_household": {
+                        "_comment": "House ceiling: sleep gate + life safety bypass. Controls audio suppression during sleep and absolute override threshold.",
+                        "mode": "author_policy",
+                        "scope_id": "sensor.zen_default_household_cabinet_resolved",
+                        "policy_key": "postman_profile",
+                        "policy_type": "update_existing",
+                        "channel_definition": {
+                          "life_safety_bypass": 9,
+                          "sleep_gate": {"block_below_urgency": 9},
+                          "work_gate": {"block_tts": false}
+                        }
+                      },
+                      "_step_2_user": {
+                        "_comment": "User preference: which devices get push, which channels fire at each urgency tier, what happens when away. push_targets must match notify group names exactly.",
+                        "mode": "author_policy",
+                        "scope_id": "sensor.zen_default_user_cabinet_resolved",
+                        "policy_key": "postman_profile",
+                        "policy_type": "update_existing",
+                        "channel_definition": {
+                          "push_targets": ["Default User Phone"],
+                          "urgency_tiers": {
+                            "low":      {"channels": ["push"]},
+                            "medium":   {"channels": ["push"]},
+                            "high":     {"channels": ["push", "tts"]},
+                            "critical": {"channels": ["push", "tts"]}
+                          },
+                          "away_policy": {"push": "allow", "tts": "block"}
+                        }
+                      },
+                      "_step_3_family": {
+                        "_comment": "Family policy floor. SP1 escalation not yet implemented — seed empty dict to satisfy the read. Re-author when escalation is wired.",
+                        "mode": "author_policy",
+                        "scope_id": "sensor.zen_default_family_cabinet_resolved",
+                        "policy_key": "postman_profile",
+                        "policy_type": "update_existing",
+                        "channel_definition": {}
+                      },
+                      "_response_shape": {
+                        "status": "authored",
+                        "policy_key": "postman_profile",
+                        "policy_type": "update_existing",
+                        "confirmed": true
+                      }
+                    },
+
+                    "sp1_not_yet_implemented": [
+                      "Per-target user cabinet resolution (all targets use default user cabinet)",
+                      "Family escalation loop",
+                      "zen_postman_log capping (last-write-wins)",
+                      "Work gate activation condition",
+                      "content_policy per channel"
+                    ],
+                    "sp2_label_routing": "When zen_postman + zen_channel_push + person labels applied to device_tracker.* entities, set push_device_labels: true in user postman_profile to enable label intersection routing. Until then push_targets list (notify group names) is the override mechanism."
+                  }
+                }}
+          - stop: "Help"
+            response_variable: _final_response
+
+
+# ============================================================================
+# zen_postman_response_router
+# Converts mobile_app_notification_action → zen_event(kind: postman_response)
+# so postman's step 8.5 push-ack wait and any other subscriber can read it.
+# ============================================================================
+automation:
+
+  - id: 'zen_postman_response_router'
+    alias: Zen Postman Response Router
+    description: >-
+      Listens for mobile_app_notification_action events (button taps on
+      actionable push notifications) and re-emits them as
+      zen_event(kind: postman_response) so zen_dojotools_postman and
+      any independent subscriber can correlate by tag.
+    mode: parallel
+    max: 10
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+    actions:
+      - variables:
+          _tag:       "{{ trigger.event.data.get('tag', '') | string | trim }}"
+          _action:    "{{ trigger.event.data.get('action', '') | string | upper | trim }}"
+          _device_id: "{{ trigger.event.data.get('device_id', '') | string | trim }}"
+      - event: zen_event
+        event_data:
+          event:
+            kind:      postman_response
+            tag:       "{{ _tag }}"
+            action:    "{{ _action }}"
+            device_id: "{{ _device_id }}"
+            severity:  info

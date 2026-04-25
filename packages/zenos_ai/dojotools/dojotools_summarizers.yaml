@@ -800,17 +800,31 @@ script:
               {{ (index_call is mapping and index_call.keys() | list | length > 0)
                  or index_command | trim != '' }}
         then:
-          - action: script.zen_dojotools_index
-            data:
-              label_1: "{{ index_call.get('label_1', index_command) if index_call is mapping and index_call else index_command }}"
-              label_2: "{{ index_call.get('label_2', none) if index_call is mapping and index_call else none }}"
-              operator: "{{ index_call.get('operator', 'AND') if index_call is mapping and index_call else 'AND' }}"
-              expand_entities: "{{ index_call.get('expand_entities', true) if index_call is mapping and index_call else true }}"
-              output_fields: "{{ index_call.get('output_fields', []) if index_call is mapping and index_call else [] }}"
-              filter_json: "{{ index_call.get('filter_json', {}) if index_call is mapping and index_call else {} }}"
-              timeout: 2
-              mode: hypergraph
-            response_variable: zen_index_result
+          - choose:
+            - conditions: "{{ index_call is mapping and index_call.get('index_command', '') not in ['', none, {}] }}"
+              sequence:
+                - action: script.zen_dojotools_index
+                  data:
+                    index_command: >-
+                      {%- set _ic = index_call.get('index_command') -%}
+                      {{ _ic | tojson if _ic is mapping else _ic | string }}
+                    expand_entities: "{{ index_call.get('expand_entities', true) }}"
+                    output_fields:   "{{ index_call.get('output_fields', []) }}"
+                    mode: hypergraph
+                    timeout: 5
+                  response_variable: zen_index_result
+            default:
+              - action: script.zen_dojotools_index
+                data:
+                  label_1:         "{{ index_call.get('label_1', index_command) if index_call is mapping and index_call else index_command }}"
+                  label_2:         "{{ index_call.get('label_2', none) if index_call is mapping and index_call else none }}"
+                  operator:        "{{ index_call.get('operator', 'AND') if index_call is mapping and index_call else 'AND' }}"
+                  expand_entities: "{{ index_call.get('expand_entities', true) if index_call is mapping and index_call else true }}"
+                  output_fields:   "{{ index_call.get('output_fields', []) if index_call is mapping and index_call else [] }}"
+                  filter_json:     "{{ index_call.get('filter_json', {}) if index_call is mapping and index_call else {} }}"
+                  timeout: 2
+                  mode: hypergraph
+                response_variable: zen_index_result
 
       - alias: Capture index result
         variables:

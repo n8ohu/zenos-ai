@@ -1,4 +1,4 @@
-# Zen DojoTools Index — 4.6.3 'Ectoplasm'
+# Zen DojoTools Index — 4.7.1 'Lights, Camera, Action'
 **File:** `zen_dojotools_zen_index_readme.md`  
 **Type:** Technical Documentation  
 
@@ -132,6 +132,19 @@ The Zen Index always returns a unified JSON envelope:
     "drawers": {                  # Label-targeted blurbs (expand_entities=true + label_targets)
       "drawer_key": "blurb text",
       ...
+    },
+    "domain_context": {           # Auto-enriched domain data (expand_entities=true)
+      "todo": [...],              # To-do items
+      "calendar": {...},          # Calendar reads
+      "camera": {                 # Cache map keyed by entity_id
+        "camera.front_doorbell_camera": {
+          "analysis": "One adult approaching...",
+          "cached_at": "2026-04-23T14:32:00",
+          "cache_age_minutes": 12.4,
+          "snapshot_path": "/config/www/tmp/snapshot/camera.front_doorbell_camera_20260423-143200.jpg",
+          "found": true
+        }
+      }
     }
   },
   "operator": "AND|OR|NOT|XOR|*",
@@ -147,6 +160,8 @@ The Zen Index always returns a unified JSON envelope:
   "error": null | "Timeout …"
 }
 ```
+
+**Camera domain enrichment:** When any camera entity is in the resolved set and `expand_entities: true`, the camera's last-cached analysis is merged inline into each expanded entity result AND into `domain_context.camera`. The inline entry on each entity carries the same five fields: `{analysis, cached_at, cache_age_minutes, snapshot_path, found}`. Check `found: true` before using `analysis`. `cache_age_minutes` tells you how fresh the cached frame is — decide whether to call `zen_dojotools_camera tool=look` for a refresh.
 
 The operator `' * '` is returned when no inputs are supplied
 and the system falls back to the global label index.
@@ -170,11 +185,28 @@ Uses the full precedence chain per operand:
 ### ▶️ Index Command Mode
 Designed for high-level, LLM-driven queries.
 
-- Pass any DSL query string  
-- Zen Indexer handles the heavy logic  
-- Zen Index sanitizes and returns structured results  
+`index_command` accepts two forms:
 
-Timeouts are gracefully surfaced to the agent.
+**Flat string DSL** — passed directly to the Zen Indexer:
+```
+index_command: "entities(label:motion) AND label:critical"
+```
+
+**Compound/recursive dict** — a nested query DSL that the Indexer resolves recursively:
+```yaml
+index_command:
+  operator: OR
+  index_1:
+    label_1: hot_tub_manager
+    label_2: hot_tub_deck
+    operator: OR
+  index_2:
+    entities_1: [weather.home]
+```
+
+When `index_command` is a compound dict (contains `index_1` or `index_2` keys), the event loop timeout is automatically scaled: `min(timeout × 3, 15)` seconds to accommodate the nested round-trips. Default timeout is 2s — recursive calls get 6s.
+
+Timeouts are gracefully surfaced in the result (`index_timeout: true`).
 
 ### ▶️ Inspect Registry Modes (non-entity)
 These modes bypass the entity set entirely and query the HA registry directly. Pass `mode: <mode_name>` with no entity inputs.
@@ -324,12 +356,13 @@ This is the *search brainstem* of ZenOS-AI.
 
 ## Summary
 
-The Zen Index 4.6.3 'Ectoplasm' provides:
+The Zen Index 4.7.1 'Lights, Camera, Action' provides:
 
 - A fully featured, label/entity correlation engine
 - Full topology seed chain per operand: entities > label > device > integration > area > floor
 - Integrated set logic with four operators (AND / OR / NOT / XOR / *)
-- Zen Indexer DSL support
+- Zen Indexer DSL support — flat string or compound/recursive dict (`{operator, index_1, index_2}`)
+- Recursive index_command timeout scaling: `min(timeout × 3, 15)` seconds when compound dict detected
 - Pagination via `limit` / `offset`; `dry_run` returns `total_count` for paging loops
 - Auto-cap of 50 on topology/wildcard seeds with `expand_entities: true` and no limit
 - `+history` flag for 24h recorder stats (requires explicit limit)
@@ -337,6 +370,7 @@ The Zen Index 4.6.3 'Ectoplasm' provides:
 - Optional Zen Inspect expansion with `output_fields` passthrough
 - Label-targeted drawer blurbs via `label_targets` → Inspect → FileCabinet
 - `result.drawers` is a dict of blurbs, not a list of key names
+- Camera domain enrichment: `{analysis, cached_at, cache_age_minutes, snapshot_path, found}` merged inline per camera entity and in `domain_context.camera`
 - Label adjacency
 - Strict JSON safety
 - Hardened event-driven execution

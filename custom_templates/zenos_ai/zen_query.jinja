@@ -16,7 +16,12 @@
   {%- set device_class   = f.get('device_class') %}
   {%- set state_equals   = f.get('state_equals') %}
   {%- set include_states = f.get('include_states', []) %}
-  {%- set exclude_states = f.get('exclude_states', []) %}
+  {%- set exclude_states      = f.get('exclude_states', []) %}
+  {%- set exclude_entity_ids  = f.get('exclude_entity_ids', []) %}
+  {%- set exclude_domain      = f.get('exclude_domain', []) %}
+  {%- set exclude_label       = f.get('exclude_label', []) %}
+  {%- set exclude_integration = f.get('exclude_integration', []) %}
+  {%- set exclude_device      = f.get('exclude_device', []) %}
   {%- set num_above      = f.get('numeric_above') %}
   {%- set num_below      = f.get('numeric_below') %}
   {%- set label_regex    = f.get('label_regex') %}
@@ -152,6 +157,69 @@
       {%- endif %}
     {%- endfor %}
     {%- set pipe.ids = new.list %}
+  {%- endif %}
+
+  {# --- 8b–8f. Exclusion suite (ZQ-1 ACL filters) ---------------------- #}
+  {%- set _excl_eids  = [exclude_entity_ids]  if exclude_entity_ids  is string else (exclude_entity_ids  | list) %}
+  {%- set _excl_dom   = [exclude_domain]      if exclude_domain      is string else (exclude_domain      | list) %}
+  {%- set _excl_lbl   = [exclude_label]       if exclude_label       is string else (exclude_label       | list) %}
+  {%- set _excl_intg  = [exclude_integration] if exclude_integration is string else (exclude_integration | list) %}
+  {%- set _excl_dev   = [exclude_device]      if exclude_device      is string else (exclude_device      | list) %}
+
+  {# 8b — exclude_entity_ids -------------------------------------------- #}
+  {%- if _excl_eids | length > 0 %}
+    {%- set pipe.ids = pipe.ids | reject('in', _excl_eids) | list %}
+  {%- endif %}
+
+  {# 8c — exclude_domain ----------------------------------------------- #}
+  {%- if _excl_dom | length > 0 %}
+    {%- set ns2 = namespace(out=[]) %}
+    {%- for eid in pipe.ids %}
+      {%- if eid.split('.')[0] not in _excl_dom %}
+        {%- set ns2.out = ns2.out + [eid] %}
+      {%- endif %}
+    {%- endfor %}
+    {%- set pipe.ids = ns2.out %}
+  {%- endif %}
+
+  {# 8d — exclude_label ------------------------------------------------ #}
+  {%- if _excl_lbl | length > 0 %}
+    {%- set ns2 = namespace(out=[]) %}
+    {%- set excl_slugs = _excl_lbl | map('lower') | map('replace', ' ', '_') | list %}
+    {%- for eid in pipe.ids %}
+      {%- set ent_labels = labels(eid) | list %}
+      {%- set ent_label_slugs = ent_labels | map('lower') | map('replace', ' ', '_') | list %}
+      {%- set hit = namespace(found=false) %}
+      {%- for lslug in excl_slugs %}
+        {%- if lslug in ent_label_slugs %}
+          {%- set hit.found = true %}
+        {%- endif %}
+      {%- endfor %}
+      {%- if not hit.found %}
+        {%- set ns2.out = ns2.out + [eid] %}
+      {%- endif %}
+    {%- endfor %}
+    {%- set pipe.ids = ns2.out %}
+  {%- endif %}
+
+  {# 8e — exclude_integration ------------------------------------------ #}
+  {%- if _excl_intg | length > 0 %}
+    {%- set ns2 = namespace(excl_set=[]) %}
+    {%- for intg in _excl_intg %}
+      {%- set ns2.excl_set = ns2.excl_set + (integration_entities(intg) | list) %}
+    {%- endfor %}
+    {%- set pipe.ids = pipe.ids | reject('in', ns2.excl_set) | list %}
+  {%- endif %}
+
+  {# 8f — exclude_device ----------------------------------------------- #}
+  {%- if _excl_dev | length > 0 %}
+    {%- set ns2 = namespace(out=[]) %}
+    {%- for eid in pipe.ids %}
+      {%- if device_id(eid) not in _excl_dev %}
+        {%- set ns2.out = ns2.out + [eid] %}
+      {%- endif %}
+    {%- endfor %}
+    {%- set pipe.ids = ns2.out %}
   {%- endif %}
 
   {# --- 9. Numeric filters --------------------------------------------- #}
@@ -533,6 +601,30 @@
 
       "exclude_states":
         "Drop any entity whose state is in the provided list.",
+
+      "exclude_entity_ids":
+        "String or list. Remove specific entity_ids from the result set. "
+        "Primary use: caller-injected ACL / structural self-exclusion. "
+        "Example: {\"exclude_entity_ids\": [\"camera.front_door\", \"sensor.private\"]}",
+
+      "exclude_domain":
+        "String or list. Remove all entities of a given domain. "
+        "Example: {\"exclude_domain\": [\"camera\", \"media_player\"]}",
+
+      "exclude_label":
+        "String or list. Remove all entities carrying this HA label. "
+        "Label matching is slug-normalized (spaces → underscores, lowercase). "
+        "ACL use: policy layer injects exclude_label: adult_content when rating < R. "
+        "Example: {\"exclude_label\": \"adult_content\"}",
+
+      "exclude_integration":
+        "String or list. Remove all entities belonging to an integration. "
+        "Uses integration_entities() — same as integration seed, inverted. "
+        "Example: {\"exclude_integration\": \"nest\"}",
+
+      "exclude_device":
+        "String or list of device_ids. Remove all entities on these devices. "
+        "Example: {\"exclude_device\": [\"abc123def456\"]}",
 
       "numeric_above":
         "Retain only entities whose state cleanly converts to float() AND value > threshold.",

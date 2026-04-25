@@ -207,14 +207,18 @@ automation:
               - action: script.zen_dojotools_index
                 data:
                   mode:            "{{ _payload.get('mode', 'normal') }}"
-                  index_command:   "{{ _payload.get('index_command', '') }}"
+                  index_command: >-
+                    {%- set _v = _payload.get('index_command', {}) -%}
+                    {{- _v | from_json if _v is string else (_v if _v is mapping else {}) -}}
                   entities_1:      "{{ _payload.get('entities_1', []) }}"
                   label_1:         "{{ _payload.get('label_1', '') }}"
                   entities_2:      "{{ _payload.get('entities_2', []) }}"
                   label_2:         "{{ _payload.get('label_2', '') }}"
                   operator:        "{{ _payload.get('operator', 'AND') }}"
                   timeout:         "{{ _payload.get('timeout', 2) }}"
-                  filter_json:     "{{ _payload.get('filter_json', '{}') }}"
+                  filter_json: >-
+                    {%- set _v = _payload.get('filter_json', {}) -%}
+                    {{- _v | from_json if _v is string else (_v if _v is mapping else {}) -}}
                   strict:          "{{ _payload.get('strict', false) }}"
                   expand_entities: "{{ _payload.get('expand_entities', false) }}"
                   output_fields:   "{{ _payload.get('output_fields', []) }}"
@@ -530,77 +534,6 @@ automation:
                   event:
                     kind: summary_force
                     component: "{{ _target_component }}"
-
-
-  #####################################################################
-  # zen_laundry_flag_resumm — Re-summarize laundry_manager on flag change
-  #
-  # v1.0.0 (ZenOS-AI 4.5.8)
-  #
-  # Triggers when any laundry boolean flag changes state. Waits 2 minutes
-  # for state to settle, then fires ninja_summarizer for laundry_manager
-  # so Friday has current context immediately after flag transitions.
-  #
-  # mode: restart — if flags toggle again during the wait, the timer
-  # resets. One resumm fires after the last change settles.
-  #####################################################################
-
-  - id: zen_laundry_flag_resumm
-    alias: Zen Laundry Flag — Resummarize
-    description: >-
-      Re-summarizes laundry_manager 2 minutes after any laundry boolean
-      flag changes. Ensures kata reflects current flag state without
-      waiting for the next scheduled ninja run.
-    mode: restart
-
-    triggers:
-      - trigger: state
-        entity_id:
-          - input_boolean.washing_machine_loaded
-          - input_boolean.waiting_for_washing_machine
-          - input_boolean.dryer_loaded
-
-    actions:
-      - delay: "00:02:00"
-      - action: script.zen_dojotools_ninja_summarizer
-        data:
-          kung_fu_component_id: laundry_manager
-          post_to_kata_cabinet: true
-          caller_token: laundry_flag_resumm
-
-
-  #####################################################################
-  # zen_dishwasher_flag_resumm — Re-summarize dishwasher_manager on flag change
-  #
-  # v1.0.0 (ZenOS-AI 4.5.8)
-  #
-  # Triggers when any dishwasher boolean flag changes state. Waits 2 minutes
-  # then fires ninja_summarizer for dishwasher_manager.
-  #
-  # mode: restart — timer resets on each flag change, one resumm after settle.
-  #####################################################################
-
-  - id: zen_dishwasher_flag_resumm
-    alias: Zen Dishwasher Flag — Resummarize
-    description: >-
-      Re-summarizes dishwasher_manager 2 minutes after any dishwasher boolean
-      flag changes. Ensures kata reflects current flag state without waiting
-      for the next scheduled ninja run.
-    mode: restart
-
-    triggers:
-      - trigger: state
-        entity_id:
-          - input_boolean.dishwasher_loaded
-          - input_boolean.dishwasher_load_complete
-
-    actions:
-      - delay: "00:02:00"
-      - action: script.zen_dojotools_ninja_summarizer
-        data:
-          kung_fu_component_id: dishwasher_manager
-          post_to_kata_cabinet: true
-          caller_token: dishwasher_flag_resumm
 
 
   #####################################################################

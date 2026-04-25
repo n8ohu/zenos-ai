@@ -176,10 +176,11 @@ script:
         name: Filter JSON
         description: optional ZQ-1 filter after set resolution
         required: false
-        default: '{}'
+        default: {}
+        # MUST be object: — text: causes MCP to type this as string and reject dict args
+        # DO NOT change back to text:
         selector:
-          text:
-            multiline: true
+          object:
 
       expand_scope:
         name: Expand Scope
@@ -585,7 +586,9 @@ script:
             {{ l1 }}
           _label_2: "{{ label_2 | default('', true) | string | trim }}"
           _operator: "{{ operator | default('AND', true) | string | trim | upper }}"
-          _filter_json: "{{ filter_json | default('{}', true) }}"
+          _filter_json: >-
+            {%- set _v = filter_json | default({}, true) -%}
+            {{- _v | from_json if _v is string else (_v if _v is mapping else {}) -}}
           _expand_scope: "{{ expand_scope | default(false) | bool }}"
           _output_fields: "{{ output_fields | default('', true) | string | trim }}"
           _shared_schedule_group: "{{ shared_schedule_group | default('', true) | string | trim }}"
