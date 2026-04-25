@@ -1,6 +1,6 @@
 # Release Notes — 2026.4.3 'Lights, Camera, Action'
 
-**Released:** 2026-04-23  
+**Released:** 2026-04-24  
 **Branch:** `feat/2026.4.3`  
 **Base:** 2026.4.2 'Action Jackson 2'  
 **UAT:** Nyx (H:\)
@@ -47,14 +47,14 @@ Exclusions apply after the full inclusion set is resolved. Safe to use as an ACL
 
 ```yaml
 index_command:
-  operator: union
+  operator: OR
   index_1:
     label: security_camera
   index_2:
     label: motion_sensor
 ```
 
-Supports all four set operators (`union`, `intersection`, `difference`, `symmetric_difference`) with arbitrary nesting depth. Timeout auto-scales to `min(timeout × 3, 15)` seconds when a compound dict is detected. Ninja Summarizer routes `index_command` dict fields through the compound indexer automatically — no caller changes needed.
+Supports all four set operators (`OR`, `AND`, `XOR`, `NOT`) with arbitrary nesting depth. Timeout auto-scales to `min(timeout × 3, 15)` seconds when a compound dict is detected. Ninja Summarizer routes `index_command` dict fields through the compound indexer automatically — no caller changes needed.
 
 ### Camera Enrichment Inline
 
@@ -139,8 +139,10 @@ The `pattern` field in `zen_log_search` mode was interpolated directly into a sh
 
 | File | Change |
 |---|---|
-| `packages/zenos_ai/dojotools/dojotools_index.yaml` | ZQ-1 exclusion suite (8b–8f); compound/recursive index_command DSL; camera enrichment inline |
-| `packages/zenos_ai/dojotools/dojotools_camera.yaml` | `info` mode; `sendto` field; `_default_ctx` preservation in look + scan |
+| `packages/zenos_ai/dojotools/dojotools_index.yaml` | ZQ-1 exclusion suite (8b–8f); compound/recursive index_command DSL; camera enrichment inline; help_json TemplateSyntaxError fix; `filter_json` + `index_command` selectors → `object:` |
+| `packages/zenos_ai/dojotools/dojotools_camera.yaml` | `info` mode; `sendto` field; `_default_ctx` preservation in look + scan; `filter_json` pass-through `\| tojson` removed |
+| `packages/zenos_ai/dojotools/dojotools_dispatcher.yaml` | `index_command` + `filter_json` coerced to dict on index route |
+| `packages/zenos_ai/dojotools/dojotools_scribe.yaml` | `filter_json` selector → `object:`; `_filter_json` variable coerces to dict |
 | `packages/zenos_ai/dojotools/dojotools_postman.yaml` | v1.0.0; `kata_input`; `breakthrough`; `zen_postman_response_router` automation |
 | `packages/zenos_ai/dojotools/dojotools_utilities.yaml` | `notification_router` deprecated; announce refs updated to postman |
 | `packages/zenos_ai/dojotools/dojotools_systemtools.yaml` | Log viewer pattern sanitization; lines min → 25 |
