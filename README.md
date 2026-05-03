@@ -10,9 +10,11 @@ Let's automate everything that isn't nailed down.
 
 And a few things that are.
 
-**Current version: 2026.4.3 'Lights, Camera, Action'**
+**Current version: 2026.5.0 'Fry's Grandpa'**
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention — if you're already running HA, you already know this clock. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
+
+2026.5.0 'Fry's Grandpa' shipped 2026-05-03 — Priority inject system (error/life-safety alerts land in `_zen_priority_inject`, surface via `zen_priority_context` sensor, appear in every AI prompt NOTIFICATIONS block), Alertmanager v1.2.0 (postman as primary notify target, `notification_router` deprecated), Camera v1.3.0 (`set_alert_policy` mode, `sendto sensor.*` dynamic cabinet routing, `_default_ctx`/`_alert_policy` preserved across look/scan), Identity `provision_member` (provision an external family member into an expansion slot and register them in one call), ZQ-1 v4.6.0 (`regex` corrected to `regex_search()`, `entity_id_regex` filter, `stats_eligible` filter), profile editor read fix (user/family profiles now return correctly).
 
 2026.4.3 'Lights, Camera, Action' shipped 2026-04-24 — ZQ-1 exclusion suite (five post-filter fields: `exclude_entity_ids`, `exclude_domain`, `exclude_label`, `exclude_integration`, `exclude_device`), compound/recursive Index Command DSL with auto-scaling timeout, camera inline enrichment in Index results, Camera v1.2.0 (`info` mode, `sendto` field, `_default_ctx` preservation across look/scan), Postman v1.0.0 (`kata_input` pipeline derivation, `breakthrough` gate bypass, `zen_postman_response_router` automation, `notification_router` deprecated), log viewer pattern sanitization.
 
@@ -22,7 +24,7 @@ And a few things that are.
 
 2026.4.0 'Ectoplasm' shipped 2026-04-04 — new `zen_dojotools_ectoplasm` (Spook/HA extended surface: repairs, areas, floors, entity/device lifecycle, labels, integrations), Index 4.6.3 topology seeds + pagination + registry modes, Inspect 4.6.2 registry enum modes, Ninja run governor, Scribe 1.2.0.
 
-Full notes: [Lights, Camera, Action Release Notes](zenos_ai/docs/releases/lights_camera_action.md) | [Action Jackson 2 Release Notes](zenos_ai/docs/releases/action_jackson_2.md) | [Action Jackson Release Notes](zenos_ai/docs/releases/action_jackson.md) | [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md)
+Full notes: [Fry's Grandpa Release Notes](zenos_ai/docs/releases/frys_grandpa.md) | [Lights, Camera, Action Release Notes](zenos_ai/docs/releases/lights_camera_action.md) | [Action Jackson 2 Release Notes](zenos_ai/docs/releases/action_jackson_2.md) | [Action Jackson Release Notes](zenos_ai/docs/releases/action_jackson.md) | [Ectoplasm Release Notes](zenos_ai/docs/releases/ectoplasm.md) | [Ready Player Two](zenos_ai/docs/releases/ready_player_two.md)
 
 ---
 
