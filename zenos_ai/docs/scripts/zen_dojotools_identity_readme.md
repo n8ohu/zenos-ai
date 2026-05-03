@@ -1,4 +1,4 @@
-# Zen DojoTools Identity — 4.5.6
+# Zen DojoTools Identity — 4.5.6 / 5.0
 
 *Identity resolution and household/family group management for ZenOS-AI*
 
@@ -62,6 +62,7 @@ These slots fill on first add and block re-entry. Use `set_principal` to transfe
 | `set_default_family` | Patches `default_family_guid` on a member's VolumeInfo | Yes |
 | `membership` | Tree view for containers; reverse lookup for members | No |
 | `is_member` | Depth-2 boolean check — is entity A a member of container B? | No |
+| `provision_member` | Full orchestration — provision expansion slot, wire into family, rebuild manifest | Yes |
 
 `resolve` is the default mode — existing callers are unaffected.
 
@@ -78,6 +79,8 @@ These slots fill on first add and block re-entry. Use `set_principal` to transfe
 | `user_guid` | text | ZenOS-AI user GUID (resolve/prompt only, planned) |
 | `member_entity` | entity (sensor) | Cabinet to add/remove as a member, or entity A for link_partners |
 | `member_type` | select | `user`, `ai_user`, or `family` — type of member being operated on |
+| `member_name` | text | Display name for the new member. Required for `provision_member`. |
+| `profile_payload` | text (JSON) | Optional JSON string — additional profile fields for `provision_member` (first_name, last_name, pronouns, role, etc.) |
 | `family_entity` | entity (sensor) | Family cabinet target (family ops, set_principal override) |
 | `ai_entity` | entity (sensor) | Entity B for link_partners / unlink_partners |
 | `household_entity` | entity (sensor) | Explicit household cabinet — overrides default resolver |
@@ -358,6 +361,51 @@ Returns: `{is_member: true|false, depth: 1|2|null}`
 - `depth: 1` — direct member of the container
 - `depth: 2` — member of a sub-family that is directly in the container
 - `depth: null` — not a member at either depth
+
+---
+
+### `provision_member` — Full Orchestration (v5.0, closes #135)
+
+Single-call path for adding a family member who has no HA `person.*` entity and no pre-provisioned cabinet. Handles the full lifecycle: find slot → provision → wire → rebuild.
+
+```yaml
+zen_dojotools_identity:
+  mode: provision_member
+  member_name: Marianne
+  profile_payload: '{"first_name": "Marianne", "role": "extended_family", "pronouns": "she/her"}'
+  # family_entity: sensor.<cabinet>   # optional — defaults to zen_default_family_cabinet_resolved
+  # member_type: user                 # optional — default: user
+```
+
+**What it does:**
+1. Validates `member_name` (required — hard-stop if missing)
+2. Resolves `family_entity` (defaults to `sensor.zen_default_family_cabinet_resolved`)
+3. Scans expansion slots `sensor.zenos_expansion_cabinet_1` through `_5` for the first in `init` state
+4. Hard-stops with clear error if all 5 slots are occupied
+5. Calls the provisioner — auto-stamps `init` → provisions as `user` (or `member_type`) with `preferred_name` + `name` seeded from `member_name`, merged with any `profile_payload` fields
+6. Hard-stops if provisioner fails
+7. Calls `family_add_member` to wire the new cabinet into the target family
+8. Returns combined response
+
+**Response:**
+```json
+{
+  "mode": "provision_member",
+  "status": "ok",
+  "member_name": "Marianne",
+  "member_entity": "sensor.zenos_expansion_cabinet_2",
+  "member_type": "user",
+  "family_entity": "sensor.zenos_default_family_cabinet",
+  "provisioner_result": { "status": "success", "cabinet": "...", "guid": "..." },
+  "family_result": { "status": "ok", "family_entity": "...", "member_entity": "..." }
+}
+```
+
+`status: partial` is returned if the provisioner succeeded but `family_add_member` failed — the cabinet exists but is not wired. Inspect `family_result` for the specific error.
+
+**Before v5.0:** Adding a person with no HA account required finding a stacks slot manually, calling the provisioner, writing profile data via the profile editor (which was silently failing its own write gate), calling `family_add_member`, and rebuilding the manifest. After a restart, the person would be an orphan in the manifest.
+
+**OOBE:** `flynn_oobe.yaml` step `3_people` now routes external family members (no HA person entity) through `provision_member` automatically.
 
 ---
 

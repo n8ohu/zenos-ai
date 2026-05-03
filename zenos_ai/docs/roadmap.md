@@ -10,6 +10,14 @@ ZenOS-AI is a cabinet-centric AI framework for deterministic, inspectable househ
 
 > **Versioning:** Public ZenOS releases follow Home Assistant's `YYYY.M.patch` convention. Each new month starts at `.0`. Internal architecture versioning (`4.5.x` series) is retained in commit history and internal tooling.
 
+**2026.5.0 "Fry's Grandpa" — In Progress (feat/2026.5.0)**
+
+Closed loops release. Five open circuits — all closed. Priority inject wires alertmanager → `_zen_priority_inject` drawer → `zen_priority_context` sensor → NOTIFICATIONS block in AI prompt. The AI enters every conversation already knowing what's wrong. Camera alert policy classifies motion events and routes them into the inject layer. `provision_member` mode closes the identity onboarding gap — one call provisions an expansion slot, wires the new member into the family, and rebuilds the manifest (no more orphans after restart, closes #135). Profile editor write bug fixed — FC returns `confirmed` not `success`, and second-write merge now correctly parses the JSON-encoded drawer value. ZQ-1 v4.6.0: `regex` corrected to `regex_search()` (was silently matching nothing), `entity_id_regex` filter (step 10b), `stats_eligible` filter. Cortex v37 Kata First. SystemTools v1.7.0 `cabinet_schema_upgrade`. Calderaspas SPA manager v5.2.0 complete rewrite (workshop before ship — hardware definition needs to be pluggable).
+
+See: [Release Notes — Fry's Grandpa](releases/frys_grandpa.md)
+
+---
+
 **2026.4.0 'Ectoplasm' — Shipped (2026-04-04)**
 
 Ectoplasm release. New tool: `zen_dojotools_ectoplasm` — Spook/HA extended surface wrapper covering repairs, areas, floors, entity/device lifecycle, label assignment to areas and devices, integration config entries, and orphan cleanup. Confirm-gated writes with preview pattern throughout. Scribe 1.2.0: `enable`/`disable` mode aliases patch `meta.enabled` without full rewrites; `domain_inspect_domains`/`domain_inspect_limit` wired through all payload paths; `meta.enabled` now written into thought artifacts; missing emission fields backfilled. Index 4.6.3: full topology seed chain (device/integration/area/floor), pagination (limit/offset, `dry_run` returns `total_count`), auto-cap at 50 on topology/wildcard expand, `+history` field, all Inspect registry modes surfaced. Inspect 4.6.2: registry enum modes — area_info, floor_info, device_info, area/floor/label/zone/person/device_list, integration_entities. Ninja Summarizer: run governor with configurable dedup burnout window (`zen_ninja_config.burnout_seconds`, default 300s), `force` bypass. AdminTools: `zen_admintools_run_repair` documented; `ship_alert_manager` (v1.3.0) and `ship_taskmaster` (v1.3.1) in-box KFCs added to prompt loader with independent gates. Dispatcher 1.1.0: two-level routing, urgency signal arch stub.

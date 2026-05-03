@@ -1,5 +1,5 @@
 ZenOS-AI Template Engine: Zen Query Engine (ZQ-1) Technical Specification  
-Version: 4.5.7 'Lights, Camera, Action'  
+Version: 4.6.0 "Fry's Grandpa"  
 Status: Stable and required for all Zen DojoTools Query flows  
 
 ---
@@ -99,7 +99,7 @@ ZQ-1 is strictly sequential and deterministic.
    * State filters: `state_equals`, `include_states`, `exclude_states`
    * Exclusion suite (ZQ-1 ACL filters): `exclude_entity_ids`, `exclude_domain`, `exclude_label`, `exclude_integration`, `exclude_device`
    * Numeric filters: `numeric_above`, `numeric_below`
-   * Regex filter: `regex`
+   * Regex filters: `regex` (state match), `entity_id_regex` (entity ID match)
    * Sort configuration: `sort` (mapping)
    * Shortcuts pack: `shortcuts` (mapping, default `{}`)
    * Paging: `limit`, `offset`
@@ -143,7 +143,9 @@ ZQ-1 is strictly sequential and deterministic.
    8e. `exclude_integration`
    8f. `exclude_device`
    9. Numeric filters
-   10. Regex filter
+   10. `regex` — state string match
+   10b. `entity_id_regex` — entity ID string match
+   10c. `stats_eligible` — recorder-eligibility filter
 
    Each step builds a new list and replaces `pipe.ids`. If any step produces an empty list, later steps still run but have no effect. Exclusion stages (8b–8f) run after all inclusion filters — they cannot bring entities back in, making them safe for ACL injection.
 
@@ -337,19 +339,66 @@ Example:
 
 ### `regex` (string)
 
-* Filters entities by applying a Home Assistant `is regex` test to the state string.
+* Filters entities by applying `regex_search()` to the entity state string.
 
 Rules:
 
-* Non string states are skipped.
-* The regular expression is treated as given to the `regex` test.
-* If the test matches, the entity is kept.
+* Non-string states are skipped.
+* If `regex_search(state, pattern)` returns a match, the entity is kept.
+
+> **v4.6.0 fix:** Prior versions called `is regex()` which is not a valid Jinja2 test in Home Assistant and silently matched nothing. All `regex` filter calls now correctly use `regex_search()`. If you were using `regex` and getting empty results before 4.6.0 — this is why. No config change needed.
 
 Example:
 
 ```json
 {"domain": "climate", "regex": "heat|on|aux"}
 ```
+
+---
+
+### `entity_id_regex` (string) — v4.6.0
+
+* Filters entities by applying `regex_search()` to the **entity ID string**, not the state.
+
+Useful for targeting a naming-convention subset within a labeled group without requiring a sub-label.
+
+Rules:
+
+* Applied after all other inclusion filters (step 10b).
+* Pattern is matched against the full `entity_id` string.
+* Entities whose ID does not match are dropped.
+
+Example — all front-of-house cameras in a labeled set:
+
+```json
+{"label": "security_camera", "entity_id_regex": "camera\\.front_.*"}
+```
+
+Example — all Zigbee motion sensors by naming convention:
+
+```json
+{"domain": "binary_sensor", "device_class": "motion", "entity_id_regex": ".*_zigbee_.*"}
+```
+
+---
+
+### `stats_eligible` (boolean) — v4.6.0
+
+* When `true`, keeps only entities eligible for Home Assistant recorder statistics.
+
+An entity is stats-eligible if it meets **all** of the following:
+- Has a `state_class` attribute
+- Has a `unit_of_measurement` attribute
+- State is parseable as a float
+- Entity is not disabled
+
+Use before calling `recorder.get_statistics` to avoid passing non-numeric or non-recorded entities into the stats pipeline.
+
+```json
+{"label": "energy_monitoring", "stats_eligible": true}
+```
+
+> This replaces the loose `shortcuts.stats` shortcut, which only checked for `state_class`. `stats_eligible` is the correct filter to use when targeting the statistics API.
 
 ---
 
@@ -370,9 +419,8 @@ Supported shortcuts in this version:
 * `stats: true`
 
   * Keep only entities that expose a `state_class` attribute.
-  * Intended to select entities that are eligible for Home Assistant long term statistics, but does not currently validate unit or recorder configuration.
-
-> Note: The `zen_query_help()` macro mentions a more strict `stats_eligible` pattern that would also enforce valid units and non disabled entities. That stricter behavior is reserved for a future extension of ZQ-1 and is not fully implemented in this template version.
+  * Loose check — does not validate unit, float state, or recorder configuration.
+  * For a stricter filter that gates correctly on the statistics API, use `stats_eligible: true` instead (top-level filter field, v4.6.0).
 
 #### Semantic device class filters
 

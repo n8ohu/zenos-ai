@@ -8,6 +8,9 @@
 #           zen_dojotools_ha_log_viewer (MCP), zen_dojotools_event_emitter (MCP)
 #
 # CHANGELOG:
+#   4.6.0 (2026-05-02) — zen_dojotools_systemtools: added cabinet_schema_upgrade (v1.7.0).
+#     Passthrough to zen_admintools_cabinetadmin op: flip_schema_version (schema_version: 1).
+#     Exposes pre-RC2 → current schema migration as an MCP-callable tool.
 #   4.2.0 (2026-03-19) — zen_dojotools_systemtools: added zen_health_report (v1.6.0).
 #     Reads all three health sensors, returns overall ok/issues_found + per-sensor
 #     diagnosis string. Voice-ready. Migrated from admintools namespace.
@@ -910,6 +913,23 @@ script:
               monk_status: "{{ _monk_status }}"
               active_components: "{{ _active_raw }}"
               diagnosis: "{{ _diagnosis }}"
+      - conditions:
+        - alias: Cabinet Schema Upgrade
+          condition: template
+          value_template: "{{ tool == 'cabinet_schema_upgrade' }}"
+        sequence:
+        - alias: 'Upgrade cabinet schema to v1 (mount-aware)'
+          action: script.zen_admintools_cabinetadmin
+          data:
+            op: flip_schema_version
+            schema_version: 1
+            caller_token: "{{ caller_token | default('') }}"
+        - variables:
+            response:
+              tool: "{{ tool }}"
+              result: success
+              message: "Cabinet schema upgraded to v1 (mount-aware). Run zen_health_report to verify."
+              caller_token: "{{ caller_token | default('') }}"
       default:
       - variables:
           response: "{{\n  {\n    \"tool\": tool | default('N/A'),\n    \"confirm\":
@@ -920,7 +940,7 @@ script:
     - stop: return
       response_variable: response
     alias: Zen DojoTools SystemTools
-    description: "Zen DojoTools SystemTools (1.6.0)\n\
+    description: "Zen DojoTools SystemTools (1.7.0)\n\
       \nHEALTH: zen_health_report — reads all 5 health sensors + 7 resolver states.\n\
       \nReturns overall ok/issues_found, resolver all_ok, timestamps, monk_status, schema_ok, kill switches, diagnosis.\n\
       \nRELOAD RESPONSE: ha_reload_all/ha_reload_scripts kill the running script —\n\
@@ -934,7 +954,8 @@ script:
       \nRESTART REQUIRED:\n\
       \  auth_providers, http:, recorder:, new unbootstrapped integrations,\n\
       \  logger: YAML block. (Use logger.set_level for runtime log changes.)\n\
-      \nOTHER: ha_config_check, ha_restart, ha_update_install/skip/clear_skipped.\n\
+      \nOTHER: ha_config_check, ha_restart, ha_update_install/skip/clear_skipped,\n\
+      \  cabinet_schema_upgrade — run if Flynn notified you of a pre-RC2 schema migration.\n\
       \nUse tool=help for full reference and FG notes."
     fields:
       tool:
@@ -953,6 +974,7 @@ script:
             - ha_update_install
             - ha_update_skip
             - ha_update_clear_skipped
+            - cabinet_schema_upgrade
       confirm_action:
         selector:
           boolean:

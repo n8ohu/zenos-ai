@@ -429,7 +429,7 @@ script:
         variables:
           zen_summary: >-
             {%- set ns = namespace(raw=monk_response.data | default('') | string | trim) -%}
-            {%- set ns.raw = ns.raw | regex_replace('^```[a-zA-Z]*\n?', '') | regex_replace('\n?```$', '') | trim -%}
+            {%- set ns.raw = ns.raw | regex_replace('(?s)^```[a-zA-Z]*\n?(.+?)\n?```\s*$', '\\1') | trim -%}
             {{ ns.raw }}
 
       # ── 8a. Compute run duration ──────────────────────────────────────────

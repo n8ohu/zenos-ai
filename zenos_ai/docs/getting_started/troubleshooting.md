@@ -109,11 +109,28 @@ Re-presses `kfc_template` into the Dojo cabinet and `zen_template` into the Kata
 
 ---
 
+### Step 2.5 — Cabinet Schema Upgrade (pre-RC2 → current)
+
+If Flynn notified you that one or more cabinets are on a pre-RC2 schema:
+
+```
+zen_dojotools_systemtools
+  tool: cabinet_schema_upgrade
+```
+
+Or ask your AI: *"run cabinet schema upgrade"* — it knows this tool.
+
+Toggles `cab_schema_version` in the system cabinet from legacy (0) to mount-aware (1). Idempotent. No data loss.
+
+**Use when:** Flynn sends the "one or more cabinets are on a pre-RC2 schema" notification.
+
+---
+
 ### Step 3 — Restamp Prompt Substrate
 
 ```
-script.zen_admintools_zenos_prompt_loader
-  cortex_version: latest   (29 = GA Ninja Fusion, 30 = Living Index opt-in, 27 = RC2)
+script.zen_admintools_prompt_loader
+  cortex_version: latest
 ```
 
 Reloads Cortex, Directives, and Purpose into the system cabinet. Use after an upgrade or if Friday's behavior has drifted from expected.
@@ -188,8 +205,11 @@ Flynn handles the full rebuild sequence automatically.
 | Symptom | Start Here |
 |---|---|
 | Friday won't wake up | `sensor.zen_agent_health` → `roster` attr |
+| `zen_agent_health: warn` on fresh install | Expected — OOBE pending and/or summarizers disabled. Continue to `first_run.md`. |
+| `monastery: disabled` on fresh install | Kill switches ship off. Enable in Settings → Helpers: `zen_summarizers_enabled` (master), `zen_ninja_summarizer_enabled`, `zen_supersummarizer_enabled`. |
 | Summaries stopped | Check kill switches — ships `off` by default; all three must be `on` to run |
 | Summarizer health shows `disabled` | Kill switch is off — intentional state. Enable the relevant switch; autofire restarts it. |
+| Flynn cabinet schema migration notification | Run `zen_dojotools_systemtools tool: cabinet_schema_upgrade` or ask your AI to do it. See Step 2.5. |
 | Summaries are stale | `sensor.zen_supersummary_health` → `monk_status` |
 | Scheduler not firing | `sensor.zen_summarizer_health` → `ai_task_entity`, `last_timestamp` |
 | Flynn stuck at boot | `sensor.zen_flynn_health` → `current_gate`, `next_step` |

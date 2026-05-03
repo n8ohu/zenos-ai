@@ -8,6 +8,7 @@
 
 - **Home Assistant** 2024.x or newer
 - **Spook Integration** Installable through HACS. [Spook Install instructions](https://spook.boo/installation/)
+  > **No Microsoft 365 Teams?** Spook will flag a ghost warning about `script.zen_dojotools_teams` referencing `sensor.homeassistant_chat` and `sensor.homeassistant_status`. These entities only exist with the M365 Teams integration. The warning is harmless — ignore it, or suppress it by assigning a `watchman_ignore` label to those entities.
 - **A conversation agent** configured in HA with a tool-calling capable model. Models smaller than ~8B parameters or with short context windows are not recommended — ZenOS-AI prompts are large and tool use is required.
 - SSH or filesystem access to your HA config directory
 
@@ -96,6 +97,8 @@ Set this to the entity ID of your HA conversation agent, for example:
 conversation.claude
 ```
 
+> **Fresh install?** If `input_text.zenos_conversation_agent` doesn't appear in your Helpers list yet, the packages haven't loaded yet. Skip to Step 6 (restart), wait for HA to come back up, then return here and set the conversation agent before continuing. Flynn completes its full boot pass on the second restart.
+
 > **Note:** Flynn confirms the entity exists and is reachable but does not perform a live inference test at boot. If your model is misconfigured or offline it will pass this gate — the failure surfaces at runtime when the summarizer first calls it.
 
 > **⚠️ WARNING — Background Summarization Costs:**
@@ -152,9 +155,11 @@ Check these sensors in **Developer Tools → States**:
 |---|---|
 | `sensor.zen_label_health` | `ok` |
 | `sensor.zen_cabinet_health` | `ok` |
-| `sensor.zen_agent_health` | `ok` |
+| `sensor.zen_agent_health` | `ok` after OOBE + summarizers enabled — `warn` is normal on first boot |
 
-If any sensor shows `warn` or `error`, check its attributes for detail. Flynn will attempt self-repair on the next HA restart or health sensor change.
+If `sensor.zen_agent_health` shows `warn` with `reason: Summarizers disabled` — that's intentional, they ship off. Continue to [first_run.md](first_run.md) to complete OOBE and enable the pipeline.
+
+If any other sensor shows `warn` or `error`, check its attributes for detail. Flynn will attempt self-repair on the next HA restart or health sensor change.
 
 ---
 

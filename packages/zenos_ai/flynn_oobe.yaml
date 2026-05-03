@@ -155,7 +155,8 @@ script:
                               "Check for matching HA person entities via zen_dojotools_identity.",
                               "Write each household member via zen_dojotools_profile_editor mode: write target_type: user.",
                               "Ask about family who don't live there but matter (parents, siblings, etc.).",
-                              "Write those via zen_dojotools_profile_editor mode: write target_type: family."
+                              "For family members who have no HA person entity: use zen_dojotools_identity mode: provision_member. Provide member_name (required) and optional profile_payload JSON (first_name, last_name, pronouns, role). This provisions an expansion slot, wires them into the family, and rebuilds the manifest in one call.",
+                              "For family members who DO have an HA person entity and a pre-provisioned cabinet: use zen_dojotools_profile_editor mode: write target_type: family."
                             ],
                             "roles": ["head_of_household", "partner", "child", "guest"]
                           },

@@ -1088,16 +1088,15 @@
   {%- set manifest_raw = CABS.cabinet_drawer_value(mani_cab, 'zen_library_manifest') | from_json() -%}
   {%- set ns = namespace(cabs={}) -%}
   {%- for eid, cab in manifest_raw.items() -%}
-    {%- if cab is mapping -%}
-      {%- set ns.cabs = ns.cabs | combine({eid: {
-        'name':      cab.get('friendly_name', ''),
-        'drawers':   cab.get('drawers', 0),
-        'status':    cab.get('status', ''),
-        'writeable': cab.get('writeable', false)
-      }}) -%}
+    {%- if cab is mapping and cab.get('status') == 'ready' -%}
+      {%- set _entry = {'name': cab.get('friendly_name', ''), 'drawers': cab.get('drawers', 0)} -%}
+      {%- if cab.get('status') != 'ready' -%}
+        {%- set _entry = _entry | combine({'status': cab.get('status', '')}) -%}
+      {%- endif -%}
+      {%- set ns.cabs = ns.cabs | combine({eid: _entry}) -%}
     {%- endif -%}
   {%- endfor -%}
-  {{ dict(cabinet=mani_cab, manifest=ns.cabs) | tojson }}
+  {{ ns.cabs | tojson }}
 {%- endmacro -%}
 
 {# ================== IDENTITY MANIFEST LOADER ================== #}
@@ -1113,25 +1112,25 @@
 #}
 {%- macro identity_manifest_loader() -%}
   {%- set hh_cab = states('sensor.zen_default_household_cabinet_resolved') -%}
-  {%- set result = {'status': 'not_built', 'roster': {}, 'tree': {}} -%}
   {%- if hh_cab not in ['', 'unknown', 'unavailable'] -%}
-    {#-
-    {%- set hh_vars  = state_attr(hh_cab, 'variables') | default({}, true) -%}
-    {%- set hh_vars  = hh_vars if hh_vars is mapping else {} -%}
-    {%- set raw_mani = hh_vars.get('zen_identity_manifest') | default({}, true) -%}
-    {%- set mani     = raw_mani.get('value', raw_mani) if raw_mani is mapping and 'value' in raw_mani else raw_mani -%}
-    {%- set mani     = mani if mani is mapping else {} -%}
-    -#}
     {%- set mani = CABS.cabinet_drawer_value(hh_cab, 'zen_identity_manifest') | from_json() -%}
-    {%- if 'roster' in mani and 'tree' in mani -%}
-      {#- v4.3+ shape: both roster and tree present -#}
-      {%- set result = mani | combine({'status': 'ok'}) -%}
-    {%- elif 'roster' in mani -%}
-      {#- Legacy flat shape: roster only, no tree — back-compat -#}
-      {%- set result = mani | combine({'status': 'ok_legacy', 'tree': {}}) -%}
+    {%- set raw_roster = mani.get('roster', {}) -%}
+    {%- set roster_list = raw_roster.get('roster', raw_roster) if raw_roster is mapping else [] -%}
+    {%- set roster_list = roster_list if roster_list is sequence and roster_list is not string and roster_list is not mapping else [] -%}
+    {%- set ns = namespace(members=[]) -%}
+    {%- for member in roster_list -%}
+      {%- if member is mapping -%}
+        {%- set ns.members = ns.members + [{'name': member.get('name',''), 'type': member.get('type',''), 'entity_id': member.get('entity_id','')}] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if 'roster' not in mani -%}
+      {{ {'status': 'not_built'} | tojson }}
+    {%- else -%}
+      {{ {'members': ns.members} | tojson }}
     {%- endif -%}
+  {%- else -%}
+    {{ {'status': 'not_built'} | tojson }}
   {%- endif -%}
-  {{ result | tojson }}
 {%- endmacro -%}
 
 {# ================== ROOT INDEX ================== #}
@@ -1169,21 +1168,13 @@
   {%- set _excl_val = _excl_raw.get('value', _excl_raw) if _excl_raw is mapping else _excl_raw -%}
   {%- set ci_exclude = _excl_val if _excl_val is sequence and _excl_val is not string and _excl_val is not mapping else [] -%}
   {%- if ci_labels | length > 0 and not ci_stale -%}
-    {%- if ci_exclude | length > 0 -%}
-      {%- set ns = namespace(filtered=[]) -%}
-      {%- for entry in ci_labels -%}
-        {%- if entry.get('label', '') not in ci_exclude -%}
-          {%- set ns.filtered = ns.filtered + [{'label': entry.get('label',''), 'group': entry.get('group',''), 'entity_count': entry.get('entity_count', 0)}] -%}
-        {%- endif -%}
-      {%- endfor -%}
-      {{ ci_val | combine({'labels': ns.filtered}) | tojson }}
-    {%- else -%}
-      {%- set ns = namespace(filtered=[]) -%}
-      {%- for entry in ci_labels -%}
-        {%- set ns.filtered = ns.filtered + [{'label': entry.get('label',''), 'group': entry.get('group',''), 'entity_count': entry.get('entity_count', 0)}] -%}
-      {%- endfor -%}
-      {{ ci_val | combine({'labels': ns.filtered}) | tojson }}
-    {%- endif -%}
+    {%- set ns = namespace(filtered=[]) -%}
+    {%- for entry in ci_labels -%}
+      {%- if entry.get('label', '') not in ci_exclude -%}
+        {%- set ns.filtered = ns.filtered + [{'label': entry.get('label',''), 'group': entry.get('group','')}] -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{ {'labels': ns.filtered} | tojson }}
   {%- else -%}
     {{ {
       'mode': 'fallback',
@@ -1206,40 +1197,38 @@
     {%- set kf = kf_raw.get('value', kf_raw) if kf_raw is mapping else {} -%}
     {%- set meta = dict(
       version = kf.get('version', 'unknown'),
-      branch = kf.get('branch', 'unknown'),
-      description = kf.get('description', ''),
-      instructions = kf.get('instructions', '')
+      branch = kf.get('branch', 'unknown')
     ) %}
   {%- else -%}
-    {%- set meta = dict(
-      version = "unknown",
-      branch = "unknown",
-      description = "",
-      instructions = ""
-    ) %}
+    {%- set meta = dict(version = "unknown", branch = "unknown") %}
   {%- endif -%}
   {{ meta | tojson }}
 {%- endmacro -%}
 
 {# ================== DRAWER BUILDER ================== #}
 {%- macro zen_drawer(drawer, value, mode="default") -%}
-
+  {%- set _tools = value['tools'] | default([]) -%}
+  {%- set _meta  = value['meta']  | default({}) -%}
   {%- set base = dict(
     id = drawer,
     friendly_name = value['friendly_name'] | default(''),
     label = value['label'] | default(''),
-    description = value['component_summary'] | default(''),
-    tools = value['tools'] | default([]),
-    meta = value['meta'] | default({}),
-    details = 'Full instructions in Dojo drawer. Load via index_call or filecabinet when needed.'
+    description = value['component_summary'] | default('')
   ) %}
-
+  {%- if _tools | length > 0 -%}
+    {%- set base = base | combine({'tools': _tools}) -%}
+  {%- endif -%}
+  {%- if _meta | length > 0 -%}
+    {%- set base = base | combine({'meta': _meta}) -%}
+  {%- endif -%}
   {%- set kata_cab = states('sensor.zen_kata_cabinet_resolved') -%}
   {%- set kata_val = CABS.cabinet_drawer_value(kata_cab, drawer) | from_json() -%}
-  {%- set kata_signal = {
-    'urgency': kata_val.get('urgency', 1),
-    'attention': kata_val.get('attention', none)
-  } -%}
+  {%- set _urgency   = kata_val.get('urgency', 1) -%}
+  {%- set _attention = kata_val.get('attention', none) -%}
+  {%- set kata_signal = {'urgency': _urgency} -%}
+  {%- if _attention is not none -%}
+    {%- set kata_signal = kata_signal | combine({'attention': _attention}) -%}
+  {%- endif -%}
   {{ base | combine({ 'kata': kata_signal }) | tojson }}
 {%- endmacro -%}
 
@@ -1282,9 +1271,9 @@
     {% endif %}
   {% endfor %}
 
+  {%- set meta_slim = {'version': meta.get('version','unknown'), 'branch': meta.get('branch','unknown')} -%}
   {% set result = dict(
-    dojo_cabinet = dojo_cab,
-    kung_fu = meta,
+    kung_fu = meta_slim,
     drawers = data.components,
     zen_summary = zen_summary
   ) %}
@@ -1992,7 +1981,8 @@ AutoContext:
     {%- set _cap     = ai_capsule(_idcard) | trim -%}
     {%- set _over    = compact_overview() | trim -%}
     {%- set _wake    = ai_wake_sequence(_idcard) | trim -%}
-    {%- set _total   = (_header|length) + (_system|length) + (_mfst|length) + (_id_mani|length) + (_idx|length) + (_dojo|length) + (_cap|length) + (_over|length) + (_wake|length) -%}
+    {%- set _pri     = priority_inject() | trim -%}
+    {%- set _total   = (_header|length) + (_system|length) + (_mfst|length) + (_id_mani|length) + (_idx|length) + (_dojo|length) + (_cap|length) + (_over|length) + (_wake|length) + (_pri|length) -%}
     {{ {
       'total':    _total,
       'sections': {
@@ -2004,9 +1994,71 @@ AutoContext:
         'dojo':      _dojo     | length,
         'capsule':   _cap      | length,
         'overview':  _over     | length,
-        'wake':      _wake     | length
+        'wake':      _wake     | length,
+        'priority_inject': _pri | length
       }
     } | tojson }}
+  {%- endif -%}
+{%- endmacro -%}
+
+{# ==============================
+   PRIORITY INJECT — x.5.0
+   Reads household_cabinet._zen_priority_inject and renders a labeled
+   PRIORITY CONTEXT block if any non-expired entries are present.
+   Defensive expiry filter applied here as a second line of defense after GC.
+   Zero tokens when slot is empty or household cabinet is unavailable.
+   Position: appended after wake sequence in render_prompt (recency / high saliency).
+   ============================== #}
+{%- macro priority_inject() -%}
+  {%- set _hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+  {%- if _hh not in ['', 'unknown', 'unavailable'] -%}
+    {%- set _vars = state_attr(_hh, 'variables') | default({}, true) -%}
+    {%- set _vars = _vars if _vars is mapping else {} -%}
+    {%- set _now  = now() -%}
+    {%- set _ns   = namespace(lines=[]) -%}
+
+    {# Priority inject entries — critical/urgent, expiry-gated #}
+    {%- set _raw  = _vars.get('_zen_priority_inject', {}) -%}
+    {%- set _slot = _raw if _raw is mapping else (_raw | from_json if _raw is string else {}) -%}
+    {%- if _slot is mapping -%}
+      {%- set _pi_ns = namespace(active=[]) -%}
+      {%- for _pid, _entry in _slot.items() -%}
+        {%- if _entry is mapping -%}
+          {%- set _exp_s = _entry.get('expires', '') | string | trim -%}
+          {%- if _exp_s != '' -%}
+            {%- set _exp_dt = _exp_s | as_datetime -%}
+            {%- if _exp_dt is not none and _now < _exp_dt -%}
+              {%- set _pi_ns.active = _pi_ns.active + [{'urg': _entry.urgency | default('urgent'), 'entry': _entry}] -%}
+            {%- endif -%}
+          {%- endif -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {%- for _item in _pi_ns.active | sort(attribute='urg') -%}
+        {%- set _ns.lines = _ns.lines + ['[' ~ _item.entry.urgency | upper ~ '] ' ~ _item.entry.summary] -%}
+      {%- endfor -%}
+    {%- endif -%}
+
+    {# Familiar alerts — active AlertManager entries from _zen_active_alerts #}
+    {%- set _al_raw  = _vars.get('_zen_active_alerts', {}) -%}
+    {%- set _alerts  = _al_raw if _al_raw is mapping else (_al_raw | from_json if _al_raw is string else {}) -%}
+    {%- if _alerts is mapping -%}
+      {%- set _al_ns = namespace(active=[]) -%}
+      {%- for _key, _alert in _alerts.items() if _alert is mapping -%}
+        {%- set _sev = _alert.get('severity', 'info') -%}
+        {%- set _al_ns.active = _al_ns.active + [{'sev': _sev, 'key': _key, 'msg': _alert.get('message', _key)}] -%}
+      {%- endfor -%}
+      {%- for _item in _al_ns.active | sort(attribute='sev') -%}
+        {%- set _ns.lines = _ns.lines + ['[' ~ _item.sev | upper ~ '] ' ~ _item.msg] -%}
+      {%- endfor -%}
+    {%- endif -%}
+
+    {%- if _ns.lines | length > 0 %}
+
+NOTIFICATIONS [{{ _ns.lines | length }} pending]
+{%- for _line in _ns.lines %}
+{{ _line }}
+{%- endfor %}
+    {%- endif -%}
   {%- endif -%}
 {%- endmacro -%}
 
@@ -2079,6 +2131,7 @@ render_prompt() — persona sensor unavailable (state: {{ _ai_ent }}). Check inp
 "boot_time": "{{ now().isoformat() }}"}
 {%- if not _is_flynn %}
 {{ ai_wake_sequence(_idcard) }}
+{{ priority_inject() }}
 {%- endif -%}
   {%- endif -%}
 {%- endmacro -%}
@@ -2131,6 +2184,7 @@ render_prompt() — persona sensor unavailable (state: {{ _ai_ent }}). Check inp
 
   {# Wake scene char count — lightweight; full prompt measured by sensor.zen_prompt_length #}
   {%- set _wake_chars = render_wake_from_essence(ev) | trim | length -%}
+  {%- set _pri_chars  = priority_inject() | trim | length -%}
 
   {{ {
     'state':               state,
@@ -2151,7 +2205,8 @@ render_prompt() — persona sensor unavailable (state: {{ _ai_ent }}). Check inp
     'prev_snapshot_exists': prev_exists,
     'environment_present': env_present,
     'prompt_chars': {
-      'wake_scene': _wake_chars
+      'wake_scene':      _wake_chars,
+      'priority_inject': _pri_chars
     },
     'health_signals': {
       'schema_ok':         is3,
