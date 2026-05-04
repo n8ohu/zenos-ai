@@ -1,4 +1,4 @@
-# Getting Started — ZenOS-AI 2026.4.0 'Ectoplasm'
+# Getting Started — ZenOS-AI 2026.5.0 'Fry's Grandpa'
 
 *From fresh install to live agent*
 

@@ -1,4 +1,4 @@
-# ZenOS-AI Troubleshooting Guide — 2026.4.2 'Action Jackson 2'
+# ZenOS-AI Troubleshooting Guide — 2026.5.0 'Fry's Grandpa'
 
 *Gauges → Kill Switches → Repair Tools. Start at the top, work down.*
 

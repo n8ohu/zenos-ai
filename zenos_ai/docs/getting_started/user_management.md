@@ -1,4 +1,4 @@
-# User and AI User Management — ZenOS-AI 2026.4.0 'Ectoplasm'
+# User and AI User Management — ZenOS-AI 2026.5.0 'Fry's Grandpa'
 
 *Provisioning, deprovisioning, moving, and repairing identity cabinets for people and AI constructs*
 

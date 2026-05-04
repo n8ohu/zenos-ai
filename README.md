@@ -20,12 +20,16 @@ Release notes: [Fry's Grandpa](zenos_ai/docs/releases/frys_grandpa.md) | [Lights
 
 ---
 
-## Getting Started
+---
 
-New install? → **[Install Guide](zenos_ai/docs/getting_started/install.md)**
-First boot? → **[First Run & OOBE](zenos_ai/docs/getting_started/first_run.md)**
-Adding a component? → **[Understanding KF4](zenos_ai/docs/kung_fu/understanding_kf4.md)** · **[Building a KFC](zenos_ai/docs/kung_fu/building_a_kfc.md)**
-Full docs → **[Documentation Hub](zenos_ai/docs/readme.md)**
+## 🚀 Start Here
+
+| | |
+|---|---|
+| New install | **[Install Guide](zenos_ai/docs/getting_started/install.md)** |
+| First boot | **[First Run & OOBE](zenos_ai/docs/getting_started/first_run.md)** |
+| Adding a component | **[Understanding KF4](zenos_ai/docs/kung_fu/understanding_kf4.md)** · **[Building a KFC](zenos_ai/docs/kung_fu/building_a_kfc.md)** |
+| Full documentation | **[Documentation Hub](zenos_ai/docs/readme.md)** |
 
 ---
 

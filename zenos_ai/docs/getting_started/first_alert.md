@@ -1,6 +1,6 @@
 # Your First Alert
 
-> **Version:** 2026.4.1 | **Last Updated:** April 2026
+> **Version:** 2026.5.0 'Fry's Grandpa' | **Last Updated:** May 2026
 
 *The fastest way to see ZenOS-AI's action pipeline working end to end.*
 
