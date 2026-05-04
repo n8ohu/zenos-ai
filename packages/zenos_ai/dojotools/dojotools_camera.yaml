@@ -96,7 +96,22 @@ script:
           _ignore_autocontext: "{{ ignore_autocontext | default(false) | bool }}"
           _sendto: "{{ sendto | default('', true) | string | trim }}"
 
-      # ── 0b. Resolve camera_entity from hint via index ─────────────────────
+      # ── 0b. Gate: ai_task entity must be valid for look + scan ───────────────
+      - if: "{{ _tool in ['look', 'scan'] and _ai_task in ['', 'unknown', 'unavailable'] }}"
+        then:
+          - variables:
+              _ai_task_error:
+                status: error
+                tool: "{{ _tool }}"
+                message: >-
+                  input_text.zenos_image_task is '{{ _ai_task }}' — no valid ai_task
+                  entity configured. Set this helper to a valid ai_task.* entity_id
+                  (e.g. ai_task.zenos_ai_task_stage) via the HA UI or ZenOS provisioning.
+                caller_token: "{{ _caller_token }}"
+          - stop: ai_task entity not configured
+            response_variable: _ai_task_error
+
+      # ── 0c. Resolve camera_entity from hint via index ─────────────────────
       - if: "{{ _camera_entity == '' and _camera_hint != '' and _tool in ['look', 'read', 'set_default_ctx', 'info'] }}"
         then:
           - alias: Resolve camera entity from hint
@@ -118,7 +133,7 @@ script:
                 {%- endfor -%}
                 {{ ns.found }}
 
-      # ── 0c. Pull _default_ctx from cache drawer if no explicit ctx call ──────
+      # ── 0d. Pull _default_ctx from cache drawer if no explicit ctx call ──────
       - if: "{{ not _has_ctx_call and not _ignore_autocontext and _camera_entity != '' and _tool in ['look', 'scan'] }}"
         then:
           - variables:
@@ -341,8 +356,9 @@ script:
                     Default: false.
                   sendto: >-
                     Optional. After look completes, dispatch the result to a
-                    target. Accepts image.zen_image_<slot> or person.*. Ignored
-                    by scan, read, info, and all other modes.
+                    target. Accepts image.zen_image_<slot>, person.*, or
+                    sensor.* (cabinet). Ignored by scan, read, info, and all
+                    other modes.
                     image.zen_image_<slot> — fires zen_event (kind: image_generated)
                     so the slot entity fetches the current camera frame, then
                     image.snapshot writes to zen_images/<slot>.jpg (primary,
@@ -351,6 +367,10 @@ script:
                     person.* — calls postman (resolve_and_dispatch) with the
                     snapshot path as image_url and the analysis as message at
                     urgency 1. Respects authority stack (sleep gate, tiers).
+                    sensor.* (cabinet) — resolves to person_entity_id via
+                    household roster, then routes through postman. Use
+                    sensor.zen_default_user_cabinet_resolved to target the
+                    current default user without hardcoding a person entity.
                   caller_token: "Opaque correlation token echoed in all responses."
                 getting_cached_analysis: >-
                   Camera analysis is cached in the household cabinet keyed by
