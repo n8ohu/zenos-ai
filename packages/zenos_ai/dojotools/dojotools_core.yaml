@@ -463,7 +463,7 @@ script:
                     {{ r | tojson }}
               - variables:
                   _pi_final: >-
-                    {%- set inject = _pi_slot_json | from_json -%}
+                    {%- set inject = _pi_slot_json if _pi_slot_json is mapping else (_pi_slot_json | from_json if _pi_slot_json is string else {}) -%}
                     {%- set inject = inject if inject is mapping else {} -%}
                     {%- set ns = namespace(out={}) -%}
                     {%- for pid, entry in inject.items() -%}
