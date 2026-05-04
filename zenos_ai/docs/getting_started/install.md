@@ -1,6 +1,6 @@
 # ZenOS-AI: Install Guide
 
-> **Version:** 2026.4.0 'Ectoplasm' | **Last Updated:** March 2026
+> **Version:** 2026.5.0 'Fry's Grandpa' | **Last Updated:** May 2026
 
 ---
 
