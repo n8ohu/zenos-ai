@@ -234,9 +234,9 @@ Both bugs were present since profile editor GA. The 5s timeout (also a write-pat
 
 ---
 
-## Cortex v37 — Kata First
+## Cortex v38 — Kata First
 
-New directive ordering. KATA FIRST elevated to position 2 (right after tone). Domain tools map added — each domain has a canonical tool path. Interaction policy and time policy codified. Boot context and pipeline structure documented inline. `getlivecontext_rule` updated to require explicit justification before fallback.
+Supersedes v37. AUDIO directive updated: `zen_dojotools_notification_router` replaced with `zen_dojotools_postman` for push-only notifications. All other v37 content unchanged.
 
 Load: `zen_admintools_prompt_loader: cortex_version: latest, ship_zen_system: false`
 
@@ -256,7 +256,7 @@ Wraps `zen_admintools_cabinetadmin flip_schema_version` for schema migration ope
 |---|---|
 | `custom_templates/zenos_ai/zen_os_1.jinja` | `priority_inject()` macro; NOTIFICATIONS block; `cabinet_list()` adds writeable+status; `identity_manifest()` roster+tree shape; `kfc_slot()` description+instructions+dojo_cabinet; `render_prompt()` priority inject excluded from total count |
 | `custom_templates/zenos_ai/zen_query.jinja` | v4.6.0: `entity_id_regex` filter (step 10b); `regex` → `regex_search()`; `stats_eligible` filter |
-| `packages/zenos_ai/dojotools/dojotools_admintools.yaml` | Cortex v37 Kata First; script renamed `zen_admintools_prompt_loader` |
+| `packages/zenos_ai/dojotools/dojotools_admintools.yaml` | Cortex v38 Kata First (v37 → v38: AUDIO directive postman fix); taskmaster v1.3.2 (declarative synthesis guidance); script renamed `zen_admintools_prompt_loader` |
 | `packages/zenos_ai/dojotools/dojotools_alertmanager.yaml` | v1.2.0: `zen_priority_context` sensor; `notify_target: postman`; priority inject write/clear on error/clear; `zen_priority_inject_handler` automation |
 | `packages/zenos_ai/dojotools/dojotools_camera.yaml` | v1.3.0: `set_alert_policy` mode; `_*` key preservation in look/scan; `sensor.*` sendto dispatch; `_alert_policy` in info response; sendto help example uses dynamic cabinet resolution |
 | `packages/zenos_ai/dojotools/dojotools_core.yaml` | Priority inject GC: urgency validation, 24hr cap, 5-entry limit, eviction sort |
