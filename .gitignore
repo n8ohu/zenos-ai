@@ -35,6 +35,9 @@ venv/
 .claude/
 CLAUDE.md
 
+# GitHub label sync artifacts
+labels/
+
 # System files
 .DS_Store
 Thumbs.db
