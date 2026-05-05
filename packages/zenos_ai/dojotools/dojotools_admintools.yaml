@@ -1671,10 +1671,10 @@ script:
         selector:
           select:
             options:
-              - label: latest (37 — Kata First)
+              - label: latest (38 — Kata First)
                 value: latest
-              - label: 37 — Kata First
-                value: '37'
+              - label: 38 — Kata First
+                value: '38'
               - label: 36 — Index First
                 value: '36'
               - label: 35 — Action Jackson
