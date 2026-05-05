@@ -403,7 +403,7 @@ automation:
                     Before touching anything — make sure you have a current HA backup.
                     Then open a conversation with me and say "initialize my cabinets" to proceed.
                     Note: sensor.zenos_system_cabinet (prompt substrate) is managed by
-                    zen_admintools_zenos_prompt_loader and zen_admintools_cabinetadmin_factory —
+                    zen_admintools_prompt_loader and zen_admintools_cabinetadmin_factory —
                     not writeable via FileCabinet or by me. Use those admin tools for syscab repair.
                   notification_id: flynn_cabinets_need_attention
               - action: system_log.write
@@ -1135,7 +1135,7 @@ script:
             data: {}
 
       # Trigger prompt loader to stamp purpose/directives/cortex
-      - action: script.zen_admintools_zenos_prompt_loader
+      - action: script.zen_admintools_prompt_loader
         data: {}
 
       # Wire household membership — fills HoH and prime slots, links partners, builds manifest.

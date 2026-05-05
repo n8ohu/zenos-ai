@@ -1,4 +1,4 @@
-# User and AI User Management — ZenOS-AI 2026.4.0 'Ectoplasm'
+# User and AI User Management — ZenOS-AI 2026.5.0 'Fry's Grandpa'
 
 *Provisioning, deprovisioning, moving, and repairing identity cabinets for people and AI constructs*
 
@@ -287,6 +287,31 @@ Removes from `members.users` or `members.ai_users`. Does **not** clear the `acls
 
 ---
 
+### Add an External Family Member (No HA Account)
+
+For people who matter to the household but don't have a Home Assistant account and no pre-provisioned cabinet — use `provision_member`. One call handles the full lifecycle.
+
+```yaml
+script.zen_dojotools_identity:
+  mode: provision_member
+  member_name: Marianne
+  profile_payload: '{"first_name": "Marianne", "role": "extended_family", "pronouns": "she/her"}'
+  # family_entity: sensor.<family_cabinet>   # optional — defaults to zen_default_family_cabinet_resolved
+  # member_type: user                        # optional — default: user
+```
+
+`provision_member` will:
+1. Find the first available expansion slot (`sensor.zenos_expansion_cabinet_1` through `_5`) in `init` state
+2. Provision it as a user cabinet, seeding the name and any profile fields
+3. Wire it into the target family via `family_add_member`
+4. Rebuild the identity manifest
+
+Hard-stops with a clear error if all 5 expansion slots are occupied — deprovision an existing member cabinet first.
+
+> **OOBE:** The first-run setup (`flynn_oobe.yaml` step `3_people`) routes external family members through `provision_member` automatically. You do not need to call it manually during initial setup.
+
+---
+
 ### Add a Member to a Family
 
 ```yaml
@@ -514,7 +539,8 @@ After the nuclear sequence completes, re-provision each identity cabinet via the
 | Remove AI user | `zen_dojotools_provisioner` | `deprovision` |
 | Move AI user to new cabinet | `zen_dojotools_provisioner` | `replace` |
 | Write / update AI user profile | `zen_dojotools_profile_editor` | `write`, `target_type: ai_user` |
-| Add person | `zen_dojotools_provisioner` | `provision`, `cab_type: user` |
+| Add person (has HA account) | `zen_dojotools_provisioner` | `provision`, `cab_type: user` |
+| Add external family member (no HA account) | `zen_dojotools_identity` | `provision_member` |
 | Remove person | `zen_dojotools_provisioner` | `deprovision` |
 | Move person to new cabinet | `zen_dojotools_provisioner` | `replace` |
 | Write / update user profile | `zen_dojotools_profile_editor` | `write`, `target_type: user` |

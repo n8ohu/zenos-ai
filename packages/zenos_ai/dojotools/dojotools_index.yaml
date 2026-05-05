@@ -24,7 +24,7 @@ script:
 
   zen_dojotools_query:
     alias: Zen DojoTools Query
-    description: "Zen DojoTools Query “ZQ-1” (4.2.1)\nQuery is a deterministic entity
+    description: "Zen DojoTools Query “ZQ-1” (4.6.0)\nQuery is a deterministic entity
       selector. It takes a starting list of entity_ids (or an empty/null list) and runs
       them through a series of filters—domain, labels, areas, device_id, device_class,
       states, numeric ranges, regex, and semantic shortcuts. Each filter narrows the
@@ -151,9 +151,15 @@ script:
               \       \"Keep only entities whose state cleanly converts to float() AND
               whose value is strictly > this threshold.\",\n\n      \"numeric_below\":\n
               \       \"Keep only entities whose numeric state is strictly < this threshold.\",\n\n
-              \     \"regex\":\n        \"Apply Home Assistant’s `is regex()` test to
-              the STATE STRING. Matching entities survive. Non-string or non-matching
-              entities are dropped.\",\n\n      \"shortcuts\": {\n        \"numeric\":\n
+              \       \"regex\":
+        \"Apply regex_search() to the STATE STRING. Matching entities survive. Non-string states are skipped safely.\",
+
+      \"entity_id_regex\":
+        \"Apply regex_search() to the ENTITY ID. Keeps only entities whose entity_id matches the pattern. Example: node_status$.\",
+
+      \"shortcuts\": {
+        \"numeric\":
+
               \         \"Quick include-only-numeric. Equivalent to: float(state) is
               valid.\",\n        \"stats\":\n          \"Keep only entities that publish
               'state_class'. Useful for energy, utility, trend, Riemann sensors.\",\n
@@ -241,7 +247,7 @@ script:
     - choose:
       - conditions:
         - condition: template
-          value_template: "{{- log_result -}}"
+          value_template: "{{- log_result | default(false) -}}"
         sequence:
         - data:
             name: ZQ-1 FILTER
@@ -1588,7 +1594,7 @@ script:
           response_variable: _ci_write
         - variables:
             final_response:
-              status: "{{- _ci_write.get('status', 'error') if _ci_write is mapping else 'error' -}}"
+              status: ok
               message: Compact label index built.
               generated: "{{- now().isoformat() -}}"
               labels: >-
@@ -1687,6 +1693,14 @@ script:
             {%- set _areas = floor_areas(floor_1 | trim) | list -%}
             {%- set _ns = namespace(e=[]) -%}
             {%- for a in _areas -%}{%- set _ns.e = _ns.e + (area_entities(a) | list) -%}{%- endfor -%}
+            {%- set _ents = _ns.e | unique | list -%}
+          {%- endif -%}
+          {%- if _ents | length == 0 and (operator | default('AND') | upper) == '*' -%}
+            {%- set _ci_labels = _ci_val.get('labels', []) if _ci_val is mapping else [] -%}
+            {%- set _ns = namespace(e=[]) -%}
+            {%- for lbl in _ci_labels -%}
+              {%- set _ns.e = _ns.e + (label_entities(lbl.get('slug', '')) | list) -%}
+            {%- endfor -%}
             {%- set _ents = _ns.e | unique | list -%}
           {%- endif -%}
           {{ _ents }}

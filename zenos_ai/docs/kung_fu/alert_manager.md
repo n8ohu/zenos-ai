@@ -1,6 +1,6 @@
 # Alert Manager — KFC Guide
 
-> **KF4 1.5.0** | ZenOS-AI 2026.4.1
+> **KF4 1.5.0** | ZenOS-AI 2026.5.0 "Fry's Grandpa" | Alertmanager v1.2.0
 
 Alert Manager is ZenOS-AI's built-in alert component. It monitors entities tagged with the **`Alert Manager`** label, interprets their states, and dispatches notifications when something needs attention.
 
@@ -117,21 +117,47 @@ Set `for: seconds: N` in your trigger block. Prevents false dispatches from tran
 
 ## Setting Up Notifications
 
-`alert_manager` dispatches via `zen_dojotools_notification_router` to `notify.admin_devices`.
+`alert_manager` v1.2.0 dispatches via `zen_dojotools_postman`. Set `notify_target: postman` in your alert_manager Dojo drawer to route notifications through the postman pipeline (respects sleep gate, urgency tiers, away policy, and image attachment).
 
-You need a `notify.admin_devices` group in your HA config pointing at your phone:
+The legacy `zen_dojotools_notification_router` path is still supported but deprecated. Migrate to postman.
 
-```yaml
-notify:
-  - name: admin_devices
-    platform: group
-    services:
-      - service: mobile_app_your_phone  # replace with your actual notify service
-```
+For a full postman setup walkthrough: **[Your First Alert](../getting_started/first_alert.md)**.
 
-The notification router respects quiet hours and work hours. To override during an emergency, use the `breakthrough` flag — but alert_manager only sets it for genuine life-safety events.
+---
 
-For more on notification targets and quiet hours: [HA Notify Docs](https://www.home-assistant.io/integrations/notify/).
+## Priority Inject — AI Situational Awareness (v1.2.0)
+
+Error-severity alerts now wire into the **priority inject** system automatically. When alertmanager raises an error-severity alert, it fires `zen_event kind: priority_inject_write`, which:
+
+1. Lands in the `_zen_priority_inject` drawer in the household cabinet (up to 5 slots, sorted by urgency)
+2. Updates `zen_priority_context` sensor (`active_count`, `highest_urgency`, `providers`, `oldest_since`)
+3. Appears in the **NOTIFICATIONS block** at the top of every AI prompt context frame
+
+The AI enters every conversation already knowing what's wrong — without being told. When the alert clears, `zen_event kind: priority_inject_clear` removes it from the inject slot automatically.
+
+### `zen_priority_context` Sensor
+
+Always-live sensor tracking current inject state:
+
+| Field | Description |
+|---|---|
+| `active_count` | Number of active (non-expired) inject entries |
+| `providers` | List of providers with active entries |
+| `highest_urgency` | `critical` \| `urgent` \| `none` |
+| `oldest_since` | Timestamp of the oldest active entry |
+
+This sensor is readable at any time. It's the lightweight way to check whether the AI is currently carrying any active alert context.
+
+### Urgency Mapping
+
+Alertmanager maps alert severity to inject urgency:
+
+| Alert Severity | Inject Urgency | Expires |
+|---|---|---|
+| `error` | `urgent` | 60 minutes |
+| Life-safety (smoke, CO, flood) | `critical` | 60 minutes |
+
+Entries are automatically GC'd by Core on every cycle. Stale entries (past expiry) are evicted; invalid entries (bad urgency value) are dropped on write.
 
 ---
 
@@ -163,5 +189,5 @@ Tag any entity with the **`Alert Manager`** HA label. It's automatically include
 
 ---
 
-*ZenOS-AI KF4 1.5.0 — 2026-04-14*
+*ZenOS-AI KF4 1.5.0 — Alertmanager v1.2.0 — 2026-05-03*
 *Source: Nyx (live system observation), Cayt (dev)*

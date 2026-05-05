@@ -437,6 +437,84 @@ script:
                         set_timestamp: false
                         volume_entity: "{{ current_cab }}"
 
+      # ── 4b. Priority inject GC — per-entry scan of _zen_priority_inject ────────
+      # _-prefixed drawers are protected from the normal GC loop above.
+      # This step specifically reads inside _zen_priority_inject to validate,
+      # clamp, and evict stale/invalid entries. Runs only on full gc action.
+      - alias: Priority inject GC — validate, clamp, and evict priority inject slot
+        if:
+          - condition: template
+            value_template: "{{ gc_action == 'gc' and not dry_run }}"
+        then:
+          - variables:
+              _pi_hh: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+          - if:
+              - condition: template
+                value_template: >-
+                  {{ _pi_hh not in ['', 'unavailable', 'unknown'] }}
+            then:
+              - variables:
+                  _pi_vars_raw: "{{ state_attr(_pi_hh, 'variables') | default({}, true) }}"
+              - variables:
+                  _pi_slot_json: >-
+                    {%- set v = _pi_vars_raw if _pi_vars_raw is mapping else {} -%}
+                    {%- set r = v.get('_zen_priority_inject', {}) -%}
+                    {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+                    {{ r | tojson }}
+              - variables:
+                  _pi_final: >-
+                    {%- set inject = _pi_slot_json if _pi_slot_json is mapping else (_pi_slot_json | from_json if _pi_slot_json is string else {}) -%}
+                    {%- set inject = inject if inject is mapping else {} -%}
+                    {%- set ns = namespace(out={}) -%}
+                    {%- for pid, entry in inject.items() -%}
+                      {%- if entry is mapping -%}
+                        {%- set urg = entry.get('urgency', '') -%}
+                        {%- set exp_s = entry.get('expires', '') | string | trim -%}
+                        {%- set since_s = entry.get('since', '') | string | trim -%}
+                        {%- set summary = entry.get('summary', '') | string | trim -%}
+                        {%- if urg in ['critical', 'urgent'] and exp_s != '' and since_s != '' -%}
+                          {%- set exp_dt = exp_s | as_datetime -%}
+                          {%- if exp_dt is not none and now() < exp_dt -%}
+                            {%- set max_exp = (now() + timedelta(hours=24)).isoformat() -%}
+                            {%- set exp_clamped = max_exp if exp_s > max_exp else exp_s -%}
+                            {%- set clean_sum = summary[:254] ~ '…' if summary | length > 255 else summary -%}
+                            {%- set ents = entry.get('entities', []) -%}
+                            {%- set ents = ents[:3] if ents is sequence else [] -%}
+                            {%- set clean_entry = {
+                              'summary': clean_sum, 'urgency': urg,
+                              'since': since_s, 'expires': exp_clamped, 'entities': ents
+                            } -%}
+                            {%- set ns.out = dict(ns.out, **{pid: clean_entry}) -%}
+                          {%- endif -%}
+                        {%- endif -%}
+                      {%- endif -%}
+                    {%- endfor -%}
+                    {%- if ns.out | length > 5 -%}
+                      {%- set ns2 = namespace(scored=[]) -%}
+                      {%- for pid, entry in ns.out.items() -%}
+                        {%- set tier = '0' if entry.urgency == 'urgent' else '1' -%}
+                        {%- set ns2.scored = ns2.scored + [{'k': tier ~ '_' ~ entry.since, 'pid': pid, 'entry': entry}] -%}
+                      {%- endfor -%}
+                      {%- set kept = ns2.scored | sort(attribute='k') | list -%}
+                      {%- set kept = kept[-5:] -%}
+                      {%- set ns3 = namespace(d={}) -%}
+                      {%- for item in kept -%}
+                        {%- set ns3.d = dict(ns3.d, **{item.pid: item.entry}) -%}
+                      {%- endfor -%}
+                      {{ ns3.d | tojson }}
+                    {%- else -%}
+                      {{ ns.out | tojson }}
+                    {%- endif -%}
+              - if:
+                  - condition: template
+                    value_template: "{{ _pi_slot_json != _pi_final }}"
+                then:
+                  - event: set_variable_legacy
+                    event_data:
+                      key: _zen_priority_inject
+                      value: "{{ _pi_final }}"
+                      volume_entity: "{{ _pi_hh }}"
+
       # ── 5. Post-prune scheduler nudge ────────────────────────────────────────
       # GC doesn't decide what to re-summarize — it just announces what it collected.
       # Drain router sees evicted drawers as maximally stale (age_min: 9999) and

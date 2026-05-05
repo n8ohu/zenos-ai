@@ -1,22 +1,22 @@
 # 📘 **ZenOS-AI Documentation Hub**
 
-> **Version:** 2026.4.0 | **Last Updated:** April 2026 | **License:** MIT
+> **Version:** 2026.5.0 | **Last Updated:** May 2026 | **License:** MIT
 >
-> *Public releases follow Home Assistant's `YYYY.M.patch` convention — `2026.4.0` is the April release 'Ectoplasm'. A new month resets to `.0`.*
+> *Public releases follow Home Assistant's `YYYY.M.patch` convention — `2026.5.0` is the May release 'Fry's Grandpa'. A new month resets to `.0`.*
 
 → [Project Overview & Install](../../README.md)
 
 ---
 
-> ### What's New in 2026.4.0 'Ectoplasm'
+> ### What's New in 2026.5.0 'Fry's Grandpa'
 >
-> **1. `zen_dojotools_ectoplasm` — new tool.** Spook/HA extended surface wrapper: 25 action types covering repairs, areas, floors, entity/device lifecycle, label assignment to areas and devices, integration config entries, and orphan cleanup. All writes are confirm-gated with a preview pattern. Requires Spook.
+> **1. Priority Inject — AI situational awareness.** Error and life-safety alerts now land in `_zen_priority_inject` (5 slots), surface via the always-live `zen_priority_context` sensor, and appear in every AI prompt NOTIFICATIONS block. The AI enters every conversation already knowing what's wrong.
 >
-> **2. Index 4.6.3 + Inspect 4.6.2 — topology seeds, pagination, registry modes.** Index now resolves entity sets from device, integration, area, or floor inputs (full precedence chain). `limit`/`offset` pagination with `dry_run` total_count. Inspect gains HA registry query modes: areas, floors, devices, labels, zones, persons — no entity input required.
+> **2. Alertmanager v1.2.0 + Camera v1.3.0.** Alertmanager wires into priority inject automatically; postman is now the primary notify target (`notification_router` deprecated). Camera gains `set_alert_policy` mode, `sendto sensor.*` for dynamic cabinet routing, and preserves `_default_ctx`/`_alert_policy` across look/scan cycles.
 >
-> **3. Ninja run governor.** Dedup burnout window absorbs duplicate trigger firings within a configurable window (`zen_ninja_config.burnout_seconds`, default 5 min). `force: true` bypasses for admin overrides.
+> **3. Identity `provision_member` + ZQ-1 v4.6.0.** Provision an external family member (no HA account) into an expansion slot and register them in one call. ZQ-1 corrects `regex` to `regex_search()`, adds `entity_id_regex` (step 10b), and adds `stats_eligible` filter.
 >
-> → [Full Release Notes — Ectoplasm](releases/ectoplasm.md)
+> → [Full Release Notes — Fry's Grandpa](releases/frys_grandpa.md)
 
 ---
 
@@ -257,17 +257,24 @@ This is Friday’s trust spine — the system that decides which parts of the wo
 
 **File:** `docs/roadmap.md`
 
-**2026.4.0 'Ectoplasm' — Shipped (2026-04-04)**
+**2026.5.0 'Fry's Grandpa' — Shipped (2026-05-03)**
 
-* Ectoplasm — new DojoTool: Spook/HA extended surface wrapper (repairs, areas, floors, entity/device lifecycle, labels, integrations, orphan cleanup)
-* Scribe 1.2.0 — `enable`/`disable` mode aliases, `domain_inspect_domains`/`limit` wired, `repair` mode, `meta.enabled` in thought payload, emission fields in `_thought_payload`
-* Index 4.6.3 — topology seeds (device/integration/area/floor), pagination (limit/offset), Inspect registry modes, +history, auto-cap
-* Inspect 4.6.2 — registry enum modes (area_info, floor_info, device_info, *_list, integration_entities)
-* Ninja Summarizer — run governor (dedup burnout window, `force` bypass, configurable via `zen_ninja_config`)
-* AdminTools — `zen_admintools_run_repair`, `ship_alert_manager` + `ship_taskmaster` KFCs in prompt loader
-* Dispatcher 1.1.0 — two-level routing, urgency signal arch, event bus audit trail
+* Priority inject — error/life-safety alerts in `_zen_priority_inject`, `zen_priority_context` sensor, NOTIFICATIONS block in every AI prompt
+* Alertmanager v1.2.0 — postman as primary notify target, `notification_router` deprecated, priority inject auto-wired
+* Camera v1.3.0 — `set_alert_policy` mode, `sendto sensor.*` dynamic cabinet routing, `_default_ctx`/`_alert_policy` preserved across look/scan
+* Identity `provision_member` — provision external family member (no HA account) into expansion slot in one call; OOBE updated
+* ZQ-1 v4.6.0 — `regex` corrected to `regex_search()`, `entity_id_regex` filter (step 10b), `stats_eligible` filter
+* Profile editor — fixed `mode: read` for user/family returning blank; fixed write merge and `_write_ok` key
 
-See: [Release Notes — Ectoplasm](releases/ectoplasm.md)
+See: [Release Notes — Fry's Grandpa](releases/frys_grandpa.md)
+
+---
+
+**2026.4.3 'Lights, Camera, Action' — Shipped (2026-04-24)**
+
+* ZQ-1 exclusion suite, compound Index Command DSL, Camera v1.2.0, Postman v1.0.0
+
+See: [Release Notes — Lights, Camera, Action](releases/lights_camera_action.md)
 
 ---
 

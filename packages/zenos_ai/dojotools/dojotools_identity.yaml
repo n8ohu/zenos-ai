@@ -127,6 +127,13 @@ script:
             Omit both to return the default household tree.
           is_member = depth-2 membership check. member_entity = subject, family_entity = container.
             Returns {is_member: bool, depth: 1|2|null}.
+          provision_member = full orchestration for adding a new family member who has no HA
+            person.* entity and no pre-provisioned cabinet. Finds the first expansion slot in init
+            state, provisions it as a family cabinet, wires it into the target family, and rebuilds
+            the identity manifest. Requires member_name. Optional: family_entity (defaults to
+            zen_default_family_cabinet_resolved), member_type (default: user), profile_payload
+            (JSON string — additional profile fields: first_name, last_name, pronouns, role, etc.).
+            Hard-stops with clear error if all 5 expansion slots are occupied.
         default: resolve
         selector:
           select:
@@ -146,6 +153,7 @@ script:
               - set_default_family
               - membership
               - is_member
+              - provision_member
 
       user_label:
         selector:
@@ -163,8 +171,10 @@ script:
             multiple: false
       user_entity_id:
         name: Person
-        description: Under Construction - not functional yet. Optional, the entity_id
-          of a valid user person entity.
+        description: >-
+          Optional. The entity_id of a valid person.* entity (e.g. person.user).
+          Resolved against member entries via person_entity_id field. Takes
+          lower priority than user_label and user_cabinet.
         required: false
         selector:
           entity:
@@ -234,6 +244,25 @@ script:
             filter:
               domain: sensor
             multiple: false
+      member_name:
+        name: Member Name
+        description: >-
+          Display name for the new member. Required for provision_member.
+          Stored as preferred_name (and name) in the provisioned cabinet profile drawer.
+        required: false
+        selector:
+          text:
+            multiline: false
+      profile_payload:
+        name: Profile Payload (JSON)
+        description: >-
+          Optional JSON string with additional profile fields to seed into the
+          provisioned cabinet (first_name, last_name, pronouns, role, etc.).
+          Merged with member_name. Used only by provision_member.
+        required: false
+        selector:
+          text:
+            multiline: true
       caller_token:
         name: Caller Token
         required: false
@@ -260,6 +289,8 @@ script:
         member_type: "{{- member_type | default('user') | lower | trim -}}"
         ai_entity: "{{- ai_entity | default('') | trim -}}"
         household_entity: "{{- household_entity | default('') | trim -}}"
+        member_name: "{{- member_name | default('') | trim -}}"
+        profile_payload: "{{- profile_payload | default('') | trim -}}"
         _hh_target: >
           {%- if household_entity | default('') | trim != '' -%}
             {{- household_entity | trim -}}
@@ -291,9 +322,27 @@ script:
           {%- if rt in ['', "''", '""', "' '", '" "', None] -%}
             {{- None -}}
           
-          {#- --- 1. Preserve full person entities verbatim --- -#}
-          {%- elif rt.startswith('person.') -%}          
-          {{- rt -}}
+          {#- --- 1. person.* entity → resolve to cabinet --- -#}
+          {#-     Primary:  member entry with matching person_entity_id         -#}
+          {#-     Fallback: slug convention (person.user → label 'user'         -#}
+          {#-               ∩ zen_user_cabinet) — self-heals pre-patch members  -#}
+          {%- elif rt.startswith('person.') -%}
+          {%- import 'zenos_ai/zenos_cabinets.jinja' as CABS -%}
+          {%- set _hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+          {%- set _mbrs = CABS.cabinet_drawer_value(_hh, 'members', {}) | from_json() -%}
+          {%- set _mbrs = _mbrs if _mbrs is mapping else {} -%}
+          {%- set _all = _mbrs.get('users', []) + _mbrs.get('ai_users', []) -%}
+          {%- set _hit = _all | selectattr('person_entity_id', 'defined')
+                               | selectattr('person_entity_id', 'equalto', rt)
+                               | first | default(none) -%}
+          {%- if _hit -%}
+            {{- _hit.entity_id -}}
+          {%- else -%}
+            {%- set _slug = rt | replace('person.', '') -%}
+            {%- set _cands = label_entities(_slug) | select('match', 'sensor\.')
+                             | select('in', label_entities('zen_user_cabinet')) | list -%}
+            {{- _cands | first | default(None) -}}
+          {%- endif -%}
           
           {#- --- 2. Preserve full cabinet sensors verbatim --- -#}
           {%- elif rt.startswith('sensor.') -%}
@@ -873,7 +922,13 @@ script:
                   response_variable: response
             - variables:
                 _new_entry: >-
-                  {{- {'guid': _mem_guid, 'entity_id': member_entity, 'name': _mem_name} | tojson -}}
+                  {%- set _pid = user_entity_id | default('') | trim -%}
+                  {{- {
+                    'guid':             _mem_guid,
+                    'entity_id':        member_entity,
+                    'name':             _mem_name,
+                    'person_entity_id': _pid if _pid != '' else none
+                  } | tojson -}}
                 _updated_members: >-
                   {%- set _m = _hh_members_raw | from_json if _hh_members_raw is string else _hh_members_raw -%}
                   {%- set _m = _m if _m is mapping else {} -%}
@@ -1241,10 +1296,16 @@ script:
                   {%- set _m = _m if _m is mapping else {} -%}
                   {{- _m.get(_list_key, []) | tojson -}}
                 _new_entry: >-
+                  {%- set _pid = user_entity_id | default('') | trim -%}
                   {%- if member_type == 'family' -%}
                     {{- {'guid': _mem_guid, 'entity_id': member_entity, 'name': _mem_name, 'depth': 2} | tojson -}}
                   {%- else -%}
-                    {{- {'guid': _mem_guid, 'entity_id': member_entity, 'name': _mem_name} | tojson -}}
+                    {{- {
+                      'guid':             _mem_guid,
+                      'entity_id':        member_entity,
+                      'name':             _mem_name,
+                      'person_entity_id': _pid if _pid != '' else none
+                    } | tojson -}}
                   {%- endif -%}
             - variables:
                 _already_member: >-
@@ -2114,6 +2175,172 @@ script:
                     }
                   -}}
             - stop: is_member check complete
+              response_variable: response
+
+    # ── Step 3m: mode = provision_member ─────────────────────────────────────
+    # Full orchestration: scan expansion slots → provision → family_add_member
+    # → manifest rebuild. Handles the complete new-member lifecycle in one call.
+    - choose:
+        - conditions: "{{- _mode == 'provision_member' -}}"
+          sequence:
+            # Resolve effective family and validate member_name
+            - variables:
+                _pm_name: "{{- member_name | default('') | trim -}}"
+                _pm_payload_raw: "{{- profile_payload | default('') | trim -}}"
+                _pm_mtype: "{{- member_type | default('user') | lower | trim -}}"
+                _pm_fam: >-
+                  {%- set _f = family_entity | default('') | trim -%}
+                  {%- if _f != '' -%}
+                    {{- _f -}}
+                  {%- else -%}
+                    {{- states('sensor.zen_default_family_cabinet_resolved') -}}
+                  {%- endif -%}
+
+            # Gate: member_name required
+            - if: "{{- _pm_name == '' -}}"
+              then:
+                - variables:
+                    response: >
+                      {{-
+                        {
+                          'mode':      'provision_member',
+                          'status':    'error',
+                          'message':   'member_name is required for provision_member.',
+                          'timestamp': now().isoformat()
+                        }
+                      -}}
+                - stop: member_name required
+                  response_variable: response
+
+            # Gate: family entity must resolve
+            - if: "{{- _pm_fam == '' or _pm_fam == 'unknown' -}}"
+              then:
+                - variables:
+                    response: >
+                      {{-
+                        {
+                          'mode':      'provision_member',
+                          'status':    'error',
+                          'message':   'family_entity could not be resolved. Provide family_entity or ensure zen_default_family_cabinet_resolved is set.',
+                          'timestamp': now().isoformat()
+                        }
+                      -}}
+                - stop: family_entity unresolved
+                  response_variable: response
+
+            # Scan expansion slots 1–5 for first available init slot
+            - variables:
+                _pm_slot: >-
+                  {%- set _slots = [
+                    'sensor.zenos_expansion_cabinet_1',
+                    'sensor.zenos_expansion_cabinet_2',
+                    'sensor.zenos_expansion_cabinet_3',
+                    'sensor.zenos_expansion_cabinet_4',
+                    'sensor.zenos_expansion_cabinet_5'
+                  ] -%}
+                  {%- set ns = namespace(v='') -%}
+                  {%- for s in _slots -%}
+                    {%- if ns.v == '' and states(s) == 'init' -%}
+                      {%- set ns.v = s -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                  {{- ns.v -}}
+
+            # Gate: no available slot
+            - if: "{{- _pm_slot == '' -}}"
+              then:
+                - variables:
+                    response: >
+                      {{-
+                        {
+                          'mode':      'provision_member',
+                          'status':    'error',
+                          'message':   'All 5 expansion slots are occupied. Deprovision an existing cabinet before adding a new member.',
+                          'timestamp': now().isoformat()
+                        }
+                      -}}
+                - stop: no expansion slot available
+                  response_variable: response
+
+            # Build profile payload: merge member_name as preferred_name + name
+            - variables:
+                _pm_profile: >-
+                  {%- set _base = _pm_payload_raw | from_json if (_pm_payload_raw is string and _pm_payload_raw != '') else {} -%}
+                  {%- set _base = _base if _base is mapping else {} -%}
+                  {{- dict(_base, **{'preferred_name': _pm_name, 'name': _pm_name}) | tojson -}}
+                _pm_cab_type: "{{- _pm_mtype if _pm_mtype in ['user', 'ai_user', 'family'] else 'user' -}}"
+
+            # Provision the expansion slot (auto-stamps init → online_unmounted → mounts)
+            - action: script.zen_dojotools_provisioner
+              data:
+                mode: provision
+                cab_type: "{{- _pm_cab_type -}}"
+                target_cabinet: "{{- _pm_slot -}}"
+                profile_payload: "{{- _pm_profile -}}"
+                caller_token: "{{- caller_token | default('') -}}"
+              response_variable: _pm_prov_result
+
+            # Gate: provisioner must succeed
+            - variables:
+                _pm_prov_ok: >-
+                  {%- set _r = _pm_prov_result if _pm_prov_result is mapping else (_pm_prov_result | from_json if _pm_prov_result is string else {}) -%}
+                  {{- (_r.get('status', '') == 'success') | bool -}}
+                _pm_prov_msg: >-
+                  {%- set _r = _pm_prov_result if _pm_prov_result is mapping else (_pm_prov_result | from_json if _pm_prov_result is string else {}) -%}
+                  {{- _r.get('message', 'Provisioner returned unknown error.') -}}
+            - if: "{{- not (_pm_prov_ok | bool) -}}"
+              then:
+                - variables:
+                    response: >
+                      {{-
+                        {
+                          'mode':               'provision_member',
+                          'status':             'error',
+                          'message':            'Provisioner failed: ' ~ _pm_prov_msg,
+                          'slot':               _pm_slot,
+                          'provisioner_result': _pm_prov_result,
+                          'timestamp':          now().isoformat()
+                        }
+                      -}}
+                - stop: provisioner failed
+                  response_variable: response
+
+            # Wire the new cabinet into the target family
+            - action: script.zen_dojotools_identity
+              data:
+                mode: family_add_member
+                family_entity: "{{- _pm_fam -}}"
+                member_entity: "{{- _pm_slot -}}"
+                member_type: "{{- _pm_cab_type -}}"
+                household_entity: "{{- _hh_target -}}"
+                caller_token: "{{- caller_token | default('') -}}"
+              response_variable: _pm_fam_result
+
+            - variables:
+                _pm_fam_ok: >-
+                  {%- set _r = _pm_fam_result if _pm_fam_result is mapping else (_pm_fam_result | from_json if _pm_fam_result is string else {}) -%}
+                  {{- (_r.get('status', '') in ['ok', 'already_member']) | bool -}}
+                _pm_fam_msg: >-
+                  {%- set _r = _pm_fam_result if _pm_fam_result is mapping else (_pm_fam_result | from_json if _pm_fam_result is string else {}) -%}
+                  {{- _r.get('message', 'family_add_member returned unknown status.') -}}
+            - variables:
+                response: >
+                  {{-
+                    {
+                      'mode':               'provision_member',
+                      'status':             'ok' if (_pm_fam_ok | bool) else 'partial',
+                      'member_name':        _pm_name,
+                      'member_entity':      _pm_slot,
+                      'member_type':        _pm_cab_type,
+                      'family_entity':      _pm_fam,
+                      'provisioner_result': _pm_prov_result,
+                      'family_result':      _pm_fam_result,
+                      'warning':            none if (_pm_fam_ok | bool) else ('family_add_member failed: ' ~ _pm_fam_msg),
+                      'timestamp':          now().isoformat(),
+                      'caller_token':       caller_token | default('')
+                    }
+                  -}}
+            - stop: provision_member complete
               response_variable: response
 
     # ── Step 3b: mode = resolve (default) ──────────────────────────────────

@@ -1,6 +1,113 @@
 ###############################################################################
 # ZenOS-AI Alert Manager
-# Version: 1.0.1
+# Version: 1.2.0
+#
+# Additions in 1.2.0:
+#   zen_priority_inject_handler — write/clear event handler for _zen_priority_inject
+#   sensor.zen_priority_context — live status sensor (active|clear) for priority slot
+###############################################################################
+
+template:
+
+  - sensor:
+      - name: "Zen Priority Context"
+        unique_id: zen_priority_context
+        icon: mdi:alert-circle
+        state: >-
+          {%- set hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+          {%- if hh in ['', 'unknown', 'unavailable'] -%}clear
+          {%- else -%}
+            {%- set vars = state_attr(hh, 'variables') | default({}, true) -%}
+            {%- set vars = vars if vars is mapping else {} -%}
+            {%- set raw  = vars.get('_zen_priority_inject', {}) -%}
+            {%- set slot = raw if raw is mapping else (raw | from_json if raw is string else {}) -%}
+            {%- set now_ts = now() -%}
+            {%- set ns = namespace(active=0) -%}
+            {%- for pid, entry in slot.items() if entry is mapping -%}
+              {%- set exp_s = entry.get('expires', '') | string | trim -%}
+              {%- if exp_s != '' -%}
+                {%- set exp_dt = exp_s | as_datetime -%}
+                {%- if exp_dt is not none and now_ts < exp_dt -%}
+                  {%- set ns.active = ns.active + 1 -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endfor -%}
+            {{ 'active' if ns.active > 0 else 'clear' }}
+          {%- endif -%}
+        attributes:
+          count: >-
+            {%- set hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- if hh in ['', 'unknown', 'unavailable'] -%}{{ 0 }}
+            {%- else -%}
+              {%- set vars = state_attr(hh, 'variables') | default({}, true) -%}
+              {%- set vars = vars if vars is mapping else {} -%}
+              {%- set raw  = vars.get('_zen_priority_inject', {}) -%}
+              {%- set slot = raw if raw is mapping else (raw | from_json if raw is string else {}) -%}
+              {%- set now_ts = now() -%}
+              {%- set ns = namespace(n=0) -%}
+              {%- for pid, entry in slot.items() if entry is mapping -%}
+                {%- set exp_dt = entry.get('expires', '') | string | as_datetime -%}
+                {%- if exp_dt is not none and now_ts < exp_dt -%}{%- set ns.n = ns.n + 1 -%}{%- endif -%}
+              {%- endfor -%}
+              {{ ns.n }}
+            {%- endif -%}
+          providers: >-
+            {%- set hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- if hh in ['', 'unknown', 'unavailable'] -%}{{ [] }}
+            {%- else -%}
+              {%- set vars = state_attr(hh, 'variables') | default({}, true) -%}
+              {%- set vars = vars if vars is mapping else {} -%}
+              {%- set raw  = vars.get('_zen_priority_inject', {}) -%}
+              {%- set slot = raw if raw is mapping else (raw | from_json if raw is string else {}) -%}
+              {%- set now_ts = now() -%}
+              {%- set ns = namespace(pids=[]) -%}
+              {%- for pid, entry in slot.items() if entry is mapping -%}
+                {%- set exp_dt = entry.get('expires', '') | string | as_datetime -%}
+                {%- if exp_dt is not none and now_ts < exp_dt -%}{%- set ns.pids = ns.pids + [pid] -%}{%- endif -%}
+              {%- endfor -%}
+              {{ ns.pids }}
+            {%- endif -%}
+          highest_urgency: >-
+            {%- set hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- if hh in ['', 'unknown', 'unavailable'] -%}{{ '' }}
+            {%- else -%}
+              {%- set vars = state_attr(hh, 'variables') | default({}, true) -%}
+              {%- set vars = vars if vars is mapping else {} -%}
+              {%- set raw  = vars.get('_zen_priority_inject', {}) -%}
+              {%- set slot = raw if raw is mapping else (raw | from_json if raw is string else {}) -%}
+              {%- set now_ts = now() -%}
+              {%- set ns = namespace(has_critical=false, has_urgent=false) -%}
+              {%- for pid, entry in slot.items() if entry is mapping -%}
+                {%- set exp_dt = entry.get('expires', '') | string | as_datetime -%}
+                {%- if exp_dt is not none and now_ts < exp_dt -%}
+                  {%- if entry.get('urgency') == 'critical' -%}{%- set ns.has_critical = true -%}
+                  {%- elif entry.get('urgency') == 'urgent' -%}{%- set ns.has_urgent = true -%}
+                  {%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {{ 'critical' if ns.has_critical else ('urgent' if ns.has_urgent else '') }}
+            {%- endif -%}
+          oldest_since: >-
+            {%- set hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+            {%- if hh in ['', 'unknown', 'unavailable'] -%}{{ '' }}
+            {%- else -%}
+              {%- set vars = state_attr(hh, 'variables') | default({}, true) -%}
+              {%- set vars = vars if vars is mapping else {} -%}
+              {%- set raw  = vars.get('_zen_priority_inject', {}) -%}
+              {%- set slot = raw if raw is mapping else (raw | from_json if raw is string else {}) -%}
+              {%- set now_ts = now() -%}
+              {%- set ns = namespace(oldest='') -%}
+              {%- for pid, entry in slot.items() if entry is mapping -%}
+                {%- set exp_dt = entry.get('expires', '') | string | as_datetime -%}
+                {%- if exp_dt is not none and now_ts < exp_dt -%}
+                  {%- set since = entry.get('since', '') | string -%}
+                  {%- if ns.oldest == '' or since < ns.oldest -%}{%- set ns.oldest = since -%}{%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+              {{ ns.oldest }}
+            {%- endif -%}
+
+###############################################################################
 #
 # Fire-once alert deduplication. Suppresses repeat notifications for the same
 # condition. Clears when the condition resolves so the alert can fire again
@@ -18,7 +125,10 @@
 #       alert_key: cab_schema_upgrade_needed   # unique slug
 #       message: "3 cabinets need schema migration"
 #       severity: warn                          # info | warn | error
-#       notify_target: persistent               # persistent (default) | mobile
+#       notify_target: persistent               # persistent (default) | mobile | postman
+#       channel_hint: push                      # postman only — push | tts | teams
+#       title: "Optional override title"        # postman only — defaults to severity label
+#       image_entity: camera.front_doorbell_camera  # postman only — attaches snapshot to push
 #
 # CALLER PATTERN — clear:
 #   event: zen_event
@@ -30,6 +140,10 @@
 # alert_fire with an already-active key → silent no-op (no duplicate).
 # alert_clear with an inactive key → silent no-op.
 # Persistent notifications auto-dismiss on clear.
+#
+# notify_target: postman — routes through zen_dojotools_postman authority stack.
+#   severity → urgency: info=3, warn=5, error=8
+#   Postman applies household/family postman_profile routing policy.
 ###############################################################################
 
 automation:
@@ -120,6 +234,15 @@ automation:
                   _message:       "{{ _ev.message | default(_key) }}"
                   _severity:      "{{ _ev.severity | default('warn') | trim }}"
                   _notify_target: "{{ _ev.notify_target | default('persistent') | trim }}"
+                  _channel_hint:  "{{ _ev.channel_hint | default('', true) | string | trim }}"
+                  _image_entity:  "{{ _ev.image_entity | default('', true) | string | trim }}"
+                  _title:         >-
+                    {{ _ev.title | default('ZenOS — ' ~
+                      ('Error' if _severity == 'error' else
+                       'Warning' if _severity == 'warn' else 'Notice'), true) }}
+                  _urgency:       >-
+                    {{ 8 if _severity == 'error' else
+                       5 if _severity == 'warn' else 3 }}
 
               # Fire notification
               - choose:
@@ -128,14 +251,25 @@ automation:
                       - action: persistent_notification.create
                         data:
                           notification_id: "zen_alert_{{ _key }}"
-                          title: >-
-                            ZenOS — {% if _severity == 'error' %}Error{% elif _severity == 'warn' %}Warning{% else %}Notice{% endif %}
+                          title: "{{ _title }}"
                           message: "{{ _message }}"
+
+                  - conditions: "{{ _notify_target == 'postman' }}"
+                    sequence:
+                      - action: script.zen_dojotools_postman
+                        data:
+                          mode: resolve_and_dispatch
+                          message: "{{ _message }}"
+                          title: "{{ _title }}"
+                          urgency: "{{ _urgency }}"
+                          channel_hint: "{{ _channel_hint }}"
+                          image_entity: "{{ _image_entity }}"
+                          caller_token: "zen_alert_manager/{{ _key }}"
+
                 default:
                   - action: "notify.{{ _notify_target }}"
                     data:
-                      title: >-
-                        ZenOS — {% if _severity == 'error' %}Error{% elif _severity == 'warn' %}Warning{% else %}Notice{% endif %}
+                      title: "{{ _title }}"
                       message: "{{ _message }}"
 
               # Write updated _zen_active_alerts
@@ -161,6 +295,20 @@ automation:
                   value: "{{ _updated }}"
                   no_autoexpire: true
                   caller_token: zen_alert_manager
+
+              # Wire error-severity alerts to priority inject slot
+              - if:
+                  - condition: template
+                    value_template: "{{ _severity == 'error' }}"
+                then:
+                  - event: zen_event
+                    event_data:
+                      event:
+                        kind: priority_inject_write
+                        provider_id: "alert_{{ _key }}"
+                        summary: "{{ _message }}"
+                        urgency: critical
+                        expires_minutes: 60
 
           # ── alert_clear ─────────────────────────────────────────────────────
           - conditions: "{{ _kind == 'alert_clear' }}"
@@ -192,8 +340,170 @@ automation:
                   no_autoexpire: true
                   caller_token: zen_alert_manager
 
+              # Clear priority inject entry (no-op if alert wasn't error-level)
+              - event: zen_event
+                event_data:
+                  event:
+                    kind: priority_inject_clear
+                    provider_id: "alert_{{ _key }}"
+
               # Dismiss persistent notification (no-op if it wasn't one)
               - action: persistent_notification.dismiss
                 data:
                   notification_id: "zen_alert_{{ _key }}"
                 continue_on_error: true
+
+  ###############################################################################
+  # Zen Priority Inject Handler 1.0.0
+  #
+  # Processes priority_inject_write / priority_inject_clear events.
+  # Writes to household_cabinet._zen_priority_inject — dict keyed by provider_id.
+  #
+  # WRITE contract enforced here:
+  #   - urgency must be 'critical' or 'urgent' — silent reject otherwise
+  #   - summary truncated to 255 chars (+ …)
+  #   - expires_minutes converted to ISO, capped at 1440 (24hr)
+  #   - entities truncated to 3
+  #   - combine() semantics — providers never overwrite each other
+  ###############################################################################
+
+  - id: zen_priority_inject_handler
+    alias: Zen Priority Inject Handler
+    description: >-
+      Zen Priority Inject Handler 1.0.0. Handles priority_inject_write and
+      priority_inject_clear events. Writes to household_cabinet._zen_priority_inject.
+      Validates urgency enum (critical|urgent), truncates summary to 255 chars,
+      converts expires_minutes to ISO (capped 1440 min), trims entities to 3.
+      All writes are combine() merges — providers never overwrite each other.
+    mode: queued
+    max: 10
+
+    triggers:
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: priority_inject_write
+        id: write
+
+      - trigger: event
+        event_type: zen_event
+        event_data:
+          event:
+            kind: priority_inject_clear
+        id: clear
+
+    actions:
+      - variables:
+          _ev:        "{{ trigger.event.data.event }}"
+          _kind:      "{{ trigger.id }}"
+          _provider:  "{{ trigger.event.data.event.provider_id | default('') | trim }}"
+          _household: "{{ states('sensor.zen_default_household_cabinet_resolved') }}"
+
+      # Gate: provider_id required
+      - if:
+          - condition: template
+            value_template: "{{ _provider == '' }}"
+        then:
+          - stop: missing provider_id
+
+      # Gate: household cabinet required
+      - if:
+          - condition: template
+            value_template: >-
+              {{ _household in ['', 'unavailable', 'unknown'] }}
+        then:
+          - stop: household cabinet unavailable
+
+      # Read current slot
+      - action: script.zen_dojotools_filecabinet
+        data:
+          action_type: read
+          volume_entity_id: "{{ _household }}"
+          key: _zen_priority_inject
+          caller_token: zen_priority_inject_handler
+        response_variable: _fc_read
+
+      - variables:
+          _raw: "{{ _fc_read.get('value', {}) }}"
+          _slot: >-
+            {%- set r = _raw -%}
+            {%- set r = r if r is mapping else (r | from_json if r is string else {}) -%}
+            {{ r }}
+
+      # Route
+      - choose:
+
+          # ── Write path ────────────────────────────────────────────────────────
+          - conditions: "{{ _kind == 'write' }}"
+            sequence:
+
+              # Validate urgency — silent reject on bad value
+              - if:
+                  - condition: template
+                    value_template: >-
+                      {{ _ev.urgency | default('') not in ['critical', 'urgent'] }}
+                then:
+                  - stop: invalid urgency
+
+              - variables:
+                  _updated: >-
+                    {%- set entries = _slot if _slot is mapping else {} -%}
+                    {%- set summary_raw = _ev.summary | default('') | string | trim -%}
+                    {%- set summary = summary_raw[:254] ~ '…' if summary_raw | length > 255 else summary_raw -%}
+                    {%- set exp_min = [(_ev.expires_minutes | default(60) | int), 1440] | min -%}
+                    {%- set expires = (now() + timedelta(minutes=exp_min)).isoformat() -%}
+                    {%- set ents_raw = _ev.entities | default([]) -%}
+                    {%- set ents = ents_raw[:3] if ents_raw is sequence else [] -%}
+                    {%- set new_entry = {
+                      'summary': summary,
+                      'urgency': _ev.urgency,
+                      'since': now().isoformat(),
+                      'expires': expires,
+                      'entities': ents
+                    } -%}
+                    {%- set ns = namespace(d={}) -%}
+                    {%- for k, v in entries.items() -%}
+                      {%- set ns.d = dict(ns.d, **{k: v}) -%}
+                    {%- endfor -%}
+                    {%- set ns.d = dict(ns.d, **{_provider: new_entry}) -%}
+                    {{ ns.d | tojson }}
+
+              - action: script.zen_dojotools_filecabinet
+                data:
+                  action_type: create
+                  force_action: true
+                  volume_entity_id: "{{ _household }}"
+                  key: _zen_priority_inject
+                  value: "{{ _updated }}"
+                  no_autoexpire: true
+                  caller_token: zen_priority_inject_handler
+
+          # ── Clear path ────────────────────────────────────────────────────────
+          - conditions: "{{ _kind == 'clear' }}"
+            sequence:
+
+              # Not active — silent no-op
+              - if:
+                  - condition: template
+                    value_template: "{{ _provider not in _slot }}"
+                then:
+                  - stop: not active
+
+              - variables:
+                  _updated: >-
+                    {%- set ns = namespace(d={}) -%}
+                    {%- for k, v in _slot.items() if k != _provider -%}
+                      {%- set ns.d = dict(ns.d, **{k: v}) -%}
+                    {%- endfor -%}
+                    {{ ns.d | tojson }}
+
+              - action: script.zen_dojotools_filecabinet
+                data:
+                  action_type: create
+                  force_action: true
+                  volume_entity_id: "{{ _household }}"
+                  key: _zen_priority_inject
+                  value: "{{ _updated }}"
+                  no_autoexpire: true
+                  caller_token: zen_priority_inject_handler

@@ -1,6 +1,6 @@
 # Your First Alert
 
-> **Version:** 2026.4.1 | **Last Updated:** April 2026
+> **Version:** 2026.5.0 'Fry's Grandpa' | **Last Updated:** May 2026
 
 *The fastest way to see ZenOS-AI's action pipeline working end to end.*
 
@@ -103,9 +103,11 @@ Once the kata has `action_required: true`, the notification router fires on the 
 
 > "Send me the alert manager summary"
 
-Your AI will call `zen_dojotools_notification_router` and push a notification to `notify.admin_devices`.
+Your AI will dispatch a notification to `notify.admin_devices` via `zen_dojotools_postman`.
 
 Check your phone. That's the pipeline — all the way through.
+
+> **Notification not arriving?** ZenOS routes through Postman, which reads a delivery policy from your cabinets. If you haven't seeded the policy yet, nothing gets dispatched. See **[Notification Routing](notification_routing.md)** for the one-time setup.
 
 ---
 

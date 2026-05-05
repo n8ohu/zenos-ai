@@ -1,6 +1,6 @@
 ###############################################################################
 # ZenOS-AI DojoTools: Camera
-# Version: 1.2.0
+# Version: 1.3.0
 #
 # Scripts:
 #   zen_dojotools_camera — Camera analysis, caching, and scanning (v1.2.0)
@@ -11,8 +11,9 @@
 #   look             — analyze a single camera, cache result to household cabinet
 #   read             — return last cached description (no LLM call)
 #   scan             — sweep all cameras matching a label, analyze + cache each
-#   info             — entity attributes + labels + stored _default_ctx, no LLM
+#   info             — entity attributes + labels + stored _default_ctx/_alert_policy, no LLM
 #   set_default_ctx  — validate + store per-camera default context index call
+#   set_alert_policy — store per-camera detection→routing policy (agent-configurable)
 #   help             — return schema
 #
 # Label convention:
@@ -95,7 +96,22 @@ script:
           _ignore_autocontext: "{{ ignore_autocontext | default(false) | bool }}"
           _sendto: "{{ sendto | default('', true) | string | trim }}"
 
-      # ── 0b. Resolve camera_entity from hint via index ─────────────────────
+      # ── 0b. Gate: ai_task entity must be valid for look + scan ───────────────
+      - if: "{{ _tool in ['look', 'scan'] and _ai_task in ['', 'unknown', 'unavailable'] }}"
+        then:
+          - variables:
+              _ai_task_error:
+                status: error
+                tool: "{{ _tool }}"
+                message: >-
+                  input_text.zenos_image_task is '{{ _ai_task }}' — no valid ai_task
+                  entity configured. Set this helper to a valid ai_task.* entity_id
+                  (e.g. ai_task.zenos_ai_task_stage) via the HA UI or ZenOS provisioning.
+                caller_token: "{{ _caller_token }}"
+          - stop: ai_task entity not configured
+            response_variable: _ai_task_error
+
+      # ── 0c. Resolve camera_entity from hint via index ─────────────────────
       - if: "{{ _camera_entity == '' and _camera_hint != '' and _tool in ['look', 'read', 'set_default_ctx', 'info'] }}"
         then:
           - alias: Resolve camera entity from hint
@@ -117,7 +133,7 @@ script:
                 {%- endfor -%}
                 {{ ns.found }}
 
-      # ── 0c. Pull _default_ctx from cache drawer if no explicit ctx call ──────
+      # ── 0d. Pull _default_ctx from cache drawer if no explicit ctx call ──────
       - if: "{{ not _has_ctx_call and not _ignore_autocontext and _camera_entity != '' and _tool in ['look', 'scan'] }}"
         then:
           - variables:
@@ -210,7 +226,7 @@ script:
           - variables:
               _help_response:
                 help: true
-                version: "1.2.0"
+                version: "1.3.0"
                 tool: zen_dojotools_camera
                 description: >-
                   The ZenOS Agent's visual surface. Analyze any camera with LLM
@@ -260,6 +276,15 @@ script:
                     writing if the index returns 0 entities or errors. Requires:
                     camera_entity, context_index_call. Returns: success (bool),
                     entity_count (from dry_run), fc_confirmed.
+                  set_alert_policy: >-
+                    Writes an _alert_policy dict to the camera's cache drawer.
+                    Policy maps detection labels (person, package, vehicle, none,
+                    etc.) to routing config read by motion trigger automations.
+                    Existing drawer content (analysis cache, _default_ctx, other
+                    _* keys) is preserved — only _alert_policy is replaced.
+                    Requires: camera_entity, alert_policy. Returns: success,
+                    alert_policy (written), fc_confirmed. No validation step —
+                    policy is structural config, not an index call.
                   help: "Returns this schema."
                 caching:
                   cache_label: >-
@@ -271,7 +296,7 @@ script:
                     Household cabinet drawer key = slugified camera entity_id
                     (dots and dashes → underscores). e.g.
                     camera.front_doorbell_camera → camera_front_doorbell_camera.
-                  cache_shape: "{ analysis, cached_at, camera_entity, snapshot_path, _default_ctx }"
+                  cache_shape: "{ analysis, cached_at, camera_entity, snapshot_path, _default_ctx, _alert_policy }"
                 label_summary:
                   security_camera: >-
                     SCAN SCOPE — controls which cameras are included in scan mode.
@@ -331,8 +356,9 @@ script:
                     Default: false.
                   sendto: >-
                     Optional. After look completes, dispatch the result to a
-                    target. Accepts image.zen_image_<slot> or person.*. Ignored
-                    by scan, read, info, and all other modes.
+                    target. Accepts image.zen_image_<slot>, person.*, or
+                    sensor.* (cabinet). Ignored by scan, read, info, and all
+                    other modes.
                     image.zen_image_<slot> — fires zen_event (kind: image_generated)
                     so the slot entity fetches the current camera frame, then
                     image.snapshot writes to zen_images/<slot>.jpg (primary,
@@ -341,6 +367,10 @@ script:
                     person.* — calls postman (resolve_and_dispatch) with the
                     snapshot path as image_url and the analysis as message at
                     urgency 1. Respects authority stack (sleep gate, tiers).
+                    sensor.* (cabinet) — resolves to person_entity_id via
+                    household roster, then routes through postman. Use
+                    sensor.zen_default_user_cabinet_resolved to target the
+                    current default user without hardcoding a person entity.
                   caller_token: "Opaque correlation token echoed in all responses."
                 getting_cached_analysis: >-
                   Camera analysis is cached in the household cabinet keyed by
@@ -376,7 +406,7 @@ script:
                   notify_person:
                     tool: look
                     camera_entity: camera.front_doorbell_camera
-                    sendto: person.nathan
+                    sendto: "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
                   audit_camera_config:
                     tool: info
                     camera_entity: camera.hot_tub_camera_high_resolution_channel
@@ -449,6 +479,7 @@ script:
                 in_cache_gate: "{{ 'camera_cache' in _info_labels }}"
                 cache_gate_mode: "{{ 'explicit' if _cache_scheme_active else 'cache_all' }}"
                 default_ctx: "{{ (_info_raw.get('_default_ctx', {}) if _info_raw is mapping else {}) }}"
+                alert_policy: "{{ (_info_raw.get('_alert_policy', {}) if _info_raw is mapping else {}) }}"
                 cached_at: "{{ _info_cached_at }}"
                 cache_age_minutes: "{{ _info_cache_age }}"
                 snapshot_path: "{{ (_info_raw.get('snapshot_path', '') if _info_raw is mapping else '') }}"
@@ -488,11 +519,16 @@ script:
                 {{ (not _cache_scheme_active) or (_camera_entity in _cache_list) }}
           - variables:
               _look_cache_key: "{{ _camera_entity | replace('.', '_') | replace('-', '_') }}"
-              _look_existing_ctx: >-
+              _look_existing_private: >-
                 {%- set v = (state_attr(_household_cab, 'variables') or {}).get(_look_cache_key, {}) -%}
                 {%- set v1 = v.get('value', v) if v is mapping else {} -%}
                 {%- set v1 = v1 if v1 is mapping else (v1 | from_json if v1 is string else {}) -%}
-                {{ v1.get('_default_ctx', {}) if v1 is mapping else {} }}
+                {%- set v1 = v1 if v1 is mapping else {} -%}
+                {%- set ns = namespace(d={}) -%}
+                {%- for k, val in v1.items() if k.startswith('_') -%}
+                  {%- set ns.d = dict(ns.d, **{k: val}) -%}
+                {%- endfor -%}
+                {{ ns.d }}
           - if: "{{ _do_cache }}"
             then:
               - alias: Cache to household cabinet
@@ -504,8 +540,8 @@ script:
                   key: "{{ _camera_entity }}"
                   value: >-
                     {%- set _w = {'analysis': _look_analysis, 'cached_at': now().isoformat(), 'camera_entity': _camera_entity, 'snapshot_path': _snapshot_path} -%}
-                    {%- if _look_existing_ctx is mapping and _look_existing_ctx.keys() | list | length > 0 -%}
-                      {%- set _w = _w | combine({'_default_ctx': _look_existing_ctx}) -%}
+                    {%- if _look_existing_private is mapping and _look_existing_private.keys() | list | length > 0 -%}
+                      {%- set _w = _w | combine(_look_existing_private) -%}
                     {%- endif -%}
                     {{ _w | tojson }}
                   label_input: camera, security
@@ -550,6 +586,48 @@ script:
                         paths:
                           organized: "/config/www/zen_images/{{ _sendto_slot }}.jpg"
                           fallback: "/config/www/zen_{{ _sendto_slot }}.jpg"
+          - if: "{{ _sendto != '' and _sendto.startswith('sensor.') }}"
+            then:
+              - variables:
+                  _sendto_person: >-
+                    {%- set _hh = states('sensor.zen_default_household_cabinet_resolved') -%}
+                    {%- set _hh_vars = state_attr(_hh, 'variables') | default({}, true) -%}
+                    {%- set _hh_vars = _hh_vars if _hh_vars is mapping else {} -%}
+                    {%- set _mani_raw = _hh_vars.get('members', {}) -%}
+                    {%- set _mani = _mani_raw.get('value', _mani_raw) if _mani_raw is mapping and 'value' in _mani_raw else _mani_raw -%}
+                    {%- set _mani = _mani if _mani is mapping else (_mani | from_json if _mani is string else {}) -%}
+                    {%- set _all = _mani.get('users', []) + _mani.get('ai_users', []) -%}
+                    {%- set _hit = _all | selectattr('entity_id', 'defined')
+                                        | selectattr('entity_id', 'equalto', _sendto)
+                                        | first | default(none) -%}
+                    {{- _hit.get('person_entity_id', '') if _hit is mapping else '' -}}
+              - if: "{{ _sendto_person != '' }}"
+                then:
+                  - variables:
+                      _sendto_local_path: "{{ _snapshot_path | replace('/config/www/', '/local/') }}"
+                  - alias: Notify via postman (cabinet-resolved person)
+                    action: script.zen_dojotools_postman
+                    data:
+                      mode: resolve_and_dispatch
+                      target: "{{ _sendto_person }}"
+                      message: "{{ _look_analysis }}"
+                      image_url: "{{ _sendto_local_path }}"
+                      urgency: 1
+                    response_variable: _sendto_postman_resp
+                  - variables:
+                      _sendto_result:
+                        target: "{{ _sendto_person }}"
+                        resolved_from: "{{ _sendto }}"
+                        type: person
+                        dispatched: true
+                        postman_status: "{{ _sendto_postman_resp.get('status', '') if _sendto_postman_resp is mapping else '' }}"
+                else:
+                  - variables:
+                      _sendto_result:
+                        target: "{{ _sendto }}"
+                        type: cabinet_unresolved
+                        dispatched: false
+                        error: no_person_entity_id
           - if: "{{ _sendto != '' and _sendto.startswith('person.') }}"
             then:
               - variables:
@@ -619,11 +697,16 @@ script:
                   response_variable: _scan_llm_resp
                 - variables:
                     _scan_cache_key: "{{ repeat.item | replace('.', '_') | replace('-', '_') }}"
-                    _scan_existing_ctx: >-
+                    _scan_existing_private: >-
                       {%- set v = (state_attr(_household_cab, 'variables') or {}).get(_scan_cache_key, {}) -%}
                       {%- set v1 = v.get('value', v) if v is mapping else {} -%}
                       {%- set v1 = v1 if v1 is mapping else (v1 | from_json if v1 is string else {}) -%}
-                      {{ v1.get('_default_ctx', {}) if v1 is mapping else {} }}
+                      {%- set v1 = v1 if v1 is mapping else {} -%}
+                      {%- set ns = namespace(d={}) -%}
+                      {%- for k, val in v1.items() if k.startswith('_') -%}
+                        {%- set ns.d = dict(ns.d, **{k: val}) -%}
+                      {%- endfor -%}
+                      {{ ns.d }}
                 - if: >-
                     {{ (not _cache_scheme_active) or (repeat.item in _cache_list) }}
                   then:
@@ -636,8 +719,8 @@ script:
                         key: "{{ repeat.item }}"
                         value: >-
                           {%- set _w = {'analysis': _scan_llm_resp.data.analysis | default(''), 'cached_at': now().isoformat(), 'camera_entity': repeat.item, 'snapshot_path': _scan_snapshot_path} -%}
-                          {%- if _scan_existing_ctx is mapping and _scan_existing_ctx.keys() | list | length > 0 -%}
-                            {%- set _w = _w | combine({'_default_ctx': _scan_existing_ctx}) -%}
+                          {%- if _scan_existing_private is mapping and _scan_existing_private.keys() | list | length > 0 -%}
+                            {%- set _w = _w | combine(_scan_existing_private) -%}
                           {%- endif -%}
                           {{ _w | tojson }}
                         label_input: camera, security
@@ -768,11 +851,77 @@ script:
           - stop: set_default_ctx
             response_variable: _sdc_response
 
+      # ── 6. set_alert_policy — write _alert_policy to camera drawer ──────────
+      - if: "{{ _tool == 'set_alert_policy' }}"
+        then:
+          - variables:
+              _sap_policy_raw: "{{ alert_policy | default('') }}"
+              _sap_policy: >-
+                {%- set _r = _sap_policy_raw -%}
+                {%- if _r is mapping -%}
+                  {{ _r }}
+                {%- elif _r is string and _r | trim != '' -%}
+                  {{ _r | from_json }}
+                {%- else -%}
+                  {{ {} }}
+                {%- endif -%}
+          - if: "{{ _camera_entity == '' }}"
+            then:
+              - variables:
+                  _sap_err:
+                    mode: set_alert_policy
+                    success: false
+                    error: camera_entity_required
+                    message: "camera_entity or camera_hint is required for set_alert_policy."
+                    caller_token: "{{ _caller_token }}"
+              - stop: set_alert_policy_no_entity
+                response_variable: _sap_err
+          - if: "{{ not (_sap_policy is mapping and _sap_policy.keys() | list | length > 0) }}"
+            then:
+              - variables:
+                  _sap_err:
+                    mode: set_alert_policy
+                    success: false
+                    error: alert_policy_required
+                    message: "alert_policy must be a non-empty mapping of detection labels to routing config."
+                    caller_token: "{{ _caller_token }}"
+              - stop: set_alert_policy_no_policy
+                response_variable: _sap_err
+          - variables:
+              _sap_cache_key: "{{ _camera_entity | replace('.', '_') | replace('-', '_') }}"
+              _sap_existing: >-
+                {%- set v = (state_attr(_household_cab, 'variables') or {}).get(_sap_cache_key, {}) -%}
+                {%- set v1 = v.get('value', v) if v is mapping else {} -%}
+                {%- set v1 = v1 if v1 is mapping else (v1 | from_json if v1 is string else {}) -%}
+                {{ v1 if v1 is mapping else {} }}
+              _sap_new_value: >-
+                {{ (_sap_existing if _sap_existing is mapping else {}) | combine({'_alert_policy': _sap_policy}) | tojson }}
+          - alias: Write _alert_policy to camera drawer
+            action: script.zen_dojotools_filecabinet
+            data:
+              action_type: create
+              force_action: true
+              volume_entity_id: "{{ _household_cab }}"
+              key: "{{ _sap_cache_key }}"
+              value: "{{ _sap_new_value }}"
+              label_input: camera, security
+            response_variable: _sap_fc_resp
+          - variables:
+              _sap_response:
+                mode: set_alert_policy
+                success: true
+                camera_entity: "{{ _camera_entity }}"
+                alert_policy: "{{ _sap_policy }}"
+                fc_confirmed: "{{ _sap_fc_resp.confirmed | default(false) | bool }}"
+                caller_token: "{{ _caller_token }}"
+          - stop: set_alert_policy
+            response_variable: _sap_response
+
     fields:
       tool:
         selector:
           select:
-            options: [look, read, scan, info, set_default_ctx, help]
+            options: [look, read, scan, info, set_default_ctx, set_alert_policy, help]
         name: Tool / Mode
         description: >-
           look — snapshot + LLM analysis, result cached to household cabinet.
@@ -830,6 +979,25 @@ script:
           For set_default_ctx mode: this is the index call to validate and store.
           Example: {"label_1": "hot_tub", "expand_entities": true}
         required: false
+      alert_policy:
+        selector:
+          text:
+            multiline: true
+        name: Alert Policy
+        description: >-
+          set_alert_policy mode only. Dict (or JSON string) mapping detection
+          labels to routing config. Each entry: { keywords, notify, urgency,
+          alert_key, title, channel_hint, image, clear_after_minutes }.
+          keywords: list of strings matched against lowercased LLM analysis —
+          first entry whose keywords match wins. notify: false suppresses alert
+          for that class. image: true attaches snapshot to push notification.
+          urgency 1-10 maps to postman tiers (4-6 = push+tts, 7-8 = high).
+          clear_after_minutes: auto-clears alert so it can re-fire. Default 5.
+          Example: {"person": {"keywords": ["person","visitor"], "notify": true,
+          "urgency": 6, "alert_key": "front_door_visitor", "title": "Visitor",
+          "channel_hint": "push", "image": true, "clear_after_minutes": 5},
+          "none": {"notify": false}}
+        required: false
       ignore_autocontext:
         selector:
           boolean:
@@ -848,7 +1016,8 @@ script:
         name: Send To
         description: >-
           Optional. After look completes, send the result to a target entity.
-          Accepts image.zen_image_<slot> or person.*. Ignored by all other modes.
+          Accepts image.zen_image_<slot>, person.*, or sensor.* (cabinet).
+          Ignored by all other modes.
           image.zen_image_<slot> — fires zen_event (kind: image_generated) so
           the slot entity fetches the current camera frame, then image.snapshot
           writes to zen_images/<slot>.jpg (primary) and zen_<slot>.jpg (fallback).
@@ -856,6 +1025,10 @@ script:
           Slots: canvas, portrait, wallpaper, id_pic, dashboard_snap, home_state.
           person.* — calls postman resolve_and_dispatch with snapshot as image_url
           and analysis as message at urgency 1. Respects authority stack.
+          sensor.* (cabinet) — resolves states(sensor) to the cabinet entity,
+          looks up person_entity_id in the household member roster, then routes
+          through postman. Use sensor.zen_default_user_cabinet_resolved to always
+          target the current default user without hardcoding a person entity.
         required: false
       camera_hint:
         selector:

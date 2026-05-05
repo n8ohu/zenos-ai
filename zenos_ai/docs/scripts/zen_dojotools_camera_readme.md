@@ -1,4 +1,4 @@
-# Zen DojoTools Camera — v1.2.0
+# Zen DojoTools Camera — v1.3.0
 
 **File:** `packages/zenos_ai/dojotools/dojotools_camera.yaml`
 **Script:** `zen_dojotools_camera`
@@ -21,8 +21,9 @@ The recommended pattern: **read → look → scan**. Check the cache first (`rea
 | `look` | yes | yes | yes | Analyze single camera, cache result |
 | `read` | no | no | no | Return cached description instantly |
 | `scan` | yes (per camera) | yes (per camera) | yes (per camera) | Sweep all labeled cameras |
-| `info` | no | no | no | Entity attributes + configured _default_ctx |
+| `info` | no | no | no | Entity attributes + configured `_default_ctx` + `_alert_policy` |
 | `set_default_ctx` | no | no | yes | Validate + store per-camera default context call |
+| `set_alert_policy` | no | no | yes | Write alert classification policy for this camera |
 | `help` | no | no | no | Return schema |
 
 ---
@@ -109,6 +110,12 @@ labels: [security_camera, hot_tub_manager]
 in_scan_scope: true          # carries security_camera label
 in_cache_gate: false         # does NOT carry camera_cache label
 cache_gate_mode: cache_all   # no cameras labeled camera_cache → cache all
+alert_policy:                # stored _alert_policy from drawer (null if not set)
+  enabled: true
+  classify_on: motion
+  notify_target: postman
+  urgency: urgent
+  channel_hint: security
 default_ctx:                 # stored _default_ctx from drawer
   operator: OR
   index_1: { label_1: hot_tub_manager, label_2: hot_tub_deck, operator: OR }
@@ -135,6 +142,37 @@ success: true
 camera_entity: camera.hot_tub_camera_high_resolution_channel
 default_ctx: { ... }
 entity_count: 34
+fc_confirmed: true
+caller_token: ""
+```
+
+---
+
+### `set_alert_policy` — Write Alert Classification Policy
+
+Writes a `_alert_policy` drawer to the camera's cache entry. Defines how motion events from this camera are classified and where they route. Readable via `info`.
+
+```yaml
+zen_dojotools_camera:
+  mode: set_alert_policy
+  camera_entity: camera.front_door
+  policy_payload: >
+    {
+      "enabled": true,
+      "classify_on": "motion",
+      "notify_target": "postman",
+      "urgency": "urgent",
+      "channel_hint": "security"
+    }
+```
+
+The policy is preserved across all subsequent `look` and `scan` cycles — private keys (`_*`) are no longer clobbered on write (v1.3.0 fix).
+
+**Returns:**
+```yaml
+mode: set_alert_policy
+camera_entity: camera.front_door
+alert_policy: { enabled: true, classify_on: motion, ... }
 fc_confirmed: true
 caller_token: ""
 ```
@@ -217,11 +255,39 @@ Respects the full authority stack (sleep gate, urgency tiers, away policy).
 `sendto_result` in the look response:
 ```yaml
 sendto_result:
-  target: person.nathan
+  target: person.alex
   type: person
   dispatched: true
   postman_status: sleep_blocked  # or delivered, etc.
 ```
+
+---
+
+### `sendto: sensor.*` — Cabinet Entity Reference (v1.3.0)
+
+Pass a cabinet sensor entity ID resolved at call time. The tool looks up the cabinet's member entry in the household roster, retrieves `person_entity_id`, and routes through postman with the snapshot attached.
+
+The caller is responsible for resolving the sensor to an entity ID before passing it:
+
+```yaml
+zen_dojotools_camera:
+  mode: look
+  camera_entity: camera.front_door
+  sendto: "{{ states('sensor.zen_default_user_cabinet_resolved') }}"
+```
+
+Use this for dynamic routing (e.g., "send to whoever the default user is right now") without hardcoding a `person.*` entity ID in the automation.
+
+`sendto_result`:
+```yaml
+sendto_result:
+  target: sensor.zenos_default_user_cabinet   # the resolved cabinet entity ID
+  type: cabinet
+  dispatched: true
+  postman_status: delivered
+```
+
+If the cabinet has no `person_entity_id` wired, `dispatched: false` with `error: no_person_entity_id`.
 
 ---
 
@@ -242,9 +308,7 @@ Results are stored in the **household cabinet** keyed by the camera's slugified 
 }
 ```
 
-`_default_ctx` is written separately by `set_default_ctx` and preserved across `look` calls (look uses `create + force_action: true` which merges rather than replaces — wait, actually it creates the top-level analysis+metadata, which would overwrite `_default_ctx`).
-
-> **Note:** look mode's FC write does NOT preserve `_default_ctx`. If `set_default_ctx` has been used, it is not cleared by subsequent `look` calls because look writes the analysis+metadata dict and `_default_ctx` is a separate key at the same level in the drawer. The drawer merge via `create + force_action` replaces only what's in `value`, which includes the full dict. See `set_default_ctx` — it reads the existing drawer and merges `_default_ctx` in before writing, which is why the drawer is safe. But `look` overwrites the whole value dict without preserving `_default_ctx`. Nyx: trace this on H:\ if `_default_ctx` appears to be getting cleared after look runs.
+All private keys (`_*`) in the camera's cache drawer are preserved across `look` and `scan` cycles. Before writing, both modes read the existing drawer and carry forward any `_*` key (including `_default_ctx` and `_alert_policy`) into the updated entry. This was a v1.3.0 fix — prior versions clobbered private keys on every write.
 
 ### Cache Gate Labels
 

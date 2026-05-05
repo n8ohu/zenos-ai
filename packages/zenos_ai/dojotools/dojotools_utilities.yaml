@@ -432,6 +432,14 @@ script:
             target:
               entity_id: '{{ tts_entity }}'
             enabled: true
+          - event: zen_event
+            event_data:
+              event:
+                kind: tts_sent
+                area: "{{ this_area }}"
+                entity_id: "{{ tts_media_player_entity_id }}"
+                caller: "{{ caller_token | default('anon') }}"
+                urgency: "{{ _urgency_int }}"
           - variables:
               tts: "{{\n  {\n    \"room\": this_area,\n    \"entity_id\": tts_media_player_entity_id,\n
                 \   \"message\": message,\n    \"status\": \"sent\"\n  } | tojson\n}}"
@@ -447,7 +455,9 @@ script:
     - variables:
         final_response: "{{\n  {\n    \"results\": results\n  } | tojson\n}}"
     - variables:
-        final_response: "{{ (final_response | from_json) | combine({'caller_token': caller_token}) | tojson }}"
+        final_response: >-
+          {%- set _r = final_response if final_response is mapping else (final_response | from_json) -%}
+          {{ _r | combine({'caller_token': caller_token}) | tojson }}
 
     # --------------------------------------------------------------
     # Write announcement log entry to kata cabinet
@@ -470,12 +480,10 @@ script:
             _prev_entries: >-
               {%- set _entries = _ann_log_raw.get('entries', []) if _ann_log_raw is mapping else [] -%}
               {{ _entries | list }}
+        - variables:
             _log_value: >-
-              {{
-                {
-                  "entries": ([_new_entry | from_json] + _prev_entries)[:50]
-                } | tojson
-              }}
+              {%- set _e = _new_entry if _new_entry is mapping else (_new_entry | from_json) -%}
+              {{ {"entries": ([_e] + _prev_entries)[:50]} | tojson }}
         - action: script.zen_dojotools_filecabinet
           data:
             action_type: create

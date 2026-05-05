@@ -4,7 +4,7 @@
 # Version: 1.0.0
 #
 # Deploys KFC (Kung Fu Component) dojo drawers via Scribe.
-# Extracted from zen_admintools_zenos_prompt_loader — keeps KFC management
+# Extracted from zen_admintools_prompt_loader — keeps KFC management
 # separate from prompt/cortex operations.
 #
 # MODES:
@@ -18,7 +18,7 @@
 #   zen_system      v1.1.0        — pipeline health watchdog
 #   alert_manager   v1.4.0        — alert surface aggregator
 #   taskmaster      v1.3.4        — task/calendar conductor
-#   trapper_keeper  v2.4.0        — ambient index aggregator
+#   trapper_keeper  v2.5.0        — ambient index aggregator
 #
 # OPTIONAL KFCs (deploy mode, manual opt-in only — never auto-shipped):
 #   room_manager    v1.3.1        — person location + room cleaning state
@@ -27,7 +27,7 @@
 #                                   apply 'room_manager' HA label to any area to enable.
 #
 # FOLLOWS: admintools conventions (caller_token, mode selector, boolean fields)
-# CALLED BY: zen_admintools_zenos_prompt_loader (mode: factory chain)
+# CALLED BY: zen_admintools_prompt_loader (mode: factory chain)
 ###############################################################################
 
 script:
@@ -212,7 +212,7 @@ script:
                       "zen_system":     {"deployed": zs_dep, "version": zs_ver, "target": "1.1.0",       "version_match": zs_ver == "1.1.0",                   "factory": true},
                       "alert_manager":  {"deployed": am_dep, "version": am_ver, "target": "1.4.0",       "version_match": am_ver == "1.4.0",                   "factory": true},
                       "taskmaster":     {"deployed": tm_dep, "version": tm_ver, "target": "1.3.4",       "version_match": tm_ver == "1.3.4",                   "factory": true},
-                      "trapper_keeper": {"deployed": tk_dep, "version": tk_ver, "target": "2.4.0",       "version_match": tk_ver == "2.4.0",                   "factory": true},
+                      "trapper_keeper": {"deployed": tk_dep, "version": tk_ver, "target": "2.5.0",       "version_match": tk_ver == "2.5.0",                   "factory": true},
                       "room_manager":   {"deployed": rm_dep, "version": rm_ver, "target": "1.3.1",       "version_match": rm_ver == "1.3.1",                   "factory": false}
                     }
                   } | tojson
@@ -586,7 +586,7 @@ script:
               key: trapper_keeper
               friendly_name: Trapper Keeper (Ambient Index Aggregator)
               label: trapper_keeper
-              version_semantic: "2.4.0"
+              version_semantic: "2.5.0"
               component_summary: >-
                 Ambient Index Aggregator — reads non-urgent KFC katas, compresses to
                 breadcrumb+pointer format per component, outputs navigation index with
@@ -614,6 +614,7 @@ script:
                   autovac              — schedule state, last run, pending rooms
                   trash_trakker        — next pickup, bins out status
                   water_heater_manager — tank level, mode, health
+                  taskmaster           — conductor list: active tasks, priorities, bed state context
 
                 OUTPUT FORMAT — breadcrumb digest per component:
                   Each entry = one line max. Lead with most actionable signal. No entity IDs.
@@ -647,7 +648,7 @@ script:
                   Flag urgency > 3 accurately — downstream promotion rule depends on it.
 
                 DO NOT summarize: alert_manager, security_manager, energy_manager, water_manager,
-                  zen_system, zen_fusion, hot_tub_manager, taskmaster — those are SuperSummary tier.
+                  zen_system, zen_fusion, hot_tub_manager — those are SuperSummary tier.
                 DO NOT generate person-scoped briefings here — that is downstream of the Keeper.
 
                 PIPELINE ORDERING:

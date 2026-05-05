@@ -565,9 +565,13 @@ script:
                     {%- else -%}
                       {%- set key = '_family_profile' if _type == 'family' else '_user_profile' -%}
                       {%- set key_legacy = 'family_profile' if _type == 'family' else 'user_profile' -%}
-                      {%- set raw    = _cab_vars.get(key, _cab_vars.get(key_legacy, {})) -%}
-                      {%- set pv_raw = raw.get('value', {}) if raw is mapping else {} -%}
-                      {%- set pv     = pv_raw if pv_raw is mapping else (pv_raw | from_json if pv_raw is string else {}) -%}
+                      {%- set _rv = state_attr(_target, 'variables') | default({}, true) -%}
+                      {%- set _rv = _rv if _rv is mapping else {} -%}
+                      {%- set raw_val = _rv.get(key, _rv.get(key_legacy, none)) -%}
+                      {%- set raw = raw_val if raw_val is mapping
+                                    else (raw_val | from_json if raw_val is string and raw_val[:1] in ['{', '['] else {}) -%}
+                      {%- set pv_raw = raw.get('value', raw) if raw is mapping else {} -%}
+                      {%- set pv     = pv_raw if pv_raw is mapping else (pv_raw | from_json if pv_raw is string and pv_raw[:1] in ['{', '['] else {}) -%}
                       {{ {
                         'name':           pv.get('name', ''),
                         'first_name':     pv.get('first_name', ''),
@@ -735,27 +739,29 @@ script:
                     {%- set _j_ident = _in_vstyle if (_in_vstyle != '' and (_force or _old_vx.get('identity','') == ''))   else _old_vx.get('identity','') -%}
                     {%- set _j_pos   = _in_vibe   if (_in_vibe   != '' and (_force or _old_hh.get('position','') == ''))   else _old_hh.get('position','') -%}
                     {%- set _j_warm  = _in_humor  if (_in_humor  != '' and (_force or _old_tr.get('warm','') == ''))       else _old_tr.get('warm','') -%}
-                    {%- set _jacket = {
-                      'id':              _old_j.get('id', '') if _is_new else '',
-                      'name':            _j_name,
-                      'presentation':    _j_pres,
-                      'pronouns':        _j_pron,
-                      'title':           _old_j.get('title', '') if _is_new else '',
-                      'species':         _old_j.get('species', '') if _is_new else '',
-                      'schema_version':  _old_j.get('schema_version', '') if _is_new else '',
-                      'halmark_version': _old_j.get('halmark_version', '') if _is_new else '',
-                      'persona':         {'appearance': {'visual': _j_vis}, 'voice': {'register': _j_reg, 'identity': _j_ident}, 'household': {'position': _j_pos}},
-                      'traits':          {'warm': _j_warm},
-                      'directives':      _old_j.get('directives', {}) if _is_new else {},
-                      'signed_by':       _hoh_entity,
-                      'signed_at':       now().isoformat(),
-                      'signature':       'pending_x509'
+                    {# ── JACKET: combine onto existing — never replace unknown fields ── #}
+                    {%- set _jacket_base = _old_j if _is_new else {} -%}
+                    {%- set _j_persona_patch = {
+                      'appearance': _old_ap | combine({'visual': _j_vis}),
+                      'voice':      _old_vx | combine({'register': _j_reg, 'identity': _j_ident}),
+                      'household':  _old_hh | combine({'position': _j_pos})
                     } -%}
-                    {# ── COMPANION leaf-merge ── #}
+                    {%- set _j_persona = (_jacket_base.get('persona', {}) if _jacket_base is mapping else {}) | combine(_j_persona_patch, recursive=true) -%}
+                    {%- set _jacket = _jacket_base | combine({
+                      'name':         _j_name,
+                      'presentation': _j_pres,
+                      'pronouns':     _j_pron,
+                      'persona':      _j_persona,
+                      'traits':       _old_tr | combine({'warm': _j_warm}),
+                      'signed_by':    _hoh_entity,
+                      'signed_at':    now().isoformat(),
+                      'signature':    'pending_x509'
+                    }, recursive=true) -%}
+                    {# ── COMPANION: combine onto existing — preserves all extended fields ── #}
                     {%- set _co_name = _in_fname if (_in_fname != '' and (_force or _old_co.get('name','') == ''))    else _old_co.get('name','') -%}
                     {%- set _co_spec = _in_ftype if (_in_ftype != '' and (_force or _old_co.get('species','') == '')) else _old_co.get('species','') -%}
                     {%- set _co_vis  = _in_ffx   if (_in_ffx   != '' and (_force or _old_co.get('visual','') == ''))  else _old_co.get('visual','') -%}
-                    {%- set _companion = {'name': _co_name, 'species': _co_spec, 'visual': _co_vis, 'role': _old_co.get('role', '') if _is_new else '', 'verbosity': _old_co.get('verbosity', '') if _is_new else '', 'kfc_ref': _old_co.get('kfc_ref', '') if _is_new else '', 'personality': _old_co.get('personality', '') if _is_new else '', 'speaks_when': _old_co.get('speaks_when', []) if _is_new else []} -%}
+                    {%- set _companion = _old_co | combine({'name': _co_name, 'species': _co_spec, 'visual': _co_vis}) -%}
                     {# ── ENVIRONMENT leaf-merge ── #}
                     {%- set _old_env = _cur_ev.get('environment', {}) if _cur_ev.get('environment') is mapping else {} -%}
                     {%- set _old_mus = _old_env.get('music', {}) if _old_env.get('music') is mapping else {} -%}
@@ -986,7 +992,9 @@ script:
               - variables:
                   _u_key: "{{ '_family_profile' if _type == 'family' else '_user_profile' }}"
                   _u_raw: "{{ _cab_vars.get(_u_key, {}) }}"
-                  _u_cur: "{{ _u_raw.get('value', _u_raw) if _u_raw is mapping else {} }}"
+                  _u_cur: >-
+                    {%- set _rv = _u_raw.get('value', _u_raw) if _u_raw is mapping else {} -%}
+                    {{ _rv if _rv is mapping else (_rv | from_json if _rv is string and _rv != '' else {}) }}
                   _in_name:   "{{ name           | default('') | trim }}"
                   _in_first:  "{{ first_name      | default('') | trim }}"
                   _in_last:   "{{ last_name       | default('') | trim }}"
@@ -1041,7 +1049,7 @@ script:
                 continue_on_error: true
 
               - variables:
-                  _write_ok: "{{ _write_result is mapping and _write_result.get('success', false) | bool }}"
+                  _write_ok: "{{ _write_result is mapping and _write_result.get('confirmed', false) | bool }}"
                   _write_err: "{{ _write_result.get('error', _write_result.get('message', 'unknown filecabinet error')) if not _write_ok else '' }}"
 
               - choose:

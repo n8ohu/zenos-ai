@@ -407,13 +407,27 @@ automation:
         event_data:
           event:
             kind: label_mutation
+      - trigger: homeassistant
+        event: start
+        id: ha_start
+      - trigger: time
+        at: "06:00:00"
+        id: scheduled_rebuild
+      - trigger: time
+        at: "12:00:00"
+        id: scheduled_rebuild
+      - trigger: time
+        at: "18:00:00"
+        id: scheduled_rebuild
+      - trigger: time
+        at: "00:00:00"
+        id: scheduled_rebuild
 
     actions:
       - action: script.zen_dojotools_index
         data:
           mode: build_compact_index
           caller_token: label_mutation_router
-        response_variable: _result
 
 
   #####################################################################
@@ -534,6 +548,42 @@ automation:
                   event:
                     kind: summary_force
                     component: "{{ _target_component }}"
+
+
+  #####################################################################
+  # zen_flynn_health_resummarize — Resummarize zen_system on Flynn state change
+  #
+  # v1.0.0
+  #
+  # Flynn health state changes reflect real infrastructure shifts. The
+  # supersummary cycle is too slow to capture a recovery — kata stays
+  # stale and the agent sees a lie. This automation fires summary_force
+  # for zen_system on any state change, debounced 30s against burst.
+  #####################################################################
+
+  - id: zen_flynn_health_resummarize
+    alias: Zen Flynn Health — Resummarize zen_system on state change
+    description: >-
+      zen_flynn_health_resummarize 1.0.0. Fires summary_force for zen_system
+      whenever sensor.zen_flynn_health changes state, debounced 30s.
+      Ensures kata reflects recovery (or degradation) without waiting
+      for the next scheduler cycle.
+    mode: single
+
+    triggers:
+      - trigger: state
+        entity_id: sensor.zen_flynn_health
+        for: "00:00:30"
+
+    actions:
+      - event: zen_event
+        event_data:
+          event:
+            kind: summary_force
+            component: zen_system
+            reason: flynn_health_state_change
+            from_state: "{{ trigger.from_state.state }}"
+            to_state: "{{ trigger.to_state.state }}"
 
 
   #####################################################################
@@ -666,6 +716,17 @@ automation:
                   caller_token:         "{{ _payload.get('caller_token', '') }}"
                 response_variable: _result
 
+          # ── zen_dojotools_alarm_panel v1 ──────────────────────────────────
+          - conditions: "{{ _tool == 'zen_dojotools_alarm_panel' and _ver | string == '1' }}"
+            sequence:
+              - action: script.zen_dojotools_alarm_panel
+                data:
+                  action:       "{{ _payload.get('action', 'read_state') }}"
+                  arm_mode:     "{{ _payload.get('arm_mode', '') }}"
+                  panel:        "{{ _payload.get('panel', '') }}"
+                  caller_token: "{{ _payload.get('caller_token', '') }}"
+                response_variable: _result
+
         # ── Unknown tool — structured fault ─────────────────────────────────
         default:
           - variables:
@@ -686,3 +747,4 @@ automation:
             tool: "{{ _tool }}"
             version: "{{ _ver }}"
             result: "{{ _result }}"
+

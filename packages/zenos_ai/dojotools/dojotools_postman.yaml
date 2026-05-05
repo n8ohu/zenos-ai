@@ -1435,6 +1435,10 @@ automation:
           _tag:       "{{ trigger.event.data.get('tag', '') | string | trim }}"
           _action:    "{{ trigger.event.data.get('action', '') | string | upper | trim }}"
           _device_id: "{{ trigger.event.data.get('device_id', '') | string | trim }}"
+
+      - condition: template
+        value_template: "{{ _tag.startswith('pm_') }}"
+
       - event: zen_event
         event_data:
           event:
@@ -1443,3 +1447,4 @@ automation:
             action:    "{{ _action }}"
             device_id: "{{ _device_id }}"
             severity:  info
+            timestamp: "{{ now().isoformat() }}"

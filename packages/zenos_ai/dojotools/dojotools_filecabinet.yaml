@@ -478,16 +478,18 @@ script:
   
               '
         - variables:
-            fatal_response: >
-              {{
-                {
-                  'status': 'error',
-                  'failure': 'json_parse_error',
-                  'volume_entity': volume_entity,
-                  'key': key,
-                  'parsed_value': parsed_value
-                } | tojson
-              -}}
+            fatal_response:
+              status: error
+              failure: json_parse_error
+              volume_entity: "{{ volume_entity }}"
+              key: "{{ key }}"
+              message: >-
+                Write aborted — value could not be parsed as JSON.
+                Common causes: markdown fencing (```), unescaped quotes, bare
+                colons, or multiline text without proper quoting.
+                Fix: pass value as a plain quoted string, a YAML dict, or a
+                JSON object. Avoid markdown code blocks in FC values.
+              raw_preview: "{{ raw_value | truncate(120, true, '...') }}"
         - stop: JSON Parse Failure
           response_variable: fatal_response
     # ── create_label: auto-create unknown HA labels before write ──────────────
@@ -751,7 +753,7 @@ script:
                   delete source after copy.
                 set_cabinet_ro: "Stamps cabinet_ro: true in AI_Cabinet_VolumeInfo.flags for the
                   target cabinet. Idempotent. BLOCKED on sensor.zenos_system_cabinet (syscab is
-                  hard RO — use zen_admintools_zenos_prompt_loader or zen_admintools_cabinetadmin_factory
+                  hard RO — use zen_admintools_prompt_loader or zen_admintools_cabinetadmin_factory
                   to update syscab). No force_action bypass for syscab. Requires volume_entity."
                 relabel: "Updates _label_index only for the specified drawer — does NOT touch the
                   drawer value. No value param required (ignored if supplied). Use when you need to
@@ -761,7 +763,7 @@ script:
               system_cabinet_note: "sensor.zenos_system_cabinet is HARD READ-ONLY to FileCabinet.
                 This is a wire-level lockout — no exceptions, no force_action bypass. It holds the
                 AI prompt substrate (Purpose, Directives, Cortex). To update prompt primitives use
-                zen_admintools_zenos_prompt_loader. For VolumeInfo repair use
+                zen_admintools_prompt_loader. For VolumeInfo repair use
                 zen_admintools_cabinetadmin_factory. This prevents the AI from rewriting its own
                 directives."
               about:
@@ -1133,6 +1135,7 @@ script:
                 set_timestamp: true
                 volume_entity: "{{- volume_entity -}}"
         - alias: Read after Write Verification
+          # 10s: force_create_over_existing routes here too — propagation can exceed 5s.
           wait_template: >
             {%- set vol = state_attr(volume_entity, 'variables') -%}
             {%- if vol is mapping -%}
@@ -1141,7 +1144,7 @@ script:
             {%- else -%}
               {{- false -}}
             {%- endif -%}
-          timeout: 00:00:05
+          timeout: 00:00:10
           continue_on_timeout: true
         - variables:
             verify_volume: "{{- state_attr(volume_entity, 'variables') | default({}, true) -}}"
@@ -2057,7 +2060,7 @@ script:
         - stop: dismount_cabinet complete
           response_variable: final_response
       # ── set_cabinet_ro — stamp cabinet_ro: true in VolumeInfo flags ──────────
-      # Blocked on syscab — use zen_admintools_zenos_prompt_loader or
+      # Blocked on syscab — use zen_admintools_prompt_loader or
       # zen_admintools_cabinetadmin_factory to manage the syscab RO flag.
       # Idempotent: safe to call if cabinet_ro is already true.
       - conditions:
@@ -2076,7 +2079,7 @@ script:
                   failure: syscab_write_blocked
                   message: >-
                     set_cabinet_ro blocked on sensor.zenos_system_cabinet.
-                    The syscab cabinet_ro flag is managed by zen_admintools_zenos_prompt_loader
+                    The syscab cabinet_ro flag is managed by zen_admintools_prompt_loader
                     and zen_admintools_cabinetadmin_factory (admin plane). Use those tools.
                   volume_entity: "{{- volume_entity -}}"
             - stop: Syscab set_cabinet_ro blocked
@@ -2190,10 +2193,10 @@ script:
       (yes, a list) to scan drawers for subjects. STRONG recommendation to HELP() and
       pull a manifest - READ() immediately.\nIMPORTANT: Read By Label is currently limited
       to ONE cabinet at a time.\nMOUNT OPS: set_mount links a drawer in this volume to another cabinet by GUID (requires key +
-      target_guid). remove_mount unlinks it. Both verify the write and return previous_guid for undo.\nCABINET MOUNT/DISMOUNT: mount_cabinet / dismount_cabinet flip meta.mounted (state: online_mounted / online_unmounted). dismount_cabinet blocked if cabinet holds a zen_default_* label — transfer first. Both fire zen_event on completion.\nRO DRAWERS: Include 'zen_scroll' in label_input to make a drawer read-only (one-way — removing the label later does NOT revert ro). ro drawers block all create/update/delete — no force bypass. Use CabinetAdmin set_ro_flag to clear.\nCLONE: clone copies all cabinet drawers to destination_cabinet. Default: destination gets a new GUID (source untouched). With transfer_guid+force_action: GUID travels to destination, source is cleared and marked needs_restamp (Highlander mode — one cabinet owns a GUID).\n\u26a0\ufe0f SYSTEM CABINET (sensor.zenos_system_cabinet) IS HARD READ-ONLY to FileCabinet. It holds the AI prompt substrate (Purpose, Directives, Cortex). All writes are blocked — no force_action bypass. Use zen_admintools_zenos_prompt_loader to update prompt primitives, or zen_admintools_cabinetadmin_factory for VolumeInfo repair. This is wire-level lockout — the tool cannot write there."
+      target_guid). remove_mount unlinks it. Both verify the write and return previous_guid for undo.\nCABINET MOUNT/DISMOUNT: mount_cabinet / dismount_cabinet flip meta.mounted (state: online_mounted / online_unmounted). dismount_cabinet blocked if cabinet holds a zen_default_* label — transfer first. Both fire zen_event on completion.\nRO DRAWERS: Include 'zen_scroll' in label_input to make a drawer read-only (one-way — removing the label later does NOT revert ro). ro drawers block all create/update/delete — no force bypass. Use CabinetAdmin set_ro_flag to clear.\nCLONE: clone copies all cabinet drawers to destination_cabinet. Default: destination gets a new GUID (source untouched). With transfer_guid+force_action: GUID travels to destination, source is cleared and marked needs_restamp (Highlander mode — one cabinet owns a GUID).\n\u26a0\ufe0f SYSTEM CABINET (sensor.zenos_system_cabinet) IS HARD READ-ONLY to FileCabinet. It holds the AI prompt substrate (Purpose, Directives, Cortex). All writes are blocked — no force_action bypass. Use zen_admintools_prompt_loader to update prompt primitives, or zen_admintools_cabinetadmin_factory for VolumeInfo repair. This is wire-level lockout — the tool cannot write there."
     fields:
       action_type:
-        description: "'manifest', 'create', 'read', 'update', 'delete', 'move', 'copy', 'clone', 'set_mount', 'remove_mount', 'mount_cabinet', 'dismount_cabinet', 'set_cabinet_ro', 'relabel', 'help' (default: help). relabel: updates _label_index only — does NOT touch drawer value, no value param required. NOTE: sensor.zenos_system_cabinet (syscab) is hard read-only — all write actions blocked. Use zen_admintools_zenos_prompt_loader or zen_admintools_cabinetadmin_factory for syscab operations."
+        description: "'manifest', 'create', 'read', 'update', 'delete', 'move', 'copy', 'clone', 'set_mount', 'remove_mount', 'mount_cabinet', 'dismount_cabinet', 'set_cabinet_ro', 'relabel', 'help' (default: help). relabel: updates _label_index only — does NOT touch drawer value, no value param required. NOTE: sensor.zenos_system_cabinet (syscab) is hard read-only — all write actions blocked. Use zen_admintools_prompt_loader or zen_admintools_cabinetadmin_factory for syscab operations."
         required: true
         selector:
           select:
