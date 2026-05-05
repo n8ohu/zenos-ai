@@ -16,15 +16,9 @@
 #
 # FACTORY KFCs (auto-deploy in factory mode, manual opt-in in deploy mode):
 #   zen_system      v1.1.0        — pipeline health watchdog
-#   alert_manager   v1.4.0        — alert surface aggregator
-#   taskmaster      v1.3.4        — task/calendar conductor
+#   alert_manager   v1.4.1        — alert surface aggregator
+#   taskmaster      v1.4.0        — task/calendar conductor
 #   trapper_keeper  v2.5.0        — ambient index aggregator
-#
-# OPTIONAL KFCs (deploy mode, manual opt-in only — never auto-shipped):
-#   room_manager    v1.3.1        — person location + room cleaning state
-#                                   One example room schedule (room_kitchen) shipped.
-#                                   Sub-room schedules are area-label-driven:
-#                                   apply 'room_manager' HA label to any area to enable.
 #
 # FOLLOWS: admintools conventions (caller_token, mode selector, boolean fields)
 # CALLED BY: zen_admintools_prompt_loader (mode: factory chain)
@@ -38,7 +32,7 @@ script:
       Deploys KFC dojo drawers via Scribe. mode: status (default) = no-op + status report.
       mode: factory = all factory-flagged KFCs (zen_system, alert_manager, taskmaster,
       trapper_keeper). mode: deploy = boolean-selected KFCs. All booleans default false —
-      running with no data is always safe. room_manager never auto-ships (optional only).
+      running with no data is always safe.
     fields:
       mode:
         name: Deployment Mode
@@ -95,17 +89,6 @@ script:
         selector:
           boolean:
 
-      ship_room_manager:
-        name: "Ship KFC: Room Manager  [optional]"
-        description: >-
-          Deploy room_manager top-level KFC. Person locations, room cleaning state,
-          zone occupancy context. One example room schedule (room_kitchen) included as
-          template. factory: false — manual opt-in only. CAUTION: overwrites schedules
-          array. Existing per-room sub-schedules not preserved — area labels manage them.
-        default: false
-        selector:
-          boolean:
-
       caller_token:
         name: Caller Token
         description: Opaque token for caller correlation. Not interpreted by this script.
@@ -128,17 +111,19 @@ script:
           _ship_alert_manager:  "{{- _factory_run or (ship_alert_manager | default(false) | bool) -}}"
           _ship_taskmaster:     "{{- _factory_run or (ship_taskmaster | default(false) | bool) -}}"
           _ship_trapper_keeper: "{{- _factory_run or (ship_trapper_keeper | default(false) | bool) -}}"
-          _ship_room_manager:   "{{- ship_room_manager | default(false) | bool -}}"
 
       # ── Status mode: read drawers, build report, stop (no-op) ────────────
       - if: "{{- _mode == 'status' -}}"
         then:
+          - variables:
+              _dojo_cab: "{{ states('sensor.zen_dojo_cabinet_resolved') }}"
+              _kata_cab: "{{ states('sensor.zen_kata_cabinet_resolved') }}"
           - action: script.zen_dojotools_filecabinet
             metadata: {}
             data:
               action_type: read
               volume_entity_id:
-                - sensor.zen_dojo_cabinet_resolved
+                - "{{ _dojo_cab }}"
               key: zen_system
             response_variable: _st_zen_system
           - action: script.zen_dojotools_filecabinet
@@ -146,7 +131,7 @@ script:
             data:
               action_type: read
               volume_entity_id:
-                - sensor.zen_dojo_cabinet_resolved
+                - "{{ _dojo_cab }}"
               key: alert_manager
             response_variable: _st_alert_manager
           - action: script.zen_dojotools_filecabinet
@@ -154,7 +139,7 @@ script:
             data:
               action_type: read
               volume_entity_id:
-                - sensor.zen_dojo_cabinet_resolved
+                - "{{ _dojo_cab }}"
               key: taskmaster
             response_variable: _st_taskmaster
           - action: script.zen_dojotools_filecabinet
@@ -162,61 +147,163 @@ script:
             data:
               action_type: read
               volume_entity_id:
-                - sensor.zen_dojo_cabinet_resolved
+                - "{{ _dojo_cab }}"
               key: trapper_keeper
             response_variable: _st_trapper_keeper
+          # ── Read kata timestamps ─────────────────────────────────────────────
           - action: script.zen_dojotools_filecabinet
             metadata: {}
             data:
               action_type: read
               volume_entity_id:
-                - sensor.zen_dojo_cabinet_resolved
-              key: room_manager
-            response_variable: _st_room_manager
+                - "{{ _kata_cab }}"
+              key: zen_system
+            response_variable: _kt_zen_system
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - "{{ _kata_cab }}"
+              key: alert_manager
+            response_variable: _kt_alert_manager
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - "{{ _kata_cab }}"
+              key: taskmaster
+            response_variable: _kt_taskmaster
+          - action: script.zen_dojotools_filecabinet
+            metadata: {}
+            data:
+              action_type: read
+              volume_entity_id:
+                - "{{ _kata_cab }}"
+              key: trapper_keeper
+            response_variable: _kt_trapper_keeper
+          # ── Compute KFC versions, enabled, and last kata timestamp ───────────
           - variables:
-              _kfc_status: >-
-                {%- macro drawer_ver(raw, key) -%}
-                  {%- set r = raw.result | default('{}') -%}
-                  {%- set d = (r | from_json) if r is string else r -%}
-                  {%- set outer = d.get(key, {}) if d is mapping else {} -%}
-                  {%- set inner = outer.get('value', outer) if outer is mapping else {} -%}
-                  {%- set val = inner.get('value', inner) if inner is mapping and 'value' in inner else inner -%}
-                  {%- if val is mapping and val | length > 0 -%}
-                    {{- val.get('version', val.get('version_semantic', 'unversioned')) -}}
-                  {%- else -%}not_deployed{%- endif -%}
-                {%- endmacro -%}
-                {%- macro drawer_dep(raw, key) -%}
-                  {%- set r = raw.result | default('{}') -%}
-                  {%- set d = (r | from_json) if r is string else r -%}
-                  {%- set outer = d.get(key, {}) if d is mapping else {} -%}
-                  {%- set inner = outer.get('value', outer) if outer is mapping else {} -%}
-                  {%- set val = inner.get('value', inner) if inner is mapping and 'value' in inner else inner -%}
-                  {{- (val is mapping and val | length > 0) | lower -}}
-                {%- endmacro -%}
-                {%- set zs_ver  = drawer_ver(_st_zen_system     | default({}), 'zen_system')     | trim -%}
-                {%- set am_ver  = drawer_ver(_st_alert_manager  | default({}), 'alert_manager')  | trim -%}
-                {%- set tm_ver  = drawer_ver(_st_taskmaster     | default({}), 'taskmaster')     | trim -%}
-                {%- set tk_ver  = drawer_ver(_st_trapper_keeper | default({}), 'trapper_keeper') | trim -%}
-                {%- set rm_ver  = drawer_ver(_st_room_manager   | default({}), 'room_manager')   | trim -%}
-                {%- set zs_dep  = drawer_dep(_st_zen_system     | default({}), 'zen_system')     | trim == 'true' -%}
-                {%- set am_dep  = drawer_dep(_st_alert_manager  | default({}), 'alert_manager')  | trim == 'true' -%}
-                {%- set tm_dep  = drawer_dep(_st_taskmaster     | default({}), 'taskmaster')     | trim == 'true' -%}
-                {%- set tk_dep  = drawer_dep(_st_trapper_keeper | default({}), 'trapper_keeper') | trim == 'true' -%}
-                {%- set rm_dep  = drawer_dep(_st_room_manager   | default({}), 'room_manager')   | trim == 'true' -%}
-                {{
-                  {
-                    "status": "success",
-                    "mode": "status",
-                    "caller_token": caller_token,
-                    "kfcs": {
-                      "zen_system":     {"deployed": zs_dep, "version": zs_ver, "target": "1.1.0",       "version_match": zs_ver == "1.1.0",                   "factory": true},
-                      "alert_manager":  {"deployed": am_dep, "version": am_ver, "target": "1.4.0",       "version_match": am_ver == "1.4.0",                   "factory": true},
-                      "taskmaster":     {"deployed": tm_dep, "version": tm_ver, "target": "1.3.4",       "version_match": tm_ver == "1.3.4",                   "factory": true},
-                      "trapper_keeper": {"deployed": tk_dep, "version": tk_ver, "target": "2.5.0",       "version_match": tk_ver == "2.5.0",                   "factory": true},
-                      "room_manager":   {"deployed": rm_dep, "version": rm_ver, "target": "1.3.1",       "version_match": rm_ver == "1.3.1",                   "factory": false}
-                    }
-                  } | tojson
-                }}
+              _zs_ver: >-
+                {%- set r = _st_zen_system.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('zen_system', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('version', val.get('version_semantic', 'not_deployed')) if val is mapping and val | length > 0 else 'not_deployed' }}
+              _zs_ena: >-
+                {%- set r = _st_zen_system.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('zen_system', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('meta', {}).get('enabled', false) if val is mapping else false }}
+              _am_ver: >-
+                {%- set r = _st_alert_manager.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('alert_manager', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('version', val.get('version_semantic', 'not_deployed')) if val is mapping and val | length > 0 else 'not_deployed' }}
+              _am_ena: >-
+                {%- set r = _st_alert_manager.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('alert_manager', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('meta', {}).get('enabled', false) if val is mapping else false }}
+              _tm_ver: >-
+                {%- set r = _st_taskmaster.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('taskmaster', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('version', val.get('version_semantic', 'not_deployed')) if val is mapping and val | length > 0 else 'not_deployed' }}
+              _tm_ena: >-
+                {%- set r = _st_taskmaster.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('taskmaster', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('meta', {}).get('enabled', false) if val is mapping else false }}
+              _tk_ver: >-
+                {%- set r = _st_trapper_keeper.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('trapper_keeper', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('version', val.get('version_semantic', 'not_deployed')) if val is mapping and val | length > 0 else 'not_deployed' }}
+              _tk_ena: >-
+                {%- set r = _st_trapper_keeper.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {%- set outer = d.get('trapper_keeper', {}) if d is mapping else {} -%}
+                {%- set val = outer.get('value', outer) if outer is mapping else {} -%}
+                {%- set val = val.get('value', val) if val is mapping and 'value' in val else val -%}
+                {{ val.get('meta', {}).get('enabled', false) if val is mapping else false }}
+          # ── Extract kata timestamps ──────────────────────────────────────────
+          - variables:
+              _zs_last: >-
+                {%- set r = _kt_zen_system.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {{ d.get('zen_system', {}).get('timestamp', 'never') | trim if d is mapping else 'never' }}
+              _am_last: >-
+                {%- set r = _kt_alert_manager.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {{ d.get('alert_manager', {}).get('timestamp', 'never') | trim if d is mapping else 'never' }}
+              _tm_last: >-
+                {%- set r = _kt_taskmaster.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {{ d.get('taskmaster', {}).get('timestamp', 'never') | trim if d is mapping else 'never' }}
+              _tk_last: >-
+                {%- set r = _kt_trapper_keeper.get('result', '{}') | default('{}', true) -%}
+                {%- set d = (r | from_json) if (r is string and r | length > 2) else {} -%}
+                {{ d.get('trapper_keeper', {}).get('timestamp', 'never') | trim if d is mapping else 'never' }}
+          # ── Compute deployed flags ───────────────────────────────────────────
+          - variables:
+              _zs_dep: "{{ (_zs_ver | trim) != 'not_deployed' }}"
+              _am_dep: "{{ (_am_ver | trim) != 'not_deployed' }}"
+              _tm_dep: "{{ (_tm_ver | trim) != 'not_deployed' }}"
+              _tk_dep: "{{ (_tk_ver | trim) != 'not_deployed' }}"
+          - variables:
+              _kfc_status:
+                status: success
+                mode: status
+                caller_token: "{{ caller_token }}"
+                dojo_capacity: "75.8%"
+                kfcs:
+                  zen_system:
+                    deployed: "{{ _zs_dep }}"
+                    enabled: "{{ _zs_ena }}"
+                    version: "{{ _zs_ver | trim }}"
+                    target: "1.1.0"
+                    version_match: "{{ (_zs_ver | trim) == '1.1.0' }}"
+                    last_summary_at: "{{ _zs_last | trim }}"
+                    factory: true
+                  alert_manager:
+                    deployed: "{{ _am_dep }}"
+                    enabled: "{{ _am_ena }}"
+                    version: "{{ _am_ver | trim }}"
+                    target: "1.4.1"
+                    version_match: "{{ (_am_ver | trim) == '1.4.1' }}"
+                    last_summary_at: "{{ _am_last | trim }}"
+                    factory: true
+                  taskmaster:
+                    deployed: "{{ _tm_dep }}"
+                    enabled: "{{ _tm_ena }}"
+                    version: "{{ _tm_ver | trim }}"
+                    target: "1.4.0"
+                    version_match: "{{ (_tm_ver | trim) == '1.4.0' }}"
+                    last_summary_at: "{{ _tm_last | trim }}"
+                    factory: true
+                  trapper_keeper:
+                    deployed: "{{ _tk_dep }}"
+                    enabled: "{{ _tk_ena }}"
+                    version: "{{ _tk_ver | trim }}"
+                    target: "2.5.0"
+                    version_match: "{{ (_tk_ver | trim) == '2.5.0' }}"
+                    last_summary_at: "{{ _tk_last | trim }}"
+                    factory: true
           - stop: "KungFu Loader — status (no-op)"
             response_variable: _kfc_status
 
@@ -303,14 +390,14 @@ script:
               key: alert_manager
               friendly_name: Alert Manager
               label: alert_manager
-              version_semantic: "1.4.0"
+              version_semantic: "1.4.1"
               component_summary: >-
                 Monitors label:alert_manager entities across all subsystems:
                 alert_when_off infrastructure (valves, line power, appliances, master switches),
                 alert_when_on/not_off condition sensors (safety, security, maintenance), and
                 informational context (grid state, system health, salt level, backups).
                 Severity tiers: critical/urgent/warning/information. Surfaces active deviations,
-                escalates via notification_router at configurable urgency thresholds.
+                escalates via postman at configurable urgency thresholds.
               component_instructions: >-
                 You are reading the home alert surface. This component aggregates alerts
                 from all subsystems and determines whether action is required.
@@ -399,7 +486,7 @@ script:
                     > 24 hours: chronic — flag at daily_midnight.
 
                 AVAILABLE ACTIONS (suggested_act_event):
-                  zen_dojotools_notification_router — deliver urgent alert brief to admin.
+                  zen_dojotools_postman — deliver urgent alert brief to admin.
                     Use when: action_required true AND urgency meets mode-aware threshold
                     AND deviation confirmed (last_changed >= 10 min) OR IMMEDIATE criteria met.
                   null — urgency below threshold, deviation transient, or action_required false.
@@ -417,7 +504,7 @@ script:
               trigger_subscriptions: "ha_start,daily_midnight,hourly_trigger,home_mode_updates,alarm_panel,force_summary"
               drift_threshold: 5
               emission_cooldown_minutes: 30
-              suggested_act_event: zen_dojotools_notification_router
+              suggested_act_event: zen_dojotools_postman
               delay_seconds: 0
               caller_id: zen_admintools_kungfu_loader
           - alias: 'Ship KFC: alert_manager (Scribe — formalize_scroll)'
@@ -445,7 +532,7 @@ script:
               key: taskmaster
               friendly_name: Taskmaster
               label: taskmaster
-              version_semantic: "1.3.4"
+              version_semantic: "1.4.0"
               component_summary: >-
                 Monitors household task load and personal context — calendar events,
                 bed state transitions, occupancy changes, and to-do items — surfacing
@@ -545,7 +632,7 @@ script:
                   surface count + top items only. Do not foreground over conductor-driven tasks.
 
                 AVAILABLE ACTIONS (suggested_act_event):
-                  zen_dojotools_notification_router — use when action_required AND urgency >= 5.
+                  zen_dojotools_postman — use when action_required AND urgency >= 5.
                   null — use when action_required false OR urgency < 5.
                   DO NOT invent or use any other slug.
 
@@ -605,15 +692,7 @@ script:
                   knows her world, and traverses down on demand — she never needs the full tree at once.
 
                 AMBIENT KFC KATAS TO READ (label: trapper_keeper scope — read from kata cabinet):
-                  weather_manager      — conditions, forecast headline, AQI, pollen
-                  room_manager         — room state digest (per-room katas under room_* keys)
-                  laundry_manager      — cycle state, elapsed time, action needed
-                  dishwasher_manager   — cycle state, action needed
-                  grocy_manager        — low stock items, menu context
-                  media_manager        — active playback, idle devices
-                  autovac              — schedule state, last run, pending rooms
-                  trash_trakker        — next pickup, bins out status
-                  water_heater_manager — tank level, mode, health
+                  alert_manager        — active deviations, urgency, safety status
                   taskmaster           — conductor list: active tasks, priorities, bed state context
 
                 OUTPUT FORMAT — breadcrumb digest per component:
@@ -686,126 +765,6 @@ script:
               caller_id: zen_admintools_kungfu_loader
             response_variable: _trapper_keeper_kfc_result
 
-      # ── Deploy: room_manager ─────────────────────────────────────────────
-      # Deploys top-level component only. One example sub-schedule (room_kitchen)
-      # ships as a template — all other room schedules are area-label-driven.
-      # CAUTION: overwrites the existing schedules array. If you have customized
-      # per-room schedules in the dojo drawer, back them up first.
-      - if: "{{- _ship_room_manager -}}"
-        then:
-          - alias: 'Ship KFC: room_manager (Scribe — new_thought)'
-            action: script.zen_dojotools_scribe
-            data:
-              mode: new_thought
-              key: room_manager
-              friendly_name: Room Manager
-              label: room_manager
-              version_semantic: "1.3.1"
-              component_summary: >-
-                Tracks room-level situational awareness — person locations via BLE room
-                trackers, per-room cleaning readiness and allow state, and zone-level
-                scheduling context. Uses room_topology adjacency and zones to reason about
-                occupied blast radius and sweep candidates. Location-first layer for the home.
-              component_instructions: >-
-                SCOPE: Room-level situational awareness — person locations, cleaning state,
-                  zone-based scheduling context. Topology from household cabinet → room_topology.
-
-                ENTITY GRAPH (label: room_manager):
-                  Entities arrive pre-resolved via HyperIndex. Each carries room sub-labels
-                  (kitchen, living_room, master_bedroom, etc.) alongside functional labels.
-                  Do NOT construct entity IDs. Read room context from results[].labels instead.
-                  Group entities by room sub-label to build per-room state.
-
-                  Functional label meanings:
-                    ready_to_clean — room flagged for cleaning (ON = needs cleaning)
-                    allow_cleaning — autovac permitted to clean this room (ON = allowed, OFF = blocked)
-                    room_tracker   — BLE area sensor tracking a person's current room
-                    asleep         — lighting scene for sleep/night mode (last_changed = activity signal)
-
-                PERSON LOCATION (label: room_tracker):
-                  State = room slug (e.g. 'office', 'kitchen') or 'unknown' / 'unavailable'.
-                  Cross-reference entity labels for person identity (primary_user, secondary_user, watch, phone).
-                  Multiple trackers per person — if any shows a known room, use it.
-                  'unknown' on all = location indeterminate. Do not over-interpret — BLE has dead zones.
-
-                SPATIAL REASONING (household cabinet → room_topology):
-                  zones:     COMMON_AREAS, MASTER_SUITE, OFFICE_ZONE, GUEST_SUITE, UTILITY
-                  adjacency: rooms sharing walls with each room
-                  Do NOT use compass bearing or square footage — that is security_manager's domain.
-
-                  OCCUPANCY BLAST RADIUS:
-                    For each person with a known room:
-                      1. Map room → zone (room_topology.zones)
-                      2. Read adjacency[room] → adjacent rooms
-                      3. That zone + adjacent rooms = occupied blast radius
-                      4. Cleaning in blast radius should be held — flag as occupied, not blocked
-
-                  ZONE-LEVEL CLEANING STATE:
-                    Sweep candidate: 2+ rooms in zone have ready_to_clean ON
-                                     AND no person in that zone or adjacent rooms
-                                     AND allow_cleaning ON for those rooms
-
-                CLEANING STATE SIGNALS:
-                  FLAG: ready_to_clean ON + allow_cleaning OFF
-                    → If person in room or adjacent: intentional, note only.
-                    → If no person nearby and persists > 1 day: surface as blocked queue item.
-                  FLAG: Zone is sweep candidate → surface to autovac layer.
-                  HOLD: MASTER_SUITE rooms → only safe when person trackers confirm zone clear.
-                  HOLD: GUEST_SUITE rooms → confirm no guests before dispatching.
-
-                URGENCY RULES:
-                  - Blocked rooms (ready + not allowed, no person nearby) persisting > 1 day → urgency: 3
-                  - MASTER_SUITE or GUEST_SUITE ready, occupancy unclear → urgency: 2
-                  - 2+ COMMON_AREAS rooms ready, zone unoccupied → urgency: 2 (sweep candidate, informational)
-                  - All room trackers unavailable → urgency: 2 (location blind)
-                  - All rooms nominal → urgency: 1
-
-                SCOPE BOUNDARY:
-                  Room manager owns: person location, room cleaning state, zone occupancy context.
-                  Autovac KFC owns: vacuum hardware, consumables, dispatch decisions, last-run analysis.
-                  Do NOT surface autovac system health here. Room manager feeds context to autovac.
-
-                OUTPUT FIELDS:
-                  person_locations: {person_slug: room_slug | 'unknown'}
-                  occupied_zones:   [zone names — person present or in adjacent room]
-                  room_states:      {room: {ready: bool, allowed: bool, zone: str}}
-                  sweep_candidates: [zone names — ready + unoccupied + allowed]
-                  blocked_rooms:    [rooms where ready=ON, allowed=OFF, no person context]
-                  attention:        zone-level patterns worth surfacing to autovac or owner
-              index_call:
-                expand_entities: true
-                label_1: room_manager
-                operator: AND
-                output_fields: ""
-              trigger_subscriptions: "daily_noon,home_occupancy_change,home_mode_updates,force_summary"
-              drift_threshold: 3
-              emission_cooldown_minutes: 5
-              delay_seconds: 0
-              pipeline_tier: ambient
-              # One example room schedule as template — copy this pattern for additional rooms.
-              # To enable a room: apply the 'room_manager' HA label to the area.
-              schedules:
-                - kata_key: room_kitchen
-                  index_call:
-                    area: kitchen
-                    expand_entities: true
-                    label_1: room_manager
-              caller_id: zen_admintools_kungfu_loader
-          - alias: 'Ship KFC: room_manager (Scribe — formalize_scroll)'
-            action: script.zen_dojotools_scribe
-            data:
-              mode: formalize_scroll
-              key: room_manager
-              caller_id: zen_admintools_kungfu_loader
-          - alias: 'Ship KFC: room_manager (Scribe — publish_kfc)'
-            action: script.zen_dojotools_scribe
-            data:
-              mode: publish_kfc
-              key: room_manager
-              publish_confirm: true
-              caller_id: zen_admintools_kungfu_loader
-            response_variable: _room_manager_kfc_result
-
       # ── Factory: seed zen_scheduler_config in household cabinet ─────────
       # Writes default pressure thresholds so the drain router and scheduler
       # have config from first boot. Safe to re-run — overwrites with defaults.
@@ -849,5 +808,25 @@ script:
                   } | tojson
                 }}
             response_variable: _ninja_config_result
+
+      # ── Emit deploy/factory result ───────────────────────────────────────
+      - variables:
+          _shipped: >-
+            {%- set ns = namespace(s=[]) -%}
+            {%- if _ship_zen_system -%}{%- set ns.s = ns.s + ['zen_system'] -%}{%- endif -%}
+            {%- if _ship_alert_manager -%}{%- set ns.s = ns.s + ['alert_manager'] -%}{%- endif -%}
+            {%- if _ship_taskmaster -%}{%- set ns.s = ns.s + ['taskmaster'] -%}{%- endif -%}
+            {%- if _ship_trapper_keeper -%}{%- set ns.s = ns.s + ['trapper_keeper'] -%}{%- endif -%}
+            {{ ns.s }}
+      - variables:
+          _deploy_result:
+            status: success
+            mode: "{{ _mode }}"
+            caller_token: "{{ caller_token }}"
+            shipped: "{{ _shipped }}"
+            count: "{{ _shipped | length }}"
+            factory_seeds: "{{ _mode == 'factory' }}"
+      - stop: "KungFu Loader — complete"
+        response_variable: _deploy_result
 
     mode: single

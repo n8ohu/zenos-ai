@@ -1024,10 +1024,10 @@ script:
         variables:
           _kata_parsed: >-
             {%- set _s = kata_summary -%}
-            {{ (_s | from_json({})) if _s is string else (_s if _s is mapping else {}) }}
-          _urgency: "{{ _kata_parsed.get('urgency', 0) | int if _kata_parsed is mapping else 0 }}"
-          _confidence: "{{ _kata_parsed.get('confidence', 0.0) | float if _kata_parsed is mapping else 0.0 }}"
-          _action_required: "{{ _kata_parsed.get('action_required', false) | bool if _kata_parsed is mapping else false }}"
+            {{ (_s | from_json(default={})) if _s is string else (_s if _s is mapping else {}) }}
+          _urgency: "{{ _kata_parsed.get('urgency', 0) | default(0, true) | int if _kata_parsed is mapping else 0 }}"
+          _confidence: "{{ _kata_parsed.get('confidence', 0.0) | default(0.0, true) | float if _kata_parsed is mapping else 0.0 }}"
+          _action_required: "{{ _kata_parsed.get('action_required', false) | default(false, true) | bool if _kata_parsed is mapping else false }}"
           _suggested_act_event: "{{ _kata_parsed.get('suggested_act_event', '') | default('', true) if _kata_parsed is mapping else '' }}"
           _current_period: "{{ states('input_select.zen_home_mode') | default('', true) }}"
           _ninja_cfg: >-
